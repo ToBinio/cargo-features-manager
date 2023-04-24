@@ -1,0 +1,12 @@
+[package]
+name = "crates-feature-manager"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cargo_toml = "0.15.2"
+crates-io = "0.36.0"
+crossterm = "0.26.1"
+toml = "0.7.3"
