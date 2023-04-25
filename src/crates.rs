@@ -1,5 +1,6 @@
 use crates_index::Version;
 
+//todo handle no-default
 pub struct Crate {
     version: Version,
     features: Vec<(String, bool)>,
@@ -33,7 +34,7 @@ impl Crate {
         features.sort();
 
         for (name, enabled) in features.iter_mut() {
-            if (has_default && default_features.contains(name)) || enabled_features.contains(name){
+            if (has_default && default_features.contains(name)) || enabled_features.contains(name) {
                 *enabled = true;
             }
         }
@@ -62,6 +63,8 @@ impl Crate {
     }
 
     pub fn toggle_feature_usage(&mut self, feature_index: usize) {
+        //todo enable sub packages
+
         let data = self.features.get_mut(feature_index).unwrap();
 
         data.1 = !data.1;
