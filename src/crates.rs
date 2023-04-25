@@ -99,14 +99,77 @@ impl Crate {
     }
 
     pub fn toggle_feature_usage(&mut self, feature_index: usize) {
-        //todo enable sub packages
+        let (name, enabled) = self.features.get(feature_index).unwrap();
 
-        let data = self.features.get_mut(feature_index).unwrap();
+        if *enabled {
+            self.disable_feature_usage(&name.clone());
+        } else {
+            self.enable_feature_usage(&name.clone());
+        }
+    }
 
-        data.1 = !data.1;
+    //todo enable sub packages
+
+    pub fn enable_feature_usage(&mut self, feature_name: &String) {
+        let index = self.get_index(feature_name).expect(&format!("feature named {} not found", feature_name));
+        let data = self.features.get_mut(index).unwrap();
+
+        if data.1 {
+            //early return to prevent loop
+            return;
+        }
+
+        data.1 = true;
+
+        let features = self.version.features();
+
+        if !features.contains_key(feature_name){
+            return;
+        }
+
+        let sub_features = features.get(feature_name).unwrap().clone();
+
+        for sub_feature_name in sub_features {
+            //skip if it is a dep or a feature of a dep
+            if sub_feature_name.contains(':') || sub_feature_name.contains('/') {
+                continue;
+            }
+
+            self.enable_feature_usage(&sub_feature_name);
+        }
+    }
+
+    pub fn disable_feature_usage(&mut self, feature_name: &String) {
+        let index = self.get_index(feature_name).expect(&format!("feature named {} not found", feature_name));
+        let data = self.features.get_mut(index).unwrap();
+
+        if !data.1 {
+            //early return to prevent loop
+            return;
+        }
+
+        data.1 = false;
+
+        let features = self.version.features().clone();
+
+        for (name, sub_features) in features {
+            if sub_features.contains(feature_name) {
+                self.disable_feature_usage(&name)
+            }
+        }
     }
 
     pub fn is_default_feature(&self, feature_name: &String) -> bool {
         self.default_features.contains(&feature_name)
+    }
+
+    fn get_index(&self, feature_name: &String) -> Option<usize> {
+        for (index, (name, _)) in self.features.iter().enumerate() {
+            if name == feature_name {
+                return Some(index);
+            }
+        }
+
+        None
     }
 }

@@ -101,8 +101,6 @@ impl Display {
 
     fn input_event(&mut self) -> anyhow::Result<bool> {
         match read()? {
-            Event::FocusGained => {}
-            Event::FocusLost => {}
             Event::Key(key_event) => {
                 if let KeyEventKind::Press = key_event.kind {
                     match key_event.code {
@@ -166,9 +164,7 @@ impl Display {
                     }
                 }
             }
-            Event::Mouse(_) => {}
-            Event::Paste(_) => {}
-            Event::Resize(_, _) => {}
+            _ => {}
         }
 
         Ok(false)
