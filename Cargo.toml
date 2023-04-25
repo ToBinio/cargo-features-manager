@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cargo_toml = "0.15.2"
-crates-io = "0.36.0"
+crates-index = "0.19.8"
 crossterm = "0.26.1"
 toml = "0.7.3"
+toml_edit = "0.19.8"
