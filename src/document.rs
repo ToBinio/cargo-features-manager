@@ -1,6 +1,6 @@
 use crate::crates::Crate;
 use crate::index::Index;
-use crates_index::Version;
+
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;

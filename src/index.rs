@@ -1,5 +1,3 @@
-use crates_index::Version;
-use std::collections::HashMap;
 use crate::crates::Crate;
 
 pub struct Index {

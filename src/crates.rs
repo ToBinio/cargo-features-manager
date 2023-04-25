@@ -1,5 +1,4 @@
 use crates_index::Version;
-use std::collections::HashMap;
 
 pub struct Crate {
     version: Version,
@@ -19,7 +18,7 @@ impl Crate {
 
         for (name, sub) in self.version.features() {
             //skip if is is default
-            if name == &"default" {
+            if *name == "default" {
                 continue;
             }
 
