@@ -1,10 +1,11 @@
-use crate::crates::Crate;
-use crate::index::Index;
-
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
+
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
+
+use crate::crates::Crate;
+use crate::index::Index;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
@@ -17,7 +18,7 @@ pub struct Document {
 
 impl Document {
     pub fn new<P: AsRef<Path>>(path: P, index: Index) -> Document {
-        let file_content = fs::read_to_string(path.as_ref().clone()).unwrap();
+        let file_content = fs::read_to_string(&path).unwrap();
         let doc = toml_edit::Document::from_str(&file_content).unwrap();
 
         let (_name, deps) = doc.get_key_value("dependencies").unwrap();
@@ -51,27 +52,43 @@ impl Document {
 
         let current_crate = self.crates.get(dep_index).unwrap();
 
-        //todo add no-default
+        if !current_crate.uses_default() || current_crate.get_enabled_features().len() != 0 {
+            let mut table = InlineTable::new();
 
-        let mut table = InlineTable::new();
+            //version
+            table.insert(
+                "version",
+                Value::String(Formatted::new(current_crate.get_version())),
+            );
 
-        table.insert(
-            "version",
-            Value::String(Formatted::new(current_crate.get_version())),
-        );
+            //features
+            let mut features = Array::new();
 
-        let mut features = Array::new();
+            for name in current_crate.get_enabled_features() {
+                features.push(Value::String(Formatted::new(name)));
+            }
 
-        for name in current_crate.get_enabled_features() {
-            features.push(Value::String(Formatted::new(name)));
+            table.insert("features", Value::Array(features));
+
+            //default-feature
+            let uses_default = current_crate.uses_default();
+            if !uses_default {
+                table.insert(
+                    "default-features",
+                    Value::Boolean(Formatted::new(uses_default)),
+                );
+            }
+
+            deps.insert(
+                &current_crate.get_name(),
+                Item::Value(Value::InlineTable(table)),
+            );
+        } else {
+            deps.insert(
+                &current_crate.get_name(),
+                Item::Value(Value::String(Formatted::new(current_crate.get_version()))),
+            );
         }
-
-        table.insert("features", Value::Array(features));
-
-        deps.insert(
-            &current_crate.get_name(),
-            Item::Value(Value::InlineTable(table)),
-        );
 
         fs::write(self.path.clone(), self.toml_doc.to_string()).unwrap();
     }

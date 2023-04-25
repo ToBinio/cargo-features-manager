@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.70"
 crates-index = "0.19.8"
-crossterm = { version = "0.26.1", features = ["event-stream", "filedescriptor"] }
-toml = { version = "0.7.3", features = ["display", "parse"] }
+crossterm = "0.26.1"
+toml = "0.7.3"
 toml_edit = "0.19.8"

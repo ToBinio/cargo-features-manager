@@ -4,13 +4,14 @@ use crates_index::Version;
 pub struct Crate {
     version: Version,
     features: Vec<(String, bool)>,
+    default_features: Vec<String>,
 }
 
 impl Crate {
     pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Crate {
         let mut features = vec![];
 
-        let default_features = version.features().get("default").unwrap();
+        let default_features = version.features().get("default").unwrap().clone();
 
         for (name, sub) in version.features() {
             //skip if is is default
@@ -39,7 +40,11 @@ impl Crate {
             }
         }
 
-        Crate { version, features }
+        Crate {
+            version,
+            features,
+            default_features,
+        }
     }
 
     pub fn get_name(&self) -> String {
@@ -54,11 +59,38 @@ impl Crate {
         self.features.clone()
     }
 
-    pub fn get_enabled_features(&self) -> Vec<String> {
+    fn get_all_enabled_features(&self) -> Vec<String> {
         self.features
             .iter()
             .filter(|(_, enabled)| *enabled)
             .map(|(name, _)| name.clone())
+            .collect()
+    }
+
+    pub fn uses_default(&self) -> bool {
+        let enabled_features = self.get_all_enabled_features();
+
+        for name in &self.default_features {
+            if !enabled_features.contains(name) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn get_enabled_features(&self) -> Vec<String> {
+        let mut default_features = &vec![];
+
+        if self.uses_default() {
+            default_features = &self.default_features;
+        }
+
+        self.features
+            .iter()
+            .filter(|(_, enabled)| *enabled)
+            .map(|(name, _)| name.clone())
+            .filter(|name| !default_features.contains(name))
             .collect()
     }
 

@@ -16,8 +16,10 @@ impl Index {
 
     //todo move func to crates
     pub fn get_crate(&self, crate_name: &str, item: &Item) -> Option<Crate> {
-        let version_str;
         let mut enabled_features = vec![];
+
+        let version_str;
+        let mut uses_default = true;
 
         if item.is_str() {
             version_str = item.as_str().unwrap();
@@ -29,11 +31,16 @@ impl Index {
             for value in table.get("features").unwrap().as_array().unwrap() {
                 enabled_features.push(value.as_str().unwrap().to_string());
             }
+
+            if let Some(value) = table.get("default-features") {
+                uses_default = value.as_bool().unwrap();
+            }
         }
+
 
         for version in self.crates_index.crate_(crate_name).unwrap().versions() {
             if version.version() == version_str {
-                return Some(Crate::new(version.clone(), enabled_features, true));
+                return Some(Crate::new(version.clone(), enabled_features, uses_default));
             }
         }
 
