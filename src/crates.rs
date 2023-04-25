@@ -55,8 +55,12 @@ impl Crate {
         self.version.version().to_string()
     }
 
-    pub fn get_unique_features(&self) -> Vec<(String, bool)> {
+    pub fn get_features(&self) -> Vec<(String, bool)> {
         self.features.clone()
+    }
+
+    pub fn get_features_count(&self) -> usize {
+        self.features.len()
     }
 
     fn get_all_enabled_features(&self) -> Vec<String> {
@@ -100,5 +104,9 @@ impl Crate {
         let data = self.features.get_mut(feature_index).unwrap();
 
         data.1 = !data.1;
+    }
+
+    pub fn is_default_feature(&self, feature_name: &String) -> bool {
+        self.default_features.contains(&feature_name)
     }
 }

@@ -42,6 +42,13 @@ impl Document {
         &self.crates
     }
 
+    pub fn get_dep(&self, index: usize) -> anyhow::Result<&Crate> {
+        match self.crates.get(index) {
+            None => Err(anyhow::Error::msg("out of bounce")),
+            Some(some) => Ok(some),
+        }
+    }
+
     pub fn get_deps_mut(&mut self) -> &mut Vec<Crate> {
         &mut self.crates
     }
