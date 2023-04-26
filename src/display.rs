@@ -63,12 +63,18 @@ impl Display {
     fn render_crate_select(&mut self) -> anyhow::Result<()> {
         //todo handle no deps
 
+        queue!(self.stdout, Print("Dependencies"))?;
+
         for (index, dep) in self.document.get_deps().iter().enumerate() {
             if index == self.crate_selected {
-                queue!(self.stdout, MoveTo(0, index as u16), Print(">"))?;
+                queue!(self.stdout, MoveTo(0, index as u16 + 1), Print(">"))?;
             }
 
-            queue!(self.stdout, MoveTo(2, index as u16), Print(dep.get_name()))?;
+            queue!(
+                self.stdout,
+                MoveTo(2, index as u16 + 1),
+                Print(dep.get_name())
+            )?;
         }
 
         Ok(())
@@ -80,7 +86,12 @@ impl Display {
         let deps = self.document.get_deps();
         let dep = deps.get(dep_index).unwrap();
 
-        let mut line_index = 0;
+        let mut line_index = 1;
+
+        queue!(
+            self.stdout,
+            Print(format!("{} {}", dep.get_name(), dep.get_version()))
+        )?;
 
         for (index, (feature_name, active)) in dep.get_features().iter().enumerate() {
             if dep.is_default_feature(feature_name) {
