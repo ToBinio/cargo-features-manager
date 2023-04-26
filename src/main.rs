@@ -41,8 +41,9 @@ fn main() {
 
 fn run(args: FeatureArgs) -> anyhow::Result<()> {
     let mut display = Display::new()?;
+
     if let Some(name) = args.dependency {
-        display.set_selected_crate(name)?
+        display.set_selected_dep(name)?
     }
 
     display.start()?;

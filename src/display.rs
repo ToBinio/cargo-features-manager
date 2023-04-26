@@ -11,11 +11,12 @@ use crate::document::Document;
 use crate::index::Index;
 
 pub struct Display {
-    document: Document,
     stdout: Stdout,
 
-    crate_selected: usize,
-    feature_selected: usize,
+    document: Document,
+
+    dep_selector: Selector,
+    feature_selector: Selector,
 
     state: DisplayState,
 }
@@ -25,28 +26,48 @@ impl Display {
         let document = Document::new("./Cargo.toml", Index::new())?;
 
         Ok(Display {
-            document,
             stdout: stdout(),
 
-            crate_selected: 0,
-            feature_selected: 0,
+            dep_selector: Selector {
+                selected: 0,
+                length: document.get_deps().len(),
+            },
+            feature_selector: Selector {
+                selected: 0,
+                length: 0,
+            },
 
-            state: DisplayState::CrateSelect,
+            document,
+
+            state: DisplayState::DepSelect,
         })
     }
 
-    pub fn set_selected_crate(&mut self, feature_name: String) -> anyhow::Result<()> {
+    pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
         for (index, current_crate) in self.document.get_deps().iter().enumerate() {
-            if current_crate.get_name() == feature_name {
-                self.state = DisplayState::FeatureSelect(index);
+            if current_crate.get_name() == dep_name {
+                self.dep_selector.selected = index;
+
+                self.selected_dep();
                 return Ok(());
             }
         }
 
         Err(anyhow::Error::msg(format!(
             "dependency \"{}\" could not be found",
-            feature_name
+            dep_name
         )))
+    }
+
+    fn selected_dep(&mut self) {
+        self.state = DisplayState::FeatureSelect;
+
+        // set max length to feature count of current feature
+        self.feature_selector.length = self
+            .document
+            .get_dep(self.dep_selector.selected)
+            .unwrap()
+            .get_features_count();
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -56,8 +77,8 @@ impl Display {
             queue!(self.stdout, MoveTo(0, 0), Clear(ClearType::FromCursorDown))?;
 
             match self.state {
-                DisplayState::CrateSelect => self.render_crate_select()?,
-                DisplayState::FeatureSelect(dep_index) => self.render_feature_select(dep_index)?,
+                DisplayState::DepSelect => self.display_deps()?,
+                DisplayState::FeatureSelect => self.display_features()?,
             }
 
             self.stdout.flush()?;
@@ -72,7 +93,7 @@ impl Display {
         Ok(())
     }
 
-    fn render_crate_select(&mut self) -> anyhow::Result<()> {
+    fn display_deps(&mut self) -> anyhow::Result<()> {
         queue!(self.stdout, Print("Dependencies"))?;
 
         let dep_range = self.get_max_range();
@@ -81,7 +102,7 @@ impl Display {
         let mut index = dep_range.start;
 
         for dep in &self.document.get_deps()[dep_range] {
-            if index == self.crate_selected {
+            if index == self.dep_selector.selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
             }
 
@@ -103,9 +124,9 @@ impl Display {
         Ok(())
     }
 
-    fn render_feature_select(&mut self, dep_index: usize) -> anyhow::Result<()> {
+    fn display_features(&mut self) -> anyhow::Result<()> {
         let deps = self.document.get_deps();
-        let dep = deps.get(dep_index).unwrap();
+        let dep = deps.get(self.dep_selector.selected).unwrap();
 
         let feature_range = self.get_max_range();
 
@@ -138,7 +159,7 @@ impl Display {
             queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
             queue!(self.stdout, ResetColor)?;
 
-            if index == self.feature_selected {
+            if index == self.feature_selector.selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
 
                 let sub_features = dep.get_sub_features(feature_name);
@@ -171,55 +192,50 @@ impl Display {
             if let KeyEventKind::Press = key_event.kind {
                 match key_event.code {
                     KeyCode::Up => match self.state {
-                        DisplayState::CrateSelect => {
-                            self.shift_selection(self.document.get_deps().len(), -1);
+                        DisplayState::DepSelect => {
+                            self.dep_selector.shift(-1);
                         }
-                        DisplayState::FeatureSelect(dep_index) => {
-                            let max_length = self.document.get_dep(dep_index)?.get_features_count();
-
-                            self.shift_selection(max_length, -1);
+                        DisplayState::FeatureSelect => {
+                            self.feature_selector.shift(-1);
                         }
                     },
                     KeyCode::Down => match self.state {
-                        DisplayState::CrateSelect => {
-                            self.shift_selection(self.document.get_deps().len(), 1);
+                        DisplayState::DepSelect => {
+                            self.dep_selector.shift(1);
                         }
-                        DisplayState::FeatureSelect(dep_index) => {
-                            let max_length = self.document.get_dep(dep_index)?.get_features_count();
-
-                            self.shift_selection(max_length, 1);
+                        DisplayState::FeatureSelect => {
+                            self.feature_selector.shift(1);
                         }
                     },
                     KeyCode::Char(' ') | KeyCode::Enter => match self.state {
-                        DisplayState::CrateSelect => {
-                            if self.document.get_dep(self.crate_selected)?.has_features() {
-                                self.state = DisplayState::FeatureSelect(self.crate_selected);
-
-                                let max_length = self
-                                    .document
-                                    .get_dep(self.crate_selected)?
-                                    .get_features_count();
+                        DisplayState::DepSelect => {
+                            if self
+                                .document
+                                .get_dep(self.dep_selector.selected)?
+                                .has_features()
+                            {
+                                self.selected_dep();
 
                                 //needed to wrap
-                                self.shift_selection(max_length, 0);
+                                self.feature_selector.shift(0);
                             }
                         }
-                        DisplayState::FeatureSelect(dep_index) => {
+                        DisplayState::FeatureSelect => {
                             self.document
                                 .get_deps_mut()
-                                .get_mut(dep_index)
+                                .get_mut(self.dep_selector.selected)
                                 .unwrap()
-                                .toggle_feature_usage(self.feature_selected);
+                                .toggle_feature_usage(self.feature_selector.selected);
 
-                            self.document.write_dep(dep_index);
+                            self.document.write_dep(self.dep_selector.selected);
                         }
                     },
                     KeyCode::Backspace => match self.state {
-                        DisplayState::CrateSelect => {
+                        DisplayState::DepSelect => {
                             return Ok(true);
                         }
-                        DisplayState::FeatureSelect(_) => {
-                            self.state = DisplayState::CrateSelect;
+                        DisplayState::FeatureSelect => {
+                            self.state = DisplayState::DepSelect;
                         }
                     },
                     KeyCode::Char('q') => {
@@ -233,48 +249,29 @@ impl Display {
         Ok(false)
     }
 
-    fn shift_selection(&mut self, max_length: usize, shift: isize) {
-        let mut selected_temp;
-
-        match self.state {
-            DisplayState::CrateSelect => selected_temp = self.crate_selected as isize,
-            DisplayState::FeatureSelect(..) => selected_temp = self.feature_selected as isize,
-        }
-
-        selected_temp += max_length as isize;
-        selected_temp += shift;
-
-        selected_temp %= max_length as isize;
-
-        match self.state {
-            DisplayState::CrateSelect => self.crate_selected = selected_temp as usize,
-            DisplayState::FeatureSelect(..) => self.feature_selected = selected_temp as usize,
-        }
-    }
-
     fn get_max_range(&self) -> Range<usize> {
         let current_selected = match self.state {
-            DisplayState::CrateSelect => self.crate_selected,
-            DisplayState::FeatureSelect(..) => self.feature_selected,
+            DisplayState::DepSelect => self.dep_selector.selected,
+            DisplayState::FeatureSelect => self.feature_selector.selected,
         } as isize;
 
         let max_range = match self.state {
-            DisplayState::CrateSelect => self.document.get_deps().len(),
-            DisplayState::FeatureSelect(crates_index) => self
+            DisplayState::DepSelect => self.document.get_deps().len(),
+            DisplayState::FeatureSelect => self
                 .document
-                .get_dep(crates_index)
+                .get_dep(self.dep_selector.selected)
                 .unwrap()
                 .get_features_count(),
         };
 
         let offset = match self.state {
-            DisplayState::CrateSelect => 0,
-            DisplayState::FeatureSelect(crates_index) => {
-                let current_crate = self.document.get_dep(crates_index).unwrap();
+            DisplayState::DepSelect => 0,
+            DisplayState::FeatureSelect => {
+                let current_crate = self.document.get_dep(self.dep_selector.selected).unwrap();
 
                 let feature_name = current_crate
                     .get_features()
-                    .get(self.feature_selected)
+                    .get(self.feature_selector.selected)
                     .unwrap()
                     .0
                     .clone();
@@ -296,6 +293,24 @@ impl Display {
 }
 
 enum DisplayState {
-    CrateSelect,
-    FeatureSelect(usize),
+    DepSelect,
+    FeatureSelect,
+}
+
+struct Selector {
+    selected: usize,
+    length: usize,
+}
+
+impl Selector {
+    fn shift(&mut self, shift: isize) {
+        let mut selected_temp = self.selected as isize;
+
+        selected_temp += self.length as isize;
+        selected_temp += shift;
+
+        selected_temp %= self.length as isize;
+
+        self.selected = selected_temp as usize;
+    }
 }
