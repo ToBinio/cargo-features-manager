@@ -2,14 +2,13 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
-use toml_edit::{Array, Formatted, InlineTable, Item, Key, Value};
+use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::crates::Crate;
 use crate::index::Index;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
-    index: Index,
 
     crates: Vec<Crate>,
 
@@ -38,7 +37,6 @@ impl Document {
 
         Ok(Document {
             toml_doc: doc,
-            index,
             crates,
             path: path.as_ref().to_str().unwrap().to_string(),
         })
@@ -65,7 +63,7 @@ impl Document {
 
         let current_crate = self.crates.get(dep_index).unwrap();
 
-        if !current_crate.uses_default() || current_crate.get_enabled_features().len() != 0 {
+        if !current_crate.uses_default() || !current_crate.get_enabled_features().is_empty(){
             let mut table = InlineTable::new();
 
             //version

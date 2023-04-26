@@ -52,7 +52,7 @@ impl Index {
             .versions()
             .iter()
             .filter(|version| version_req.matches(&Version::parse(version.version()).unwrap()))
-            .map(|version| version.clone())
+            .cloned()
             .collect();
 
         possible_versions.sort_by(|a, b| {
@@ -61,11 +61,8 @@ impl Index {
                 .cmp(&Version::parse(b.version()).unwrap())
         });
 
-        match possible_versions.first() {
-            None => None,
-            Some(some) => {
-                return Some(Crate::new(some.clone(), enabled_features, uses_default));
-            }
-        }
+        possible_versions
+            .first()
+            .map(|some| Crate::new(some.clone(), enabled_features, uses_default))
     }
 }

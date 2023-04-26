@@ -91,7 +91,7 @@ impl Crate {
     }
 
     pub fn has_features(&self) -> bool {
-        self.features.len() > 0
+        !self.features.is_empty()
     }
 
     pub fn get_sub_features(&self, name: &String) -> Vec<String> {
@@ -150,7 +150,7 @@ impl Crate {
     pub fn enable_feature_usage(&mut self, feature_name: &String) {
         let index = self
             .get_index(feature_name)
-            .expect(&format!("feature named {} not found", feature_name));
+            .unwrap_or_else(|| panic!("feature named {} not found", feature_name));
         let data = self.features.get_mut(index).unwrap();
 
         if data.1 {
@@ -174,7 +174,7 @@ impl Crate {
     pub fn disable_feature_usage(&mut self, feature_name: &String) {
         let index = self
             .get_index(feature_name)
-            .expect(&format!("feature named {} not found", feature_name));
+            .unwrap_or_else(|| panic!("feature named {} not found", feature_name));
         let data = self.features.get_mut(index).unwrap();
 
         if !data.1 {
@@ -213,7 +213,7 @@ impl Crate {
     }
 
     pub fn is_default_feature(&self, feature_name: &String) -> bool {
-        self.default_features.contains(&feature_name)
+        self.default_features.contains(feature_name)
     }
 
     fn get_index(&self, feature_name: &String) -> Option<usize> {

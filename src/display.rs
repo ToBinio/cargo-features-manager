@@ -131,7 +131,7 @@ impl Display {
             queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
 
-            if dep.get_active_dependent_features(feature_name).len() > 0 {
+            if !dep.get_active_dependent_features(feature_name).is_empty() {
                 queue!(self.stdout, SetForegroundColor(Color::Grey))?;
             }
 
@@ -143,7 +143,7 @@ impl Display {
 
                 let sub_features = dep.get_sub_features(feature_name);
 
-                if sub_features.len() > 0 {
+                if !sub_features.is_empty() {
                     line_index += 1;
 
                     queue!(self.stdout, MoveTo(5, line_index), Print("↳"))?;
@@ -167,72 +167,67 @@ impl Display {
     }
 
     fn input_event(&mut self) -> anyhow::Result<bool> {
-        match read()? {
-            Event::Key(key_event) => {
-                if let KeyEventKind::Press = key_event.kind {
-                    match key_event.code {
-                        KeyCode::Up => match self.state {
-                            DisplayState::CrateSelect => {
-                                self.shift_selection(self.document.get_deps().len(), -1);
-                            }
-                            DisplayState::FeatureSelect(dep_index) => {
-                                let max_length =
-                                    self.document.get_dep(dep_index)?.get_features_count();
+        if let Event::Key(key_event) = read()? {
+            if let KeyEventKind::Press = key_event.kind {
+                match key_event.code {
+                    KeyCode::Up => match self.state {
+                        DisplayState::CrateSelect => {
+                            self.shift_selection(self.document.get_deps().len(), -1);
+                        }
+                        DisplayState::FeatureSelect(dep_index) => {
+                            let max_length = self.document.get_dep(dep_index)?.get_features_count();
 
-                                self.shift_selection(max_length, -1);
-                            }
-                        },
-                        KeyCode::Down => match self.state {
-                            DisplayState::CrateSelect => {
-                                self.shift_selection(self.document.get_deps().len(), 1);
-                            }
-                            DisplayState::FeatureSelect(dep_index) => {
-                                let max_length =
-                                    self.document.get_dep(dep_index)?.get_features_count();
+                            self.shift_selection(max_length, -1);
+                        }
+                    },
+                    KeyCode::Down => match self.state {
+                        DisplayState::CrateSelect => {
+                            self.shift_selection(self.document.get_deps().len(), 1);
+                        }
+                        DisplayState::FeatureSelect(dep_index) => {
+                            let max_length = self.document.get_dep(dep_index)?.get_features_count();
 
-                                self.shift_selection(max_length, 1);
-                            }
-                        },
-                        KeyCode::Char(' ') | KeyCode::Enter => match self.state {
-                            DisplayState::CrateSelect => {
-                                if self.document.get_dep(self.crate_selected)?.has_features() {
-                                    self.state = DisplayState::FeatureSelect(self.crate_selected);
+                            self.shift_selection(max_length, 1);
+                        }
+                    },
+                    KeyCode::Char(' ') | KeyCode::Enter => match self.state {
+                        DisplayState::CrateSelect => {
+                            if self.document.get_dep(self.crate_selected)?.has_features() {
+                                self.state = DisplayState::FeatureSelect(self.crate_selected);
 
-                                    let max_length = self
-                                        .document
-                                        .get_dep(self.crate_selected)?
-                                        .get_features_count();
+                                let max_length = self
+                                    .document
+                                    .get_dep(self.crate_selected)?
+                                    .get_features_count();
 
-                                    //needed to wrap
-                                    self.shift_selection(max_length, 0);
-                                }
+                                //needed to wrap
+                                self.shift_selection(max_length, 0);
                             }
-                            DisplayState::FeatureSelect(dep_index) => {
-                                self.document
-                                    .get_deps_mut()
-                                    .get_mut(dep_index)
-                                    .unwrap()
-                                    .toggle_feature_usage(self.feature_selected);
+                        }
+                        DisplayState::FeatureSelect(dep_index) => {
+                            self.document
+                                .get_deps_mut()
+                                .get_mut(dep_index)
+                                .unwrap()
+                                .toggle_feature_usage(self.feature_selected);
 
-                                self.document.write_dep(dep_index);
-                            }
-                        },
-                        KeyCode::Backspace => match self.state {
-                            DisplayState::CrateSelect => {
-                                return Ok(true);
-                            }
-                            DisplayState::FeatureSelect(_) => {
-                                self.state = DisplayState::CrateSelect;
-                            }
-                        },
-                        KeyCode::Char('q') => {
+                            self.document.write_dep(dep_index);
+                        }
+                    },
+                    KeyCode::Backspace => match self.state {
+                        DisplayState::CrateSelect => {
                             return Ok(true);
                         }
-                        _ => {}
+                        DisplayState::FeatureSelect(_) => {
+                            self.state = DisplayState::CrateSelect;
+                        }
+                    },
+                    KeyCode::Char('q') => {
+                        return Ok(true);
                     }
+                    _ => {}
                 }
             }
-            _ => {}
         }
 
         Ok(false)
@@ -284,10 +279,10 @@ impl Display {
                     .0
                     .clone();
 
-                if current_crate.get_sub_features(&feature_name).len() > 0 {
-                    1
-                } else {
+                if current_crate.get_sub_features(&feature_name).is_empty() {
                     0
+                } else {
+                    1
                 }
             }
         };

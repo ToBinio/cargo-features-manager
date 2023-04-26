@@ -1,6 +1,6 @@
 use std::io::stdout;
 
-use clap::{arg, Parser, Subcommand};
+use clap::{arg, Parser};
 use crossterm::execute;
 use crossterm::style::{Print, Stylize};
 
