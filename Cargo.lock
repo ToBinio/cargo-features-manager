@@ -42,6 +42,7 @@ dependencies = [
  "anyhow",
  "crates-index",
  "crossterm",
+ "semver",
  "toml",
  "toml_edit",
 ]

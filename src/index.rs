@@ -1,4 +1,5 @@
 use crate::crates::Crate;
+use semver::{Version, VersionReq};
 use toml_edit::Item;
 
 pub struct Index {
@@ -14,7 +15,6 @@ impl Index {
         }
     }
 
-    //todo move func to crates
     pub fn get_crate(&self, crate_name: &str, item: &Item) -> Option<Crate> {
         let mut enabled_features = vec![];
 
@@ -37,13 +37,29 @@ impl Index {
             }
         }
 
+        let version_req = VersionReq::parse(version_str).unwrap();
 
-        for version in self.crates_index.crate_(crate_name).unwrap().versions() {
-            if version.version() == version_str {
-                return Some(Crate::new(version.clone(), enabled_features, uses_default));
+        let mut possible_versions: Vec<crates_index::Version> = self
+            .crates_index
+            .crate_(crate_name)
+            .unwrap()
+            .versions()
+            .iter()
+            .filter(|version| version_req.matches(&Version::parse(version.version()).unwrap()))
+            .map(|version| version.clone())
+            .collect();
+
+        possible_versions.sort_by(|a, b| {
+            Version::parse(a.version())
+                .unwrap()
+                .cmp(&Version::parse(b.version()).unwrap())
+        });
+
+        match possible_versions.first() {
+            None => {None}
+            Some(some) => {
+                return Some(Crate::new(some.clone(), enabled_features, uses_default));
             }
         }
-
-        None
     }
 }

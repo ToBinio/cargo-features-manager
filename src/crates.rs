@@ -15,6 +15,11 @@ impl Crate {
         let mut features_map = HashMap::new();
 
         for (name, sub) in version.features() {
+            //skip if is is default
+            if *name == "default" {
+                continue;
+            }
+
             let sub: Vec<String> = sub.iter().filter(|name| !name.contains(':') && !name.contains('/')).map(|s| s.to_string()).collect();
 
             features_map.insert(name.to_string(),sub);
@@ -25,11 +30,6 @@ impl Crate {
         let mut features = vec![];
 
         for (name, sub) in &features_map {
-            //skip if is is default
-            if *name == "default" {
-                continue;
-            }
-
             features.push((name.clone(), false));
 
             for name in sub {
@@ -166,7 +166,7 @@ impl Crate {
 
         data.1 = false;
 
-        let features = self.version.features().clone();
+        let features = self.features_map.clone();
 
         for (name, sub_features) in features {
             if sub_features.contains(feature_name) {

@@ -61,6 +61,8 @@ impl Display {
     }
 
     fn render_crate_select(&mut self) -> anyhow::Result<()> {
+        //todo handle no deps
+
         for (index, dep) in self.document.get_deps().iter().enumerate() {
             if index == self.crate_selected {
                 queue!(self.stdout, MoveTo(0, index as u16), Print(">"))?;
@@ -73,6 +75,8 @@ impl Display {
     }
 
     fn render_feature_select(&mut self, dep_index: usize) -> anyhow::Result<()> {
+        //todo handle no feature
+
         let deps = self.document.get_deps();
         let dep = deps.get(dep_index).unwrap();
 
@@ -147,12 +151,7 @@ impl Display {
                                 self.shift_selection(max_length, 1);
                             }
                         },
-                        KeyCode::Char(char) => {
-                            if char == 'q' {
-                                return Ok(true);
-                            }
-                        }
-                        KeyCode::Enter => match self.state {
+                        KeyCode::Char(' ') | KeyCode::Enter => match self.state {
                             DisplayState::CrateSelect => {
                                 self.state = DisplayState::FeatureSelect(self.crate_selected);
 
@@ -181,6 +180,9 @@ impl Display {
                                 self.state = DisplayState::CrateSelect;
                             }
                         },
+                        KeyCode::Char('q') => {
+                            return Ok(true);
+                        }
                         _ => {}
                     }
                 }
