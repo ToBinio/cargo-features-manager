@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
@@ -23,7 +22,7 @@ pub struct Display {
 
 impl Display {
     pub fn run() -> anyhow::Result<()> {
-        let document = Document::new("./Cargo.toml", Index::new());
+        let document = Document::new("./Cargo.toml", Index::new())?;
 
         let mut stdout = stdout();
         execute!(stdout, Hide, Clear(ClearType::All))?;
@@ -63,8 +62,6 @@ impl Display {
     }
 
     fn render_crate_select(&mut self) -> anyhow::Result<()> {
-        //todo handle no deps
-
         queue!(self.stdout, Print("Dependencies"))?;
 
         let dep_range = self.get_max_range();
@@ -78,7 +75,7 @@ impl Display {
             }
 
             if !dep.has_features() {
-                queue!(self.stdout, SetForegroundColor(Color::DarkGrey))?;
+                queue!(self.stdout, SetForegroundColor(Color::Grey))?;
             }
 
             queue!(
@@ -96,8 +93,6 @@ impl Display {
     }
 
     fn render_feature_select(&mut self, dep_index: usize) -> anyhow::Result<()> {
-        //todo handle no feature
-
         let deps = self.document.get_deps();
         let dep = deps.get(dep_index).unwrap();
 
@@ -124,7 +119,13 @@ impl Display {
 
             queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
+
+            if dep.get_active_dependent_features(feature_name).len() > 0 {
+                queue!(self.stdout, SetForegroundColor(Color::Grey))?;
+            }
+
             queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
+            queue!(self.stdout, ResetColor)?;
 
             if index == self.feature_selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
@@ -183,14 +184,17 @@ impl Display {
                         },
                         KeyCode::Char(' ') | KeyCode::Enter => match self.state {
                             DisplayState::CrateSelect => {
-                                self.state = DisplayState::FeatureSelect(self.crate_selected);
+                                if self.document.get_dep(self.crate_selected)?.has_features() {
+                                    self.state = DisplayState::FeatureSelect(self.crate_selected);
 
-                                let max_length = self
-                                    .document
-                                    .get_dep(self.crate_selected)?
-                                    .get_features_count();
+                                    let max_length = self
+                                        .document
+                                        .get_dep(self.crate_selected)?
+                                        .get_features_count();
 
-                                self.shift_selection(max_length, 0);
+                                    //needed to wrap
+                                    self.shift_selection(max_length, 0);
+                                }
                             }
                             DisplayState::FeatureSelect(dep_index) => {
                                 self.document
@@ -281,7 +285,7 @@ impl Display {
 
         let start = 0.max(current_selected - height as isize / 2 + 1) as usize;
 
-        start..max_range.min(start + height - 1 - offset)
+        start..max_range.min(start + height - 2 - offset)
     }
 }
 

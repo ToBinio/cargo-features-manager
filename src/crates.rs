@@ -1,6 +1,7 @@
-use crates_index::Version;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+
+use crates_index::Version;
 
 pub struct Crate {
     version: Version,
@@ -9,8 +10,6 @@ pub struct Crate {
     default_features: Vec<String>,
 }
 
-//todo auto enable sub deps
-//todo highlight required sub deps
 impl Crate {
     pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Crate {
         let mut features_map = HashMap::new();
@@ -62,18 +61,21 @@ impl Crate {
 
         features.dedup();
 
-        for (name, enabled) in features.iter_mut() {
-            if (has_default && default_features.contains(name)) || enabled_features.contains(name) {
-                *enabled = true;
+        let mut new_crate = Crate {
+            version,
+            features_map,
+            features: features.clone(),
+            default_features: default_features.clone(),
+        };
+
+        for (name, _) in features {
+            if (has_default && default_features.contains(&name)) || enabled_features.contains(&name)
+            {
+                new_crate.enable_feature_usage(&name);
             }
         }
 
-        Crate {
-            version,
-            features_map,
-            features,
-            default_features,
-        }
+        new_crate
     }
 
     pub fn get_name(&self) -> String {
@@ -182,13 +184,32 @@ impl Crate {
 
         data.1 = false;
 
-        let features = self.features_map.clone();
+        for name in self.get_dependent_features(feature_name) {
+            self.disable_feature_usage(&name)
+        }
+    }
 
-        for (name, sub_features) in features {
+    fn get_dependent_features(&self, feature_name: &String) -> Vec<String> {
+        let mut dep_features = vec![];
+
+        for (name, sub_features) in &self.features_map {
             if sub_features.contains(feature_name) {
-                self.disable_feature_usage(&name)
+                dep_features.push(name.to_string())
             }
         }
+
+        dep_features
+    }
+
+    pub fn get_active_dependent_features(&self, feature_name: &String) -> Vec<String> {
+        self.get_dependent_features(feature_name)
+            .iter()
+            .filter(|name| {
+                let index = self.get_index(name).unwrap();
+                self.features.get(index).unwrap().1
+            })
+            .map(|s| s.to_string())
+            .collect()
     }
 
     pub fn is_default_feature(&self, feature_name: &String) -> bool {

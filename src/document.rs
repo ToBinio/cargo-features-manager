@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
-use toml_edit::{Array, Formatted, InlineTable, Item, Value};
+use toml_edit::{Array, Formatted, InlineTable, Item, Key, Value};
 
 use crate::crates::Crate;
 use crate::index::Index;
@@ -17,12 +17,17 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn new<P: AsRef<Path>>(path: P, index: Index) -> Document {
+    pub fn new<P: AsRef<Path>>(path: P, index: Index) -> anyhow::Result<Document> {
         let file_content = fs::read_to_string(&path).unwrap();
         let doc = toml_edit::Document::from_str(&file_content).unwrap();
 
-        //todo handle no deps
-        let (_name, deps) = doc.get_key_value("dependencies").unwrap();
+        let (_name, deps) = match doc.get_key_value("dependencies") {
+            None => {
+                return Err(anyhow::Error::msg("no dependencies were found"))
+            }
+            Some(some) => {some}
+        };
+
         let deps = deps.as_table().unwrap();
 
         let mut crates = vec![];
@@ -31,12 +36,12 @@ impl Document {
             crates.push(index.get_crate(name, value).unwrap());
         }
 
-        Document {
+        Ok(Document {
             toml_doc: doc,
             index,
             crates,
             path: path.as_ref().to_str().unwrap().to_string(),
-        }
+        })
     }
 
     pub fn get_deps(&self) -> &Vec<Crate> {

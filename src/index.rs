@@ -1,6 +1,7 @@
-use crate::crates::Crate;
 use semver::{Version, VersionReq};
 use toml_edit::Item;
+
+use crate::crates::Crate;
 
 pub struct Index {
     crates_index: Box<crates_index::Index>,
@@ -28,8 +29,12 @@ impl Index {
 
             version_str = table.get("version").unwrap().as_str().unwrap();
 
-            //todo handle no features
-            for value in table.get("features").unwrap().as_array().unwrap() {
+            let features = match table.get("features") {
+                None => Vec::new(),
+                Some(value) => value.as_array().unwrap().iter().collect(),
+            };
+
+            for value in features {
                 enabled_features.push(value.as_str().unwrap().to_string());
             }
 
@@ -57,7 +62,7 @@ impl Index {
         });
 
         match possible_versions.first() {
-            None => {None}
+            None => None,
             Some(some) => {
                 return Some(Crate::new(some.clone(), enabled_features, uses_default));
             }
