@@ -28,6 +28,7 @@ impl Index {
 
             version_str = table.get("version").unwrap().as_str().unwrap();
 
+            //todo handle no features
             for value in table.get("features").unwrap().as_array().unwrap() {
                 enabled_features.push(value.as_str().unwrap().to_string());
             }

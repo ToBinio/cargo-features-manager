@@ -21,6 +21,7 @@ impl Document {
         let file_content = fs::read_to_string(&path).unwrap();
         let doc = toml_edit::Document::from_str(&file_content).unwrap();
 
+        //todo handle no deps
         let (_name, deps) = doc.get_key_value("dependencies").unwrap();
         let deps = deps.as_table().unwrap();
 

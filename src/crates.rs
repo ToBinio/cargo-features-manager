@@ -9,9 +9,10 @@ pub struct Crate {
     default_features: Vec<String>,
 }
 
+//todo auto enable sub deps
+//todo highlight required sub deps
 impl Crate {
     pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Crate {
-
         let mut features_map = HashMap::new();
 
         for (name, sub) in version.features() {
@@ -20,12 +21,16 @@ impl Crate {
                 continue;
             }
 
-            let sub: Vec<String> = sub.iter().filter(|name| !name.contains(':') && !name.contains('/')).map(|s| s.to_string()).collect();
+            let sub: Vec<String> = sub
+                .iter()
+                .filter(|name| !name.contains(':') && !name.contains('/'))
+                .map(|s| s.to_string())
+                .collect();
 
-            features_map.insert(name.to_string(),sub);
+            features_map.insert(name.to_string(), sub);
         }
 
-        let default_features = version.features().get("default").unwrap().clone();
+        let default_features = version.features().get("default").unwrap_or(&vec![]).clone();
 
         let mut features = vec![];
 
@@ -37,7 +42,12 @@ impl Crate {
             }
         }
 
-        features.dedup();
+        for dep in version.dependencies() {
+            if dep.is_optional() {
+                features.push((dep.name().to_string(), false));
+            }
+        }
+
         features.sort_by(|(name_a, _), (name_b, _)| {
             if default_features.contains(name_a) && !default_features.contains(name_b) {
                 return Ordering::Less;
@@ -49,6 +59,8 @@ impl Crate {
 
             name_a.partial_cmp(name_b).unwrap()
         });
+
+        features.dedup();
 
         for (name, enabled) in features.iter_mut() {
             if (has_default && default_features.contains(name)) || enabled_features.contains(name) {
@@ -74,6 +86,10 @@ impl Crate {
 
     pub fn get_features(&self) -> Vec<(String, bool)> {
         self.features.clone()
+    }
+
+    pub fn has_features(&self) -> bool {
+        self.features.len() > 0
     }
 
     pub fn get_sub_features(&self, name: &String) -> Vec<String> {
