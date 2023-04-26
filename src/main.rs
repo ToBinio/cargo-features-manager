@@ -1,7 +1,6 @@
 use std::io::stdout;
 
-use clap::{Parser, Subcommand};
-use clap::builder::Str;
+use clap::{arg, Parser, Subcommand};
 use crossterm::execute;
 use crossterm::style::{Print, Stylize};
 
@@ -22,17 +21,14 @@ enum CargoCli {
 #[derive(clap::Args)]
 #[command(author, version, about, long_about = None)]
 struct FeatureArgs {
-    #[arg(long,short)]
-    path: Option<String>,
-
-    #[arg(long,short)]
+    #[arg(long, short)]
     dependency: Option<String>,
 }
 
 fn main() {
-    let args = CargoCli::parse();
+    let CargoCli::Feature(args) = CargoCli::parse();
 
-    if let Err(err) = Display::run() {
+    if let Err(err) = run(args) {
         execute!(
             stdout(),
             Print("error".red().bold()),
@@ -41,4 +37,15 @@ fn main() {
         )
         .unwrap();
     }
+}
+
+fn run(args: FeatureArgs) -> anyhow::Result<()> {
+    let mut display = Display::new()?;
+    if let Some(name) = args.dependency {
+        display.set_selected_crate(name)?
+    }
+
+    display.start()?;
+
+    Ok(())
 }

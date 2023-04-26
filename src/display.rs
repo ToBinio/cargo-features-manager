@@ -21,26 +21,37 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn run() -> anyhow::Result<()> {
+    pub fn new() -> anyhow::Result<Display> {
         let document = Document::new("./Cargo.toml", Index::new())?;
 
-        let mut stdout = stdout();
-        execute!(stdout, Hide, Clear(ClearType::All))?;
-
-        let mut display = Display {
+        Ok(Display {
             document,
-            stdout,
+            stdout: stdout(),
 
             crate_selected: 0,
             feature_selected: 0,
 
             state: DisplayState::CrateSelect,
-        };
-
-        display.start()
+        })
     }
 
-    fn start(&mut self) -> anyhow::Result<()> {
+    pub fn set_selected_crate(&mut self, feature_name: String) -> anyhow::Result<()> {
+        for (index, current_crate) in self.document.get_deps().iter().enumerate() {
+            if current_crate.get_name() == feature_name {
+                self.state = DisplayState::FeatureSelect(index);
+                return Ok(());
+            }
+        }
+
+        Err(anyhow::Error::msg(format!(
+            "dependency \"{}\" could not be found",
+            feature_name
+        )))
+    }
+
+    pub fn start(&mut self) -> anyhow::Result<()> {
+        execute!(self.stdout, Hide, Clear(ClearType::All))?;
+
         loop {
             queue!(self.stdout, MoveTo(0, 0), Clear(ClearType::FromCursorDown))?;
 
