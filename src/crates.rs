@@ -1,19 +1,30 @@
 use crates_index::Version;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 
-//todo handle no-default
 pub struct Crate {
     version: Version,
+    features_map: HashMap<String, Vec<String>>,
     features: Vec<(String, bool)>,
     default_features: Vec<String>,
 }
 
 impl Crate {
     pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Crate {
-        let mut features = vec![];
+
+        let mut features_map = HashMap::new();
+
+        for (name, sub) in version.features() {
+            let sub: Vec<String> = sub.iter().filter(|name| !name.contains(':') && !name.contains('/')).map(|s| s.to_string()).collect();
+
+            features_map.insert(name.to_string(),sub);
+        }
 
         let default_features = version.features().get("default").unwrap().clone();
 
-        for (name, sub) in version.features() {
+        let mut features = vec![];
+
+        for (name, sub) in &features_map {
             //skip if is is default
             if *name == "default" {
                 continue;
@@ -22,17 +33,22 @@ impl Crate {
             features.push((name.clone(), false));
 
             for name in sub {
-                //skip if it is a dep or a feature of a dep
-                if name.contains(':') || name.contains('/') {
-                    continue;
-                }
-
                 features.push((name.clone(), false));
             }
         }
 
         features.dedup();
-        features.sort();
+        features.sort_by(|(name_a, _), (name_b, _)| {
+            if default_features.contains(name_a) && !default_features.contains(name_b) {
+                return Ordering::Less;
+            }
+
+            if default_features.contains(name_b) && !default_features.contains(name_a) {
+                return Ordering::Greater;
+            }
+
+            name_a.partial_cmp(name_b).unwrap()
+        });
 
         for (name, enabled) in features.iter_mut() {
             if (has_default && default_features.contains(name)) || enabled_features.contains(name) {
@@ -42,6 +58,7 @@ impl Crate {
 
         Crate {
             version,
+            features_map,
             features,
             default_features,
         }
@@ -57,6 +74,10 @@ impl Crate {
 
     pub fn get_features(&self) -> Vec<(String, bool)> {
         self.features.clone()
+    }
+
+    pub fn get_sub_features(&self, name: &String) -> Vec<String> {
+        self.features_map.get(name).unwrap_or(&vec![]).clone()
     }
 
     pub fn get_features_count(&self) -> usize {
@@ -108,10 +129,10 @@ impl Crate {
         }
     }
 
-    //todo enable sub packages
-
     pub fn enable_feature_usage(&mut self, feature_name: &String) {
-        let index = self.get_index(feature_name).expect(&format!("feature named {} not found", feature_name));
+        let index = self
+            .get_index(feature_name)
+            .expect(&format!("feature named {} not found", feature_name));
         let data = self.features.get_mut(index).unwrap();
 
         if data.1 {
@@ -121,26 +142,21 @@ impl Crate {
 
         data.1 = true;
 
-        let features = self.version.features();
-
-        if !features.contains_key(feature_name){
+        if !self.features_map.contains_key(feature_name) {
             return;
         }
 
-        let sub_features = features.get(feature_name).unwrap().clone();
+        let sub_features = self.features_map.get(feature_name).unwrap().clone();
 
         for sub_feature_name in sub_features {
-            //skip if it is a dep or a feature of a dep
-            if sub_feature_name.contains(':') || sub_feature_name.contains('/') {
-                continue;
-            }
-
             self.enable_feature_usage(&sub_feature_name);
         }
     }
 
     pub fn disable_feature_usage(&mut self, feature_name: &String) {
-        let index = self.get_index(feature_name).expect(&format!("feature named {} not found", feature_name));
+        let index = self
+            .get_index(feature_name)
+            .expect(&format!("feature named {} not found", feature_name));
         let data = self.features.get_mut(index).unwrap();
 
         if !data.1 {

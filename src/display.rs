@@ -76,24 +76,45 @@ impl Display {
         let deps = self.document.get_deps();
         let dep = deps.get(dep_index).unwrap();
 
-        for (index, (feature_name, active)) in dep.get_features().iter().enumerate() {
-            if index == self.feature_selected {
-                queue!(self.stdout, MoveTo(0, index as u16), Print(">"))?;
-            }
+        let mut line_index = 0;
 
+        for (index, (feature_name, active)) in dep.get_features().iter().enumerate() {
             if dep.is_default_feature(feature_name) {
                 queue!(self.stdout, SetForegroundColor(Color::Green))?;
             }
 
-            queue!(self.stdout, MoveTo(2, index as u16), Print("["))?;
+            queue!(self.stdout, MoveTo(2, line_index), Print("["))?;
 
             if *active {
-                queue!(self.stdout, MoveTo(3, index as u16), Print("X"))?;
+                queue!(self.stdout, MoveTo(3, line_index), Print("X"))?;
             }
 
-            queue!(self.stdout, MoveTo(4, index as u16), Print("]"))?;
+            queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
-            queue!(self.stdout, MoveTo(6, index as u16), Print(feature_name))?;
+            queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
+
+            if index == self.feature_selected {
+                queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
+
+                let sub_features = dep.get_sub_features(feature_name);
+
+                if sub_features.len() > 0 {
+                    line_index += 1;
+
+                    queue!(self.stdout, MoveTo(5, line_index), Print("↳"))?;
+
+                    let mut sub_features_str = "".to_string();
+
+                    for sub_feature in sub_features {
+                        sub_features_str += &sub_feature;
+                        sub_features_str += " ";
+                    }
+
+                    queue!(self.stdout, MoveTo(7, line_index), Print(sub_features_str))?;
+                }
+            }
+
+            line_index += 1;
         }
 
         Ok(())
