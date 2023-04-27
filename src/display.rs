@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
@@ -286,9 +287,11 @@ impl Display {
 
         let height = size().unwrap().1 as usize;
 
-        let start = 0.max(current_selected - height as isize / 2 + 1) as usize;
+        let start = (current_selected - height as isize / 2 + 1)
+            .min(max_range as isize - height as isize + 1 + offset as isize)
+            .max(0) as usize;
 
-        start..max_range.min(start + height - 2 - offset)
+        start..max_range.min(start + height - 1 - offset)
     }
 }
 
