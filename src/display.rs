@@ -107,7 +107,10 @@ impl Display {
             }
 
             if !dep.has_features() {
-                queue!(self.stdout, SetForegroundColor(Color::Grey))?;
+                queue!(
+                    self.stdout,
+                    SetForegroundColor(Color::from((160, 160, 160)))
+                )?;
             }
 
             queue!(
@@ -153,7 +156,10 @@ impl Display {
             queue!(self.stdout, ResetColor)?;
 
             if !dep.get_currently_required_features(feature_name).is_empty() {
-                queue!(self.stdout, SetForegroundColor(Color::Grey))?;
+                queue!(
+                    self.stdout,
+                    SetForegroundColor(Color::from((160, 160, 160)))
+                )?;
             }
 
             queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
@@ -167,7 +173,7 @@ impl Display {
                 if !sub_features.is_empty() {
                     line_index += 1;
 
-                    queue!(self.stdout, MoveTo(5, line_index), Print("↳"))?;
+                    queue!(self.stdout, MoveTo(6, line_index), Print("└"))?;
 
                     let mut sub_features_str = "".to_string();
 
@@ -176,7 +182,7 @@ impl Display {
                         sub_features_str += " ";
                     }
 
-                    queue!(self.stdout, MoveTo(7, line_index), Print(sub_features_str))?;
+                    queue!(self.stdout, MoveTo(8, line_index), Print(sub_features_str))?;
                 }
             }
 
