@@ -70,6 +70,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "cargo-features-manager"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crates-index",
+ "crossterm",
+ "semver",
+ "toml",
+ "toml_edit",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -131,19 +144,6 @@ name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
-
-[[package]]
-name = "crates-feature-manager"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "crates-index",
- "crossterm",
- "semver",
- "toml",
- "toml_edit",
-]
 
 [[package]]
 name = "crates-index"

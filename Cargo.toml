@@ -1,5 +1,5 @@
 [package]
-name = "crates-feature-manager"
+name = "cargo-features-manager"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,5 +15,5 @@ toml = "0.7.3"
 toml_edit = "0.19.8"
 
 [[bin]]
-name = "cargo-feature"
+name = "cargo-features"
 path = "src/main.rs"
