@@ -18,7 +18,6 @@ clap = { version = "4.2.4", features = ["derive"] }
 crates-index = "0.19.8"
 crossterm = "0.26.1"
 semver = "1.0.17"
-toml = "0.7.3"
 toml_edit = "0.19.8"
 
 [[bin]]
