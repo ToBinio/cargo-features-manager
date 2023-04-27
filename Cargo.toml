@@ -3,15 +3,14 @@ name = "cargo-features-manager"
 version = "0.1.0"
 edition = "2021"
 authors = ["ToBinio"]
-edition = "2021"
 license = "MIT"
 description = "a cli tool to manage the features of your project dependencies"
 categories = ["command-line-utilities"]
 exclude = ["/.idea"]
 repository = "https://github.com/ToBinio/cargo-features-manager"
 keywords = ["cli", "manager", "cargo", "crates", "feature"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+homepage = "https://github.com/ToBinio/crates-feature-manager.git"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.70"
