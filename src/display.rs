@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
@@ -153,7 +152,7 @@ impl Display {
             queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
 
-            if !dep.get_active_dependent_features(feature_name).is_empty() {
+            if !dep.get_currently_required_features(feature_name).is_empty() {
                 queue!(self.stdout, SetForegroundColor(Color::Grey))?;
             }
 
@@ -265,25 +264,22 @@ impl Display {
                 .get_features_count(),
         };
 
-        let offset = match self.state {
-            DisplayState::DepSelect => 0,
-            DisplayState::FeatureSelect => {
-                let current_crate = self.document.get_dep(self.dep_selector.selected).unwrap();
+        let mut offset = 0;
 
-                let feature_name = current_crate
-                    .get_features()
-                    .get(self.feature_selector.selected)
-                    .unwrap()
-                    .0
-                    .clone();
+        if let DisplayState::FeatureSelect = self.state {
+            let current_crate = self.document.get_dep(self.dep_selector.selected).unwrap();
 
-                if current_crate.get_sub_features(&feature_name).is_empty() {
-                    0
-                } else {
-                    1
-                }
+            let feature_name = current_crate
+                .get_features()
+                .get(self.feature_selector.selected)
+                .unwrap()
+                .0
+                .clone();
+
+            if !current_crate.get_sub_features(&feature_name).is_empty() {
+                offset = 1;
             }
-        };
+        }
 
         let height = size().unwrap().1 as usize;
 

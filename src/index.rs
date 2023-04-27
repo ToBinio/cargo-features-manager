@@ -1,7 +1,7 @@
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
-use crate::crates::Crate;
+use crate::crates::Dependency;
 
 pub struct Index {
     crates_index: Box<crates_index::Index>,
@@ -9,14 +9,12 @@ pub struct Index {
 
 impl Index {
     pub fn new() -> Index {
-        let index = crates_index::Index::new_cargo_default().unwrap();
-
         Index {
-            crates_index: Box::new(index),
+            crates_index: Box::new(crates_index::Index::new_cargo_default().unwrap()),
         }
     }
 
-    pub fn get_crate(&self, crate_name: &str, item: &Item) -> Option<Crate> {
+    pub fn get_crate(&self, crate_name: &str, item: &Item) -> Option<Dependency> {
         let mut enabled_features = vec![];
 
         let version_str;
@@ -63,6 +61,6 @@ impl Index {
 
         possible_versions
             .first()
-            .map(|some| Crate::new(some.clone(), enabled_features, uses_default))
+            .map(|some| Dependency::new(some.clone(), enabled_features, uses_default))
     }
 }

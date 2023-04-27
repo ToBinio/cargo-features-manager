@@ -4,13 +4,13 @@ use std::str::FromStr;
 
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::crates::Crate;
+use crate::crates::Dependency;
 use crate::index::Index;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
 
-    crates: Vec<Crate>,
+    deps: Vec<Dependency>,
 
     path: String,
 }
@@ -20,50 +20,45 @@ impl Document {
         let file_content = fs::read_to_string(&path).unwrap();
         let doc = toml_edit::Document::from_str(&file_content).unwrap();
 
-        let (_name, deps) = match doc.get_key_value("dependencies") {
-            None => {
-                return Err(anyhow::Error::msg("no dependencies were found"))
-            }
-            Some(some) => {some}
+        let deps = match doc.get_key_value("dependencies") {
+            None => return Err(anyhow::Error::msg("no dependencies were found")),
+            Some(some) => some.1.as_table().unwrap(),
         };
 
-        let deps = deps.as_table().unwrap();
-
-        let mut crates = vec![];
-
-        for (name, value) in deps {
-            crates.push(index.get_crate(name, value).unwrap());
-        }
+        let deps = deps
+            .iter()
+            .map(|(name, value)| index.get_crate(name, value).unwrap())
+            .collect();
 
         Ok(Document {
             toml_doc: doc,
-            crates,
+            deps,
             path: path.as_ref().to_str().unwrap().to_string(),
         })
     }
 
-    pub fn get_deps(&self) -> &Vec<Crate> {
-        &self.crates
+    pub fn get_deps(&self) -> &Vec<Dependency> {
+        &self.deps
     }
 
-    pub fn get_dep(&self, index: usize) -> anyhow::Result<&Crate> {
-        match self.crates.get(index) {
+    pub fn get_dep(&self, index: usize) -> anyhow::Result<&Dependency> {
+        match self.deps.get(index) {
             None => Err(anyhow::Error::msg("out of bounce")),
             Some(some) => Ok(some),
         }
     }
 
-    pub fn get_deps_mut(&mut self) -> &mut Vec<Crate> {
-        &mut self.crates
+    pub fn get_deps_mut(&mut self) -> &mut Vec<Dependency> {
+        &mut self.deps
     }
 
     pub fn write_dep(&mut self, dep_index: usize) {
         let (_name, deps) = self.toml_doc.get_key_value_mut("dependencies").unwrap();
         let deps = deps.as_table_mut().unwrap();
 
-        let current_crate = self.crates.get(dep_index).unwrap();
+        let current_crate = self.deps.get(dep_index).unwrap();
 
-        if !current_crate.uses_default() || !current_crate.get_enabled_features().is_empty(){
+        if !current_crate.can_use_default() || !current_crate.get_enabled_features().is_empty() {
             let mut table = InlineTable::new();
 
             //version
@@ -82,7 +77,7 @@ impl Document {
             table.insert("features", Value::Array(features));
 
             //default-feature
-            let uses_default = current_crate.uses_default();
+            let uses_default = current_crate.can_use_default();
             if !uses_default {
                 table.insert(
                     "default-features",

@@ -3,15 +3,16 @@ use std::collections::HashMap;
 
 use crates_index::Version;
 
-pub struct Crate {
-    version: Version,
+pub struct Dependency {
+    data: Version,
+
     features_map: HashMap<String, Vec<String>>,
     features: Vec<(String, bool)>,
     default_features: Vec<String>,
 }
 
-impl Crate {
-    pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Crate {
+impl Dependency {
+    pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Dependency {
         let mut features_map = HashMap::new();
 
         for (name, sub) in version.features() {
@@ -33,6 +34,7 @@ impl Crate {
 
         let mut features = vec![];
 
+        // add direct features
         for (name, sub) in &features_map {
             features.push((name.clone(), false));
 
@@ -41,6 +43,7 @@ impl Crate {
             }
         }
 
+        // add indirect features (features out of dependency)
         for dep in version.dependencies() {
             if dep.is_optional() {
                 features.push((dep.name().to_string(), false));
@@ -61,13 +64,14 @@ impl Crate {
 
         features.dedup();
 
-        let mut new_crate = Crate {
-            version,
+        let mut new_crate = Dependency {
+            data: version,
             features_map,
             features: features.clone(),
             default_features: default_features.clone(),
         };
 
+        //enable features
         for (name, _) in features {
             if (has_default && default_features.contains(&name)) || enabled_features.contains(&name)
             {
@@ -79,11 +83,11 @@ impl Crate {
     }
 
     pub fn get_name(&self) -> String {
-        self.version.name().to_string()
+        self.data.name().to_string()
     }
 
     pub fn get_version(&self) -> String {
-        self.version.version().to_string()
+        self.data.version().to_string()
     }
 
     pub fn get_features(&self) -> Vec<(String, bool)> {
@@ -94,12 +98,12 @@ impl Crate {
         !self.features.is_empty()
     }
 
-    pub fn get_sub_features(&self, name: &String) -> Vec<String> {
-        self.features_map.get(name).unwrap_or(&vec![]).clone()
-    }
-
     pub fn get_features_count(&self) -> usize {
         self.features.len()
+    }
+
+    pub fn get_sub_features(&self, name: &String) -> Vec<String> {
+        self.features_map.get(name).unwrap_or(&vec![]).clone()
     }
 
     fn get_all_enabled_features(&self) -> Vec<String> {
@@ -110,7 +114,7 @@ impl Crate {
             .collect()
     }
 
-    pub fn uses_default(&self) -> bool {
+    pub fn can_use_default(&self) -> bool {
         let enabled_features = self.get_all_enabled_features();
 
         for name in &self.default_features {
@@ -125,7 +129,7 @@ impl Crate {
     pub fn get_enabled_features(&self) -> Vec<String> {
         let mut default_features = &vec![];
 
-        if self.uses_default() {
+        if self.can_use_default() {
             default_features = &self.default_features;
         }
 
@@ -149,7 +153,7 @@ impl Crate {
 
     pub fn enable_feature_usage(&mut self, feature_name: &String) {
         let index = self
-            .get_index(feature_name)
+            .get_feature_index(feature_name)
             .unwrap_or_else(|| panic!("feature named {} not found", feature_name));
         let data = self.features.get_mut(index).unwrap();
 
@@ -173,7 +177,7 @@ impl Crate {
 
     pub fn disable_feature_usage(&mut self, feature_name: &String) {
         let index = self
-            .get_index(feature_name)
+            .get_feature_index(feature_name)
             .unwrap_or_else(|| panic!("feature named {} not found", feature_name));
         let data = self.features.get_mut(index).unwrap();
 
@@ -184,12 +188,12 @@ impl Crate {
 
         data.1 = false;
 
-        for name in self.get_dependent_features(feature_name) {
+        for name in self.get_required_features(feature_name) {
             self.disable_feature_usage(&name)
         }
     }
 
-    fn get_dependent_features(&self, feature_name: &String) -> Vec<String> {
+    fn get_required_features(&self, feature_name: &String) -> Vec<String> {
         let mut dep_features = vec![];
 
         for (name, sub_features) in &self.features_map {
@@ -201,11 +205,11 @@ impl Crate {
         dep_features
     }
 
-    pub fn get_active_dependent_features(&self, feature_name: &String) -> Vec<String> {
-        self.get_dependent_features(feature_name)
+    pub fn get_currently_required_features(&self, feature_name: &String) -> Vec<String> {
+        self.get_required_features(feature_name)
             .iter()
             .filter(|name| {
-                let index = self.get_index(name).unwrap();
+                let index = self.get_feature_index(name).unwrap();
                 self.features.get(index).unwrap().1
             })
             .map(|s| s.to_string())
@@ -216,7 +220,7 @@ impl Crate {
         self.default_features.contains(feature_name)
     }
 
-    fn get_index(&self, feature_name: &String) -> Option<usize> {
+    fn get_feature_index(&self, feature_name: &String) -> Option<usize> {
         for (index, (name, _)) in self.features.iter().enumerate() {
             if name == feature_name {
                 return Some(index);
