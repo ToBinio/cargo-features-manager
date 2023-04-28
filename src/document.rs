@@ -4,8 +4,8 @@ use std::str::FromStr;
 
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::crates::Dependency;
-use crate::index::Index;
+use crate::dependency::Dependency;
+use crate::dependency_builder::DependencyBuilder;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
@@ -16,7 +16,7 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn new<P: AsRef<Path>>(path: P, index: Index) -> anyhow::Result<Document> {
+    pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
         let file_content = fs::read_to_string(&path).unwrap();
         let doc = toml_edit::Document::from_str(&file_content).unwrap();
 
@@ -27,7 +27,7 @@ impl Document {
 
         let deps = deps
             .iter()
-            .map(|(name, value)| index.get_crate(name, value).unwrap())
+            .map(|(name, value)| DependencyBuilder::new(name, value).unwrap())
             .collect();
 
         Ok(Document {

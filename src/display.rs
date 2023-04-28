@@ -8,7 +8,6 @@ use crossterm::terminal::{size, Clear, ClearType};
 use crossterm::{execute, queue};
 
 use crate::document::Document;
-use crate::index::Index;
 
 pub struct Display {
     stdout: Stdout,
@@ -23,7 +22,7 @@ pub struct Display {
 
 impl Display {
     pub fn new() -> anyhow::Result<Display> {
-        let document = Document::new("./Cargo.toml", Index::new())?;
+        let document = Document::new("./Cargo.toml")?;
 
         Ok(Display {
             stdout: stdout(),
