@@ -27,8 +27,8 @@ impl Document {
 
         let deps = deps
             .iter()
-            .map(|(name, value)| DependencyBuilder::new(name, value).unwrap())
-            .collect();
+            .map(|(name, value)| DependencyBuilder::build_dependency(name, value))
+            .collect::<Result<Vec<Dependency>, anyhow::Error>>()?;
 
         Ok(Document {
             toml_doc: doc,

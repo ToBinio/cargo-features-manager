@@ -1,10 +1,13 @@
 use std::cmp::Ordering;
-use crate::dependency::Dependency;
-use anyhow::Error;
-use clap::builder::Str;
-use semver::{Version, VersionReq};
 use std::collections::HashMap;
+use std::fs;
+use std::str::FromStr;
+
+use anyhow::Error;
+use semver::{Version, VersionReq};
 use toml_edit::Item;
+
+use crate::dependency::Dependency;
 
 pub struct DependencyBuilder {
     dep_name: String,
@@ -19,7 +22,7 @@ pub struct DependencyBuilder {
 }
 
 impl DependencyBuilder {
-    pub fn new(dep_name: &str, item: &Item) -> anyhow::Result<Dependency> {
+    pub fn build_dependency(dep_name: &str, item: &Item) -> anyhow::Result<Dependency> {
         let mut builder = DependencyBuilder {
             dep_name: dep_name.to_string(),
 
@@ -34,30 +37,39 @@ impl DependencyBuilder {
 
         if item.is_str() {
             builder.version = item.as_str().unwrap().to_string();
-            builder.set_features_from_remote()?;
+            builder.set_features_from_index()?;
         } else {
             let table = item.as_inline_table().unwrap();
+
+            if let Some(value) = table.get("features") {
+                builder.enabled_features = value
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|f| f.as_str().unwrap().to_string())
+                    .collect();
+            }
+
+            if let Some(value) = table.get("default-features") {
+                builder.uses_default = value.as_bool().unwrap();
+            }
 
             match table.get("path") {
                 None => {
                     builder.version = table.get("version").unwrap().as_str().unwrap().to_string();
-                    builder.set_features_from_remote()?;
-
-                    if let Some(value) = table.get("features") {
-                        builder.enabled_features = value
-                            .as_array()
-                            .unwrap()
-                            .iter()
-                            .map(|f| f.as_str().unwrap().to_string())
-                            .collect();
-                    }
-
-                    if let Some(value) = table.get("default-features") {
-                        builder.uses_default = value.as_bool().unwrap();
-                    }
+                    builder.set_features_from_index()?;
                 }
                 Some(path) => {
-                    todo!()
+                    let path = path.as_str().unwrap().to_string();
+                    let path = "./".to_string() + &path + "/Cargo.toml";
+
+                    let toml_document = toml_edit::Document::from_str(
+                        &fs::read_to_string(path.clone()).map_err(|_| {
+                            anyhow::Error::msg(format!("could not load dependency at {}", path))
+                        })?,
+                    )?;
+
+                    builder.set_data_from_toml(toml_document)?;
                 }
             }
         }
@@ -65,7 +77,34 @@ impl DependencyBuilder {
         Ok(builder.build())
     }
 
-    fn set_features_from_remote(&mut self) -> anyhow::Result<()> {
+    fn set_data_from_toml(&mut self, toml: toml_edit::Document) -> anyhow::Result<()> {
+        if let Some(features) = toml.get("features") {
+            let features = features.as_table().unwrap();
+
+            for (feature_name, sub_features) in features {
+                self.all_features.insert(
+                    feature_name.to_string(),
+                    sub_features
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|x| x.as_str().unwrap().to_string())
+                        .collect(),
+                );
+            }
+        }
+
+        if let Some(package) = toml.get("package") {
+            let package = package.as_table().unwrap();
+
+            if let Some(version) = package.get("version") {
+                self.version = version.as_str().unwrap().to_string();
+            }
+        }
+
+        Ok(())
+    }
+    fn set_features_from_index(&mut self) -> anyhow::Result<()> {
         //todo cache
         let index = crates_index::Index::new_cargo_default().unwrap();
 
@@ -98,8 +137,9 @@ impl DependencyBuilder {
                     }
                 }
 
-                Ok(self.all_features =  all_features)
-            },
+                self.all_features = all_features;
+                Ok(())
+            }
         }
     }
 
@@ -158,7 +198,8 @@ impl DependencyBuilder {
 
         //enable features
         for (name, _) in features {
-            if (self.uses_default && default_features.contains(&name)) || self.enabled_features.contains(&name)
+            if (self.uses_default && default_features.contains(&name))
+                || self.enabled_features.contains(&name)
             {
                 new_crate.enable_feature_usage(&name);
             }

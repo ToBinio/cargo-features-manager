@@ -7,10 +7,9 @@ use crossterm::style::{Print, Stylize};
 use crate::display::Display;
 
 mod dependency;
+mod dependency_builder;
 mod display;
 mod document;
-mod index;
-mod dependency_builder;
 
 #[derive(Parser)] // requires `derive` feature
 #[command(name = "cargo")]

@@ -1,10 +1,6 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use crates_index::Version;
-
 pub struct Dependency {
-
     pub(crate) dep_name: String,
     pub(crate) version: String,
 
@@ -14,76 +10,6 @@ pub struct Dependency {
 }
 
 impl Dependency {
-    // pub fn new(version: Version, enabled_features: Vec<String>, has_default: bool) -> Dependency {
-    //     let mut features_map = HashMap::new();
-    //
-    //     for (name, sub) in version.features() {
-    //         //skip if is is default
-    //         if *name == "default" {
-    //             continue;
-    //         }
-    //
-    //         let sub: Vec<String> = sub
-    //             .iter()
-    //             .filter(|name| !name.contains(':') && !name.contains('/'))
-    //             .map(|s| s.to_string())
-    //             .collect();
-    //
-    //         features_map.insert(name.to_string(), sub);
-    //     }
-    //
-    //     let default_features = version.features().get("default").unwrap_or(&vec![]).clone();
-    //
-    //     let mut features = vec![];
-    //
-    //     // add direct features
-    //     for (name, sub) in &features_map {
-    //         features.push((name.clone(), false));
-    //
-    //         for name in sub {
-    //             features.push((name.clone(), false));
-    //         }
-    //     }
-    //
-    //     // add indirect features (features out of dependency)
-    //     for dep in version.dependencies() {
-    //         if dep.is_optional() {
-    //             features.push((dep.name().to_string(), false));
-    //         }
-    //     }
-    //
-    //     features.sort_by(|(name_a, _), (name_b, _)| {
-    //         if default_features.contains(name_a) && !default_features.contains(name_b) {
-    //             return Ordering::Less;
-    //         }
-    //
-    //         if default_features.contains(name_b) && !default_features.contains(name_a) {
-    //             return Ordering::Greater;
-    //         }
-    //
-    //         name_a.partial_cmp(name_b).unwrap()
-    //     });
-    //
-    //     features.dedup();
-    //
-    //     let mut new_crate = Dependency {
-    //         data: version,
-    //         features_map,
-    //         features: features.clone(),
-    //         default_features: default_features.clone(),
-    //     };
-    //
-    //     //enable features
-    //     for (name, _) in features {
-    //         if (has_default && default_features.contains(&name)) || enabled_features.contains(&name)
-    //         {
-    //             new_crate.enable_feature_usage(&name);
-    //         }
-    //     }
-    //
-    //     new_crate
-    // }
-
     pub fn get_name(&self) -> String {
         self.dep_name.to_string()
     }
