@@ -109,7 +109,7 @@ impl Display {
             if !dep.has_features() {
                 queue!(
                     self.stdout,
-                    SetForegroundColor(Color::from((160, 160, 160)))
+                    SetForegroundColor(Color::from((100, 100, 100)))
                 )?;
             }
 
@@ -158,7 +158,7 @@ impl Display {
             if !dep.get_currently_required_features(feature_name).is_empty() {
                 queue!(
                     self.stdout,
-                    SetForegroundColor(Color::from((160, 160, 160)))
+                    SetForegroundColor(Color::from((100, 100, 100)))
                 )?;
             }
 
