@@ -3,17 +3,17 @@ use std::collections::HashMap;
 use std::fs;
 use std::str::FromStr;
 
-use anyhow::Error;
+use anyhow::anyhow;
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
-use crate::dependency::Dependency;
+use crate::dependency::{Dependency, DependencyOrigin};
 
 pub struct DependencyBuilder {
     dep_name: String,
     version: String,
 
-    item: Item,
+    origin: DependencyOrigin,
 
     all_features: HashMap<String, Vec<String>>,
 
@@ -27,7 +27,8 @@ impl DependencyBuilder {
             dep_name: dep_name.to_string(),
 
             version: "".to_string(),
-            item: item.clone(),
+
+            origin: DependencyOrigin::Remote,
 
             all_features: HashMap::new(),
 
@@ -36,38 +37,56 @@ impl DependencyBuilder {
         };
 
         if item.is_str() {
-            builder.version = item.as_str().unwrap().to_string();
+            builder.version = item
+                .as_str()
+                .ok_or(anyhow!("could not parse {} - version tag", dep_name))?
+                .to_string();
             builder.set_features_from_index()?;
         } else {
-            let table = item.as_inline_table().unwrap();
+            let table = item
+                .as_inline_table()
+                .ok_or(anyhow!("could not parse {} - body", dep_name))?;
 
             if let Some(value) = table.get("features") {
                 builder.enabled_features = value
                     .as_array()
-                    .unwrap()
+                    .ok_or(anyhow!("could not parse {} - enabled features", dep_name))?
                     .iter()
                     .map(|f| f.as_str().unwrap().to_string())
                     .collect();
             }
 
             if let Some(value) = table.get("default-features") {
-                builder.uses_default = value.as_bool().unwrap();
+                builder.uses_default = value
+                    .as_bool()
+                    .ok_or(anyhow!("could not parse {} - default-features", dep_name))?;
             }
 
             match table.get("path") {
                 None => {
-                    builder.version = table.get("version").unwrap().as_str().unwrap().to_string();
+                    builder.version = table
+                        .get("version")
+                        .ok_or(anyhow!("could not parse {} - version", dep_name))?
+                        .as_str()
+                        .ok_or(anyhow!("could not parse {} - version", dep_name))?
+                        .to_string();
                     builder.set_features_from_index()?;
                 }
                 Some(path) => {
-                    let path = path.as_str().unwrap().to_string();
+
+                    let path = path
+                        .as_str()
+                        .ok_or(anyhow!("could not parse {} - path", dep_name))?
+                        .to_string();
+
+                    builder.origin = DependencyOrigin::Local(path.clone());
+
                     let path = "./".to_string() + &path + "/Cargo.toml";
 
-                    let toml_document = toml_edit::Document::from_str(
-                        &fs::read_to_string(path.clone()).map_err(|_| {
-                            anyhow::Error::msg(format!("could not load dependency at {}", path))
-                        })?,
-                    )?;
+                    let toml_document =
+                        toml_edit::Document::from_str(&fs::read_to_string(path.clone()).map_err(
+                            |_| anyhow!("could not find dependency {} - {}", dep_name, path),
+                        )?)?;
 
                     builder.set_data_from_toml(toml_document)?;
                 }
@@ -79,14 +98,16 @@ impl DependencyBuilder {
 
     fn set_data_from_toml(&mut self, toml: toml_edit::Document) -> anyhow::Result<()> {
         if let Some(features) = toml.get("features") {
-            let features = features.as_table().unwrap();
+            let features = features
+                .as_table()
+                .ok_or(anyhow!("could not parse {} - features", self.dep_name))?;
 
             for (feature_name, sub_features) in features {
                 self.all_features.insert(
                     feature_name.to_string(),
                     sub_features
                         .as_array()
-                        .unwrap()
+                        .ok_or(anyhow!("could not parse {} - features", self.dep_name))?
                         .iter()
                         .map(|x| x.as_str().unwrap().to_string())
                         .collect(),
@@ -94,25 +115,17 @@ impl DependencyBuilder {
             }
         }
 
-        if let Some(package) = toml.get("package") {
-            let package = package.as_table().unwrap();
-
-            if let Some(version) = package.get("version") {
-                self.version = version.as_str().unwrap().to_string();
-            }
-        }
-
         Ok(())
     }
     fn set_features_from_index(&mut self) -> anyhow::Result<()> {
         //todo cache
-        let index = crates_index::Index::new_cargo_default().unwrap();
+        let index = crates_index::Index::new_cargo_default()?;
 
-        let version_req = VersionReq::parse(&self.version).unwrap();
+        let version_req = VersionReq::parse(&self.version)?;
 
         let mut possible_versions: Vec<crates_index::Version> = index
             .crate_(&self.dep_name)
-            .unwrap()
+            .ok_or(anyhow!("could not find {} in local index", self.dep_name))?
             .versions()
             .iter()
             .filter(|version| version_req.matches(&Version::parse(version.version()).unwrap()))
@@ -126,7 +139,10 @@ impl DependencyBuilder {
         });
 
         match possible_versions.first() {
-            None => Err(Error::msg("no fitting version found")),
+            None => Err(anyhow!(
+                "could not find appropriate version for {} in local index",
+                self.dep_name
+            )),
             Some(version) => {
                 let mut all_features = version.features().clone();
 
@@ -191,7 +207,11 @@ impl DependencyBuilder {
         let mut new_crate = Dependency {
             dep_name: self.dep_name.to_string(),
             version: self.version.to_string(),
+
+            origin: self.origin.clone(),
+
             features_map,
+
             features: features.clone(),
             default_features: default_features.clone(),
         };

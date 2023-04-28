@@ -2,9 +2,10 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependency::Dependency;
+use crate::dependency::{Dependency, DependencyOrigin};
 use crate::dependency_builder::DependencyBuilder;
 
 pub struct Document {
@@ -17,8 +18,9 @@ pub struct Document {
 
 impl Document {
     pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
-        let file_content = fs::read_to_string(&path).unwrap();
-        let doc = toml_edit::Document::from_str(&file_content).unwrap();
+        let file_content =
+            fs::read_to_string(&path).map_err(|_| anyhow!("could not find Cargo.toml"))?;
+        let doc = toml_edit::Document::from_str(&file_content)?;
 
         let deps = match doc.get_key_value("dependencies") {
             None => return Err(anyhow::Error::msg("no dependencies were found")),
@@ -56,28 +58,39 @@ impl Document {
         let (_name, deps) = self.toml_doc.get_key_value_mut("dependencies").unwrap();
         let deps = deps.as_table_mut().unwrap();
 
-        let current_crate = self.deps.get(dep_index).unwrap();
+        let dependency = self.deps.get(dep_index).unwrap();
 
-        if !current_crate.can_use_default() || !current_crate.get_enabled_features().is_empty() {
+        if !dependency.can_use_default()
+            || !dependency.get_enabled_features().is_empty()
+            || dependency.origin != DependencyOrigin::Remote
+        {
             let mut table = InlineTable::new();
 
-            //version
-            table.insert(
-                "version",
-                Value::String(Formatted::new(current_crate.get_version())),
-            );
-
-            //features
-            let mut features = Array::new();
-
-            for name in current_crate.get_enabled_features() {
-                features.push(Value::String(Formatted::new(name)));
+            if let DependencyOrigin::Local(path) = &dependency.origin {
+                table.insert("path", Value::String(Formatted::new(path.to_string())));
             }
 
-            table.insert("features", Value::Array(features));
+            //version
+            if !dependency.version.is_empty() {
+                table.insert(
+                    "version",
+                    Value::String(Formatted::new(dependency.get_version())),
+                );
+            }
+
+            //features
+            if !dependency.get_enabled_features().is_empty() {
+                let mut features = Array::new();
+
+                for name in dependency.get_enabled_features() {
+                    features.push(Value::String(Formatted::new(name)));
+                }
+
+                table.insert("features", Value::Array(features));
+            }
 
             //default-feature
-            let uses_default = current_crate.can_use_default();
+            let uses_default = dependency.can_use_default();
             if !uses_default {
                 table.insert(
                     "default-features",
@@ -86,13 +99,13 @@ impl Document {
             }
 
             deps.insert(
-                &current_crate.get_name(),
+                &dependency.get_name(),
                 Item::Value(Value::InlineTable(table)),
             );
         } else {
             deps.insert(
-                &current_crate.get_name(),
-                Item::Value(Value::String(Formatted::new(current_crate.get_version()))),
+                &dependency.get_name(),
+                Item::Value(Value::String(Formatted::new(dependency.get_version()))),
             );
         }
 

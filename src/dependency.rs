@@ -4,6 +4,8 @@ pub struct Dependency {
     pub(crate) dep_name: String,
     pub(crate) version: String,
 
+    pub(crate) origin: DependencyOrigin,
+
     pub(crate) features_map: HashMap<String, Vec<String>>,
     pub(crate) features: Vec<(String, bool)>,
     pub(crate) default_features: Vec<String>,
@@ -157,4 +159,10 @@ impl Dependency {
 
         None
     }
+}
+
+#[derive(PartialEq, Clone)]
+pub enum DependencyOrigin {
+    Local(String),
+    Remote,
 }
