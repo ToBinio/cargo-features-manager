@@ -82,10 +82,7 @@ impl Document {
             let mut features = Array::new();
 
             for name in dependency.get_enabled_features() {
-                //filter features which are already required by another feature
-                if dependency.get_currently_required_features(&name).is_empty() {
-                    features.push(Value::String(Formatted::new(name)));
-                }
+                features.push(Value::String(Formatted::new(name)));
             }
 
             if !features.is_empty() {

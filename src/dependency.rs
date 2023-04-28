@@ -68,6 +68,7 @@ impl Dependency {
             .filter(|(_, enabled)| *enabled)
             .map(|(name, _)| name.clone())
             .filter(|name| !default_features.contains(name))
+            .filter(|name| self.get_currently_required_features(&name).is_empty())
             .collect()
     }
 
