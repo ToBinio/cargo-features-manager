@@ -17,6 +17,8 @@ pub struct DependencyBuilder {
 
     all_features: HashMap<String, Vec<String>>,
 
+    optional_dependency: Vec<String>,
+
     enabled_features: Vec<String>,
     uses_default: bool,
 }
@@ -31,6 +33,8 @@ impl DependencyBuilder {
             origin: DependencyOrigin::Remote,
 
             all_features: HashMap::new(),
+
+            optional_dependency: vec![],
 
             enabled_features: vec![],
             uses_default: true,
@@ -73,7 +77,6 @@ impl DependencyBuilder {
                     builder.set_features_from_index()?;
                 }
                 Some(path) => {
-
                     let path = path
                         .as_str()
                         .ok_or(anyhow!("could not parse {} - path", dep_name))?
@@ -115,6 +118,25 @@ impl DependencyBuilder {
             }
         }
 
+        if let Some(dependencies) = toml.get("dependencies") {
+            let dependencies = dependencies
+                .as_table()
+                .ok_or(anyhow!("could not parse {} - dependencies", self.dep_name))?;
+
+            for (dep_name, data) in dependencies {
+                if let Some(data) = data.as_inline_table() {
+                    if let Some(optional) = data.get("optional") {
+                        if optional
+                            .as_bool()
+                            .ok_or(anyhow!("could not parse {} - dependencies", self.dep_name))?
+                        {
+                            self.optional_dependency.push(dep_name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
     fn set_features_from_index(&mut self) -> anyhow::Result<()> {
@@ -144,16 +166,14 @@ impl DependencyBuilder {
                 self.dep_name
             )),
             Some(version) => {
-                let mut all_features = version.features().clone();
-
                 // add indirect features (features out of dependency)
                 for dep in version.dependencies() {
                     if dep.is_optional() {
-                        all_features.insert(dep.name().to_string(), vec![]);
+                        self.optional_dependency.push(dep.name().to_string());
                     }
                 }
 
-                self.all_features = all_features;
+                self.all_features = version.features().clone();
                 Ok(())
             }
         }
@@ -181,12 +201,28 @@ impl DependencyBuilder {
 
         let mut features = vec![];
 
-        // flatten features
+        //flatten features
         for (name, sub) in &features_map {
             features.push((name.clone(), false));
 
             for name in sub {
                 features.push((name.clone(), false));
+            }
+        }
+
+        //add Optional dependencies
+        for dep_name in &self.optional_dependency {
+            let mut is_defined = false;
+
+            for (_, sub_features) in &self.all_features {
+                if sub_features.contains(&("dep:".to_string() + dep_name)) {
+                    is_defined = true;
+                    break;
+                }
+            }
+
+            if !is_defined {
+                features.push((dep_name.to_string(), false));
             }
         }
 
