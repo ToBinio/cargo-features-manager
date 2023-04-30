@@ -1,11 +1,11 @@
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
-use crossterm::{execute, queue};
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{Event, KeyCode, KeyEventKind, read};
+use crossterm::event::{read, Event, KeyCode, KeyEventKind};
 use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
-use crossterm::terminal::{Clear, ClearType, size};
+use crossterm::terminal::{size, Clear, ClearType};
+use crossterm::{execute, queue};
 
 use crate::document::Document;
 
@@ -146,7 +146,6 @@ impl Display {
         )?;
 
         for feature_name in &self.feature_selector.data[self.get_max_range()] {
-
             let data = dep.get_feature(feature_name);
 
             if data.is_default {
@@ -237,11 +236,7 @@ impl Display {
                             }
                         }
                         DisplayState::FeatureSelect => {
-                            let dep = self
-                                .document
-                                .get_deps_mut()
-                                .get_mut(*self.dep_selector.get_selected())
-                                .unwrap();
+                            let dep = self.document.get_dep_mut(*self.dep_selector.get_selected());
 
                             dep.toggle_feature_usage(self.feature_selector.get_selected());
 
@@ -285,7 +280,10 @@ impl Display {
         let mut offset = 0;
 
         if let DisplayState::FeatureSelect = self.state {
-            let dep = self.document.get_dep(*self.dep_selector.get_selected()).unwrap();
+            let dep = self
+                .document
+                .get_dep(*self.dep_selector.get_selected())
+                .unwrap();
 
             let feature_name = self.feature_selector.get_selected();
             let data = dep.get_feature(feature_name);
@@ -328,7 +326,7 @@ impl<T> Selector<T> {
         self.selected = selected_temp as usize;
     }
 
-    fn get_selected(&self) -> &T{
+    fn get_selected(&self) -> &T {
         self.data.get(self.selected).unwrap()
     }
 }
