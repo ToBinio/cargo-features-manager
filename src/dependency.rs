@@ -19,7 +19,7 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features_as_vec(&self) -> Vec<(&String, &FeatureData)> {
+    pub fn get_features_filtered_view(&self) -> Vec<String> {
         let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
         features.sort_by(|(name_a, data_a), (name_b, data_b)| {
@@ -34,7 +34,11 @@ impl Dependency {
             name_a.partial_cmp(name_b).unwrap()
         });
 
-        features
+        features.iter().map(|(name, _)| name.to_string()).collect()
+    }
+
+    pub fn get_feature(&self, feature_name: &String) -> &FeatureData {
+        self.features.get(feature_name).unwrap()
     }
 
     pub fn has_features(&self) -> bool {
@@ -139,6 +143,7 @@ pub enum DependencyOrigin {
     Remote,
 }
 
+#[derive(Clone)]
 pub struct FeatureData {
     pub(crate) sub_features: Vec<String>,
     pub(crate) is_default: bool,

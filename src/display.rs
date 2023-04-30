@@ -1,11 +1,11 @@
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
-use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{read, Event, KeyCode, KeyEventKind};
-use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
-use crossterm::terminal::{size, Clear, ClearType};
 use crossterm::{execute, queue};
+use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::event::{Event, KeyCode, KeyEventKind, read};
+use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
+use crossterm::terminal::{Clear, ClearType, size};
 
 use crate::document::Document;
 
@@ -14,8 +14,8 @@ pub struct Display {
 
     document: Document,
 
-    dep_selector: Selector,
-    feature_selector: Selector,
+    dep_selector: Selector<usize>,
+    feature_selector: Selector<String>,
 
     state: DisplayState,
 }
@@ -24,16 +24,23 @@ impl Display {
     pub fn new() -> anyhow::Result<Display> {
         let document = Document::new("./Cargo.toml")?;
 
+        let mut dep_vec = vec![];
+
+        for (index, _) in document.get_deps().iter().enumerate() {
+            dep_vec.push(index);
+        }
+
         Ok(Display {
             stdout: stdout(),
 
             dep_selector: Selector {
                 selected: 0,
-                length: document.get_deps().len(),
+                data: dep_vec,
             },
+
             feature_selector: Selector {
                 selected: 0,
-                length: 0,
+                data: vec![],
             },
 
             document,
@@ -61,12 +68,10 @@ impl Display {
     fn selected_dep(&mut self) {
         self.state = DisplayState::FeatureSelect;
 
-        // set max length to feature count of current feature
-        self.feature_selector.length = self
-            .document
-            .get_dep(self.dep_selector.selected)
-            .unwrap()
-            .get_features_count();
+        let dep = self.document.get_dep(self.dep_selector.selected).unwrap();
+
+        // update selector
+        self.feature_selector.data = dep.get_features_filtered_view();
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -140,7 +145,10 @@ impl Display {
             Print(format!("{} {}", dep.get_name(), dep.get_version()))
         )?;
 
-        for (feature_name, data) in &dep.get_features_as_vec()[self.get_max_range()] {
+        for feature_name in &self.feature_selector.data[self.get_max_range()] {
+
+            let data = dep.get_feature(feature_name);
+
             if data.is_default {
                 queue!(self.stdout, SetForegroundColor(Color::Green))?;
             }
@@ -219,7 +227,7 @@ impl Display {
                         DisplayState::DepSelect => {
                             if self
                                 .document
-                                .get_dep(self.dep_selector.selected)?
+                                .get_dep(*self.dep_selector.get_selected())?
                                 .has_features()
                             {
                                 self.selected_dep();
@@ -232,18 +240,10 @@ impl Display {
                             let dep = self
                                 .document
                                 .get_deps_mut()
-                                .get_mut(self.dep_selector.selected)
+                                .get_mut(*self.dep_selector.get_selected())
                                 .unwrap();
 
-                            //todo better
-                            let feature_name = dep
-                                .get_features_as_vec()
-                                .get(self.feature_selector.selected)
-                                .unwrap()
-                                .0
-                                .clone();
-
-                            dep.toggle_feature_usage(&feature_name);
+                            dep.toggle_feature_usage(self.feature_selector.get_selected());
 
                             self.document.write_dep(self.dep_selector.selected);
                         }
@@ -285,11 +285,10 @@ impl Display {
         let mut offset = 0;
 
         if let DisplayState::FeatureSelect = self.state {
-            let current_crate = self.document.get_dep(self.dep_selector.selected).unwrap();
+            let dep = self.document.get_dep(*self.dep_selector.get_selected()).unwrap();
 
-            let features = current_crate.get_features_as_vec();
-
-            let (_, data) = features.get(self.feature_selector.selected).unwrap();
+            let feature_name = self.feature_selector.get_selected();
+            let data = dep.get_feature(feature_name);
 
             if !data.sub_features.is_empty() {
                 offset = 1;
@@ -311,20 +310,25 @@ enum DisplayState {
     FeatureSelect,
 }
 
-struct Selector {
+struct Selector<T> {
     selected: usize,
-    length: usize,
+
+    data: Vec<T>,
 }
 
-impl Selector {
+impl<T> Selector<T> {
     fn shift(&mut self, shift: isize) {
         let mut selected_temp = self.selected as isize;
 
-        selected_temp += self.length as isize;
+        selected_temp += self.data.len() as isize;
         selected_temp += shift;
 
-        selected_temp %= self.length as isize;
+        selected_temp %= self.data.len() as isize;
 
         self.selected = selected_temp as usize;
+    }
+
+    fn get_selected(&self) -> &T{
+        self.data.get(self.selected).unwrap()
     }
 }
