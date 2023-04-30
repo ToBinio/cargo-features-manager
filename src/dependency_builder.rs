@@ -213,7 +213,7 @@ impl DependencyBuilder {
         for dep_name in &self.optional_dependency {
             let mut is_defined = false;
 
-            for (_, sub_features) in &self.all_features {
+            for sub_features in self.all_features.values() {
                 if sub_features.contains(&("dep:".to_string() + dep_name)) {
                     is_defined = true;
                     break;
@@ -253,7 +253,7 @@ impl DependencyBuilder {
         let mut features_to_enable = vec![];
 
         for (name, data) in &new_crate.features {
-            if (self.uses_default && data.is_default) || self.enabled_features.contains(&name) {
+            if (self.uses_default && data.is_default) || self.enabled_features.contains(name) {
                 features_to_enable.push(name.clone())
             }
         }

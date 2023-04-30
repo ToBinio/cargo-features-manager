@@ -20,7 +20,7 @@ impl Dependency {
     }
 
     pub fn get_features_as_vec(&self) -> Vec<(&String, &FeatureData)> {
-        let mut features : Vec<(&String, &FeatureData)> = self.features.iter().collect();
+        let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
         features.sort_by(|(name_a, data_a), (name_b, data_b)| {
             if data_a.is_default && !data_b.is_default {
@@ -46,7 +46,7 @@ impl Dependency {
     }
 
     pub fn can_use_default(&self) -> bool {
-        for (_, data) in &self.features {
+        for data in self.features.values() {
             if data.is_default && !data.is_enabled {
                 return false;
             }
@@ -63,7 +63,7 @@ impl Dependency {
             .filter(|(_, data)| data.is_enabled)
             .filter(|(_, data)| !can_use_default || !data.is_default)
             .map(|(name, _)| name.clone())
-            .filter(|name| self.get_currently_dependent_features(&name).is_empty())
+            .filter(|name| self.get_currently_dependent_features(name).is_empty())
             .collect()
     }
 
@@ -86,7 +86,6 @@ impl Dependency {
         }
 
         data.is_enabled = true;
-
 
         //enable sub features
         let sub_features = data.sub_features.clone();
@@ -132,7 +131,6 @@ impl Dependency {
             .map(|s| s.to_string())
             .collect()
     }
-
 }
 
 #[derive(PartialEq, Clone)]

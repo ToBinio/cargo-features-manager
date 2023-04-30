@@ -180,7 +180,7 @@ impl Display {
                     let mut sub_features_str = "".to_string();
 
                     for sub_feature in sub_features {
-                        sub_features_str += &sub_feature;
+                        sub_features_str += sub_feature;
                         sub_features_str += " ";
                     }
 
