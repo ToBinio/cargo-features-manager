@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 pub struct Dependency {
@@ -6,9 +7,7 @@ pub struct Dependency {
 
     pub(crate) origin: DependencyOrigin,
 
-    pub(crate) features_map: HashMap<String, Vec<String>>,
-    pub(crate) features: Vec<(String, bool)>,
-    pub(crate) default_features: Vec<String>,
+    pub(crate) features: HashMap<String, FeatureData>,
 }
 
 impl Dependency {
@@ -20,8 +19,22 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features(&self) -> Vec<(String, bool)> {
-        self.features.clone()
+    pub fn get_features_as_vec(&self) -> Vec<(&String, &FeatureData)> {
+        let mut features : Vec<(&String, &FeatureData)> = self.features.iter().collect();
+
+        features.sort_by(|(name_a, data_a), (name_b, data_b)| {
+            if data_a.is_default && !data_b.is_default {
+                return Ordering::Less;
+            }
+
+            if data_b.is_default && !data_a.is_default {
+                return Ordering::Greater;
+            }
+
+            name_a.partial_cmp(name_b).unwrap()
+        });
+
+        features
     }
 
     pub fn has_features(&self) -> bool {
@@ -32,23 +45,9 @@ impl Dependency {
         self.features.len()
     }
 
-    pub fn get_sub_features(&self, name: &String) -> Vec<String> {
-        self.features_map.get(name).unwrap_or(&vec![]).clone()
-    }
-
-    fn get_all_enabled_features(&self) -> Vec<String> {
-        self.features
-            .iter()
-            .filter(|(_, enabled)| *enabled)
-            .map(|(name, _)| name.clone())
-            .collect()
-    }
-
     pub fn can_use_default(&self) -> bool {
-        let enabled_features = self.get_all_enabled_features();
-
-        for name in &self.default_features {
-            if !enabled_features.contains(name) {
+        for (_, data) in &self.features {
+            if data.is_default && !data.is_enabled {
                 return false;
             }
         }
@@ -56,50 +55,41 @@ impl Dependency {
         true
     }
 
-    pub fn get_enabled_features(&self) -> Vec<String> {
-        let mut default_features = &vec![];
-
-        if self.can_use_default() {
-            default_features = &self.default_features;
-        }
+    pub fn get_features_to_enable(&self) -> Vec<String> {
+        let can_use_default = self.can_use_default();
 
         self.features
             .iter()
-            .filter(|(_, enabled)| *enabled)
+            .filter(|(_, data)| data.is_enabled)
+            .filter(|(_, data)| !can_use_default || !data.is_default)
             .map(|(name, _)| name.clone())
-            .filter(|name| !default_features.contains(name))
-            .filter(|name| self.get_currently_required_features(&name).is_empty())
+            .filter(|name| self.get_currently_dependent_features(&name).is_empty())
             .collect()
     }
 
-    pub fn toggle_feature_usage(&mut self, feature_index: usize) {
-        let (name, enabled) = self.features.get(feature_index).unwrap();
+    pub fn toggle_feature_usage(&mut self, feature_name: &String) {
+        let data = self.features.get(feature_name).unwrap();
 
-        if *enabled {
-            self.disable_feature_usage(&name.clone());
+        if data.is_enabled {
+            self.disable_feature_usage(feature_name);
         } else {
-            self.enable_feature_usage(&name.clone());
+            self.enable_feature_usage(feature_name);
         }
     }
 
     pub fn enable_feature_usage(&mut self, feature_name: &String) {
-        let index = self
-            .get_feature_index(feature_name)
-            .unwrap_or_else(|| panic!("feature named {} not found", feature_name));
-        let data = self.features.get_mut(index).unwrap();
+        let data = self.features.get_mut(feature_name).unwrap();
 
-        if data.1 {
+        if data.is_enabled {
             //early return to prevent loop
             return;
         }
 
-        data.1 = true;
+        data.is_enabled = true;
 
-        if !self.features_map.contains_key(feature_name) {
-            return;
-        }
 
-        let sub_features = self.features_map.get(feature_name).unwrap().clone();
+        //enable sub features
+        let sub_features = data.sub_features.clone();
 
         for sub_feature_name in sub_features {
             self.enable_feature_usage(&sub_feature_name);
@@ -107,28 +97,26 @@ impl Dependency {
     }
 
     pub fn disable_feature_usage(&mut self, feature_name: &String) {
-        let index = self
-            .get_feature_index(feature_name)
-            .unwrap_or_else(|| panic!("feature named {} not found", feature_name));
-        let data = self.features.get_mut(index).unwrap();
+        let data = self.features.get_mut(feature_name).unwrap();
 
-        if !data.1 {
+        if !data.is_enabled {
             //early return to prevent loop
             return;
         }
 
-        data.1 = false;
+        data.is_enabled = false;
 
-        for name in self.get_required_features(feature_name) {
+        for name in self.get_dependent_features(feature_name) {
             self.disable_feature_usage(&name)
         }
     }
 
-    fn get_required_features(&self, feature_name: &String) -> Vec<String> {
+    /// returns all features which require the feature to be enabled
+    fn get_dependent_features(&self, feature_name: &String) -> Vec<String> {
         let mut dep_features = vec![];
 
-        for (name, sub_features) in &self.features_map {
-            if sub_features.contains(feature_name) {
+        for (name, data) in &self.features {
+            if data.sub_features.contains(feature_name) {
                 dep_features.push(name.to_string())
             }
         }
@@ -136,34 +124,25 @@ impl Dependency {
         dep_features
     }
 
-    pub fn get_currently_required_features(&self, feature_name: &String) -> Vec<String> {
-        self.get_required_features(feature_name)
+    /// returns all features which are currently enabled and require the feature to be enabled
+    pub fn get_currently_dependent_features(&self, feature_name: &String) -> Vec<String> {
+        self.get_dependent_features(feature_name)
             .iter()
-            .filter(|name| {
-                let index = self.get_feature_index(name).unwrap();
-                self.features.get(index).unwrap().1
-            })
+            .filter(|name| self.features.get(*name).unwrap().is_enabled)
             .map(|s| s.to_string())
             .collect()
     }
 
-    pub fn is_default_feature(&self, feature_name: &String) -> bool {
-        self.default_features.contains(feature_name)
-    }
-
-    fn get_feature_index(&self, feature_name: &String) -> Option<usize> {
-        for (index, (name, _)) in self.features.iter().enumerate() {
-            if name == feature_name {
-                return Some(index);
-            }
-        }
-
-        None
-    }
 }
 
 #[derive(PartialEq, Clone)]
 pub enum DependencyOrigin {
     Local(String),
     Remote,
+}
+
+pub struct FeatureData {
+    pub(crate) sub_features: Vec<String>,
+    pub(crate) is_default: bool,
+    pub(crate) is_enabled: bool,
 }

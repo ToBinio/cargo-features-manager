@@ -140,21 +140,24 @@ impl Display {
             Print(format!("{} {}", dep.get_name(), dep.get_version()))
         )?;
 
-        for (feature_name, active) in &dep.get_features()[self.get_max_range()] {
-            if dep.is_default_feature(feature_name) {
+        for (feature_name, data) in &dep.get_features_as_vec()[self.get_max_range()] {
+            if data.is_default {
                 queue!(self.stdout, SetForegroundColor(Color::Green))?;
             }
 
             queue!(self.stdout, MoveTo(2, line_index), Print("["))?;
 
-            if *active {
+            if data.is_enabled {
                 queue!(self.stdout, MoveTo(3, line_index), Print("X"))?;
             }
 
             queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
 
-            if !dep.get_currently_required_features(feature_name).is_empty() {
+            if !dep
+                .get_currently_dependent_features(feature_name)
+                .is_empty()
+            {
                 queue!(
                     self.stdout,
                     SetForegroundColor(Color::from((100, 100, 100)))
@@ -167,7 +170,7 @@ impl Display {
             if index == self.feature_selector.selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
 
-                let sub_features = dep.get_sub_features(feature_name);
+                let sub_features = &data.sub_features;
 
                 if !sub_features.is_empty() {
                     line_index += 1;
@@ -226,11 +229,21 @@ impl Display {
                             }
                         }
                         DisplayState::FeatureSelect => {
-                            self.document
+                            let dep = self
+                                .document
                                 .get_deps_mut()
                                 .get_mut(self.dep_selector.selected)
+                                .unwrap();
+
+                            //todo better
+                            let feature_name = dep
+                                .get_features_as_vec()
+                                .get(self.feature_selector.selected)
                                 .unwrap()
-                                .toggle_feature_usage(self.feature_selector.selected);
+                                .0
+                                .clone();
+
+                            dep.toggle_feature_usage(&feature_name);
 
                             self.document.write_dep(self.dep_selector.selected);
                         }
@@ -274,14 +287,11 @@ impl Display {
         if let DisplayState::FeatureSelect = self.state {
             let current_crate = self.document.get_dep(self.dep_selector.selected).unwrap();
 
-            let feature_name = current_crate
-                .get_features()
-                .get(self.feature_selector.selected)
-                .unwrap()
-                .0
-                .clone();
+            let features = current_crate.get_features_as_vec();
 
-            if !current_crate.get_sub_features(&feature_name).is_empty() {
+            let (_, data) = features.get(self.feature_selector.selected).unwrap();
+
+            if !data.sub_features.is_empty() {
                 offset = 1;
             }
         }
