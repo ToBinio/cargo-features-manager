@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs;
 use std::str::FromStr;
@@ -7,7 +6,7 @@ use anyhow::anyhow;
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
-use crate::dependency::{Dependency, DependencyOrigin};
+use crate::dependency::{Dependency, DependencyOrigin, FeatureData};
 
 pub struct DependencyBuilder {
     dep_name: String,
@@ -199,14 +198,14 @@ impl DependencyBuilder {
 
         let default_features = self.all_features.get("default").unwrap_or(&vec![]).clone();
 
-        let mut features = vec![];
+        let mut unique_features = vec![];
 
         //flatten features
         for (name, sub) in &features_map {
-            features.push((name.clone(), false));
+            unique_features.push(name.clone());
 
             for name in sub {
-                features.push((name.clone(), false));
+                unique_features.push(name.clone());
             }
         }
 
@@ -214,7 +213,7 @@ impl DependencyBuilder {
         for dep_name in &self.optional_dependency {
             let mut is_defined = false;
 
-            for (_, sub_features) in &self.all_features {
+            for sub_features in self.all_features.values() {
                 if sub_features.contains(&("dep:".to_string() + dep_name)) {
                     is_defined = true;
                     break;
@@ -222,23 +221,24 @@ impl DependencyBuilder {
             }
 
             if !is_defined {
-                features.push((dep_name.to_string(), false));
+                unique_features.push(dep_name.to_string());
             }
         }
 
-        features.sort_by(|(name_a, _), (name_b, _)| {
-            if default_features.contains(name_a) && !default_features.contains(name_b) {
-                return Ordering::Less;
-            }
+        unique_features.dedup();
 
-            if default_features.contains(name_b) && !default_features.contains(name_a) {
-                return Ordering::Greater;
-            }
+        let mut features = HashMap::new();
 
-            name_a.partial_cmp(name_b).unwrap()
-        });
-
-        features.dedup();
+        for name in unique_features {
+            features.insert(
+                name.clone(),
+                FeatureData {
+                    sub_features: features_map.get(&name).unwrap_or(&vec![]).clone(),
+                    is_default: default_features.contains(&name),
+                    is_enabled: false,
+                },
+            );
+        }
 
         let mut new_crate = Dependency {
             dep_name: self.dep_name.to_string(),
@@ -246,19 +246,20 @@ impl DependencyBuilder {
 
             origin: self.origin.clone(),
 
-            features_map,
-
-            features: features.clone(),
-            default_features: default_features.clone(),
+            features,
         };
 
         //enable features
-        for (name, _) in features {
-            if (self.uses_default && default_features.contains(&name))
-                || self.enabled_features.contains(&name)
-            {
-                new_crate.enable_feature_usage(&name);
+        let mut features_to_enable = vec![];
+
+        for (name, data) in &new_crate.features {
+            if (self.uses_default && data.is_default) || self.enabled_features.contains(name) {
+                features_to_enable.push(name.clone())
             }
+        }
+
+        for name in features_to_enable {
+            new_crate.enable_feature_usage(&name);
         }
 
         new_crate

@@ -50,8 +50,8 @@ impl Document {
         }
     }
 
-    pub fn get_deps_mut(&mut self) -> &mut Vec<Dependency> {
-        &mut self.deps
+    pub fn get_dep_mut(&mut self, index: usize) -> &mut Dependency {
+        self.deps.get_mut(index).unwrap()
     }
 
     pub fn write_dep(&mut self, dep_index: usize) {
@@ -61,7 +61,7 @@ impl Document {
         let dependency = self.deps.get(dep_index).unwrap();
 
         if !dependency.can_use_default()
-            || !dependency.get_enabled_features().is_empty()
+            || !dependency.get_features_to_enable().is_empty()
             || dependency.origin != DependencyOrigin::Remote
         {
             let mut table = InlineTable::new();
@@ -81,7 +81,7 @@ impl Document {
             //features
             let mut features = Array::new();
 
-            for name in dependency.get_enabled_features() {
+            for name in dependency.get_features_to_enable() {
                 features.push(Value::String(Formatted::new(name)));
             }
 
