@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use levenshtein::levenshtein;
+
 pub struct Dependency {
     pub(crate) dep_name: String,
     pub(crate) version: String,
@@ -19,20 +21,33 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features_filtered_view(&self) -> Vec<String> {
+    pub fn get_features_filtered_view(&self, filter: String) -> Vec<String> {
         let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
-        features.sort_by(|(name_a, data_a), (name_b, data_b)| {
-            if data_a.is_default && !data_b.is_default {
-                return Ordering::Less;
-            }
+        if filter.is_empty() {
+            features.sort_by(|(name_a, data_a), (name_b, data_b)| {
+                if data_a.is_default && !data_b.is_default {
+                    return Ordering::Less;
+                }
 
-            if data_b.is_default && !data_a.is_default {
-                return Ordering::Greater;
-            }
+                if data_b.is_default && !data_a.is_default {
+                    return Ordering::Greater;
+                }
 
-            name_a.partial_cmp(name_b).unwrap()
-        });
+                name_a.partial_cmp(name_b).unwrap()
+            });
+        } else {
+            features = features
+                .iter()
+                .filter(|(name, _data)| name.contains(&filter))
+                .cloned()
+                .collect();
+
+            features.sort_by(|(name_a, _), (name_b, _)| {
+                //todo cache
+                levenshtein(name_a, &filter).cmp(&levenshtein(name_b, &filter))
+            });
+        }
 
         features.iter().map(|(name, _)| name.to_string()).collect()
     }

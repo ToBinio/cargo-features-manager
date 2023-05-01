@@ -17,6 +17,7 @@ anyhow = "1.0.70"
 clap = { version = "4.2.4", features = ["derive"] }
 crates-index = "0.19.8"
 crossterm = "0.26.1"
+levenshtein = "1.0.5"
 semver = "1.0.17"
 toml_edit = "0.19.8"
 

@@ -3,6 +3,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use levenshtein::levenshtein;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependency::{Dependency, DependencyOrigin};
@@ -39,8 +40,27 @@ impl Document {
         })
     }
 
-    pub fn get_deps(&self) -> &Vec<Dependency> {
-        &self.deps
+    pub fn get_deps_filtered_view(&self, filter: String) -> Vec<usize> {
+        let mut dep_vec = vec![];
+
+        for (index, dep) in self.deps.iter().enumerate() {
+            dep_vec.push((index, dep.get_name()));
+        }
+
+        if !filter.is_empty() {
+            dep_vec = dep_vec
+                .iter()
+                .filter(|(_, name)| name.contains(&filter))
+                .cloned()
+                .collect();
+
+            dep_vec.sort_by(|(_, name_a), (_, name_b)| {
+                //todo cache
+                levenshtein(name_a, &filter).cmp(&levenshtein(name_b, &filter))
+            });
+        }
+
+        dep_vec.iter().map(|(index, _)| *index).collect()
     }
 
     pub fn get_dep(&self, index: usize) -> anyhow::Result<&Dependency> {
@@ -48,6 +68,19 @@ impl Document {
             None => Err(anyhow::Error::msg("out of bounce")),
             Some(some) => Ok(some),
         }
+    }
+
+    pub fn get_dep_index(&self, name: &String) -> anyhow::Result<usize> {
+        for (index, current_crate) in self.deps.iter().enumerate() {
+            if &current_crate.get_name() == name {
+                return Ok(index);
+            }
+        }
+
+        Err(anyhow::Error::msg(format!(
+            "dependency \"{}\" could not be found",
+            name
+        )))
     }
 
     pub fn get_dep_mut(&mut self, index: usize) -> &mut Dependency {

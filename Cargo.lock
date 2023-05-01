@@ -77,6 +77,7 @@ dependencies = [
  "clap",
  "crates-index",
  "crossterm",
+ "levenshtein",
  "semver",
  "toml_edit",
 ]
@@ -386,6 +387,12 @@ checksum = "936cfd212a0155903bcbc060e316fb6cc7cbf2e1907329391ebadc1fe0ce77c2"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "levenshtein"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db13adb97ab515a3691f56e4dbab09283d0b86cb45abd991d8634a9d6f501760"
 
 [[package]]
 name = "libc"
