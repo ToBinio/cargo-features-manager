@@ -63,7 +63,10 @@ impl Display {
     fn selected_dep(&mut self) {
         self.state = DisplayState::FeatureSelect;
 
-        let dep = self.document.get_dep(*self.dep_selector.get_selected().unwrap()).unwrap();
+        let dep = self
+            .document
+            .get_dep(*self.dep_selector.get_selected().unwrap())
+            .unwrap();
 
         // update selector
         self.feature_selector.data = dep.get_features_filtered_view(self.search_text.clone());
@@ -73,7 +76,12 @@ impl Display {
         execute!(self.stdout, Hide, Clear(ClearType::All))?;
 
         loop {
-            queue!(self.stdout, MoveTo(0, 0), Clear(ClearType::FromCursorDown), Hide)?;
+            queue!(
+                self.stdout,
+                MoveTo(0, 0),
+                Clear(ClearType::FromCursorDown),
+                Hide
+            )?;
 
             match self.state {
                 DisplayState::DepSelect => self.display_deps()?,

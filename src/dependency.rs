@@ -37,12 +37,7 @@ impl Dependency {
                 name_a.partial_cmp(name_b).unwrap()
             });
         } else {
-            features = features
-                .iter()
-                .filter(|(name, _data)| name.contains(&filter))
-                .cloned()
-                .collect();
-
+            features.retain(|(name, _)| name.contains(&filter));
             features.sort_by(|(name_a, _), (name_b, _)| {
                 //todo cache
                 levenshtein(name_a, &filter).cmp(&levenshtein(name_b, &filter))

@@ -48,12 +48,7 @@ impl Document {
         }
 
         if !filter.is_empty() {
-            dep_vec = dep_vec
-                .iter()
-                .filter(|(_, name)| name.contains(&filter))
-                .cloned()
-                .collect();
-
+            dep_vec.retain(|(_, name)| name.contains(&filter));
             dep_vec.sort_by(|(_, name_a), (_, name_b)| {
                 //todo cache
                 levenshtein(name_a, &filter).cmp(&levenshtein(name_b, &filter))
