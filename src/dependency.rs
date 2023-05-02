@@ -1,3 +1,5 @@
+use bitap::Pattern;
+use clap::builder::Str;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -36,15 +38,22 @@ impl Dependency {
 
                 name_a.partial_cmp(name_b).unwrap()
             });
-        } else {
-            features.retain(|(name, _)| name.contains(&filter));
-            features.sort_by(|(name_a, _), (name_b, _)| {
-                //todo cache
-                levenshtein(name_a, &filter).cmp(&levenshtein(name_b, &filter))
-            });
-        }
 
-        features.iter().map(|(name, _)| name.to_string()).collect()
+            features.iter().map(|(name, _)| name.to_string()).collect()
+        } else {
+            let pattern = Pattern::new(&filter).unwrap();
+            let max_diff = (filter.len() as f32).log(3.0) as usize;
+
+            let mut features: Vec<(String, usize)> = features
+                .iter()
+                .filter(|(name, _)| pattern.lev(&name, max_diff).next().is_some())
+                .map(|(name, _)| (name.to_string(), levenshtein(name, &filter)))
+                .collect();
+
+            features.sort_by(|(_, lev_a), (_, lev_b)| lev_a.cmp(lev_b));
+
+            features.iter().map(|(name, _)| name.to_string()).collect()
+        }
     }
 
     pub fn get_feature(&self, feature_name: &String) -> &FeatureData {

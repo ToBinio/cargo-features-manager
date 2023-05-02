@@ -3,6 +3,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use bitap::Pattern;
 use levenshtein::levenshtein;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
@@ -48,14 +49,21 @@ impl Document {
         }
 
         if !filter.is_empty() {
-            dep_vec.retain(|(_, name)| name.contains(&filter));
-            dep_vec.sort_by(|(_, name_a), (_, name_b)| {
-                //todo cache
-                levenshtein(name_a, &filter).cmp(&levenshtein(name_b, &filter))
-            });
-        }
+            let pattern = Pattern::new(&filter).unwrap();
+            let max_diff = (filter.len() as f32).log(3.0) as usize;
 
-        dep_vec.iter().map(|(index, _)| *index).collect()
+            let mut dep_vec: Vec<(usize, usize)> = dep_vec
+                .iter()
+                .filter(|(_, name)| pattern.lev(&name, max_diff).next().is_some())
+                .map(|(index, name)| (*index, levenshtein(name, &filter)))
+                .collect();
+
+            dep_vec.sort_by(|(_, lev_a), (_, lev_b)| lev_a.cmp(lev_b));
+
+            dep_vec.iter().map(|(index, _)| *index).collect()
+        } else {
+            dep_vec.iter().map(|(index, _)| *index).collect()
+        }
     }
 
     pub fn get_dep(&self, index: usize) -> anyhow::Result<&Dependency> {
