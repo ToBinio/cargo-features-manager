@@ -256,21 +256,25 @@ impl Display {
                     }
 
                     //selection
-                    (KeyCode::Enter, DisplayState::DepSelect, false) => {
-                        self.search_text = "".to_string();
+                    (KeyCode::Enter, DisplayState::DepSelect, false)
+                    | (KeyCode::Char(' '), DisplayState::DepSelect, false) => {
+                        if self.dep_selector.has_data() {
+                            self.search_text = "".to_string();
 
-                        if self
-                            .document
-                            .get_dep(*self.dep_selector.get_selected().unwrap())?
-                            .has_features()
-                        {
-                            self.selected_dep();
+                            if self
+                                .document
+                                .get_dep(*self.dep_selector.get_selected().unwrap())?
+                                .has_features()
+                            {
+                                self.selected_dep();
 
-                            //needed to wrap
-                            self.feature_selector.shift(0);
+                                //needed to wrap
+                                self.feature_selector.shift(0);
+                            }
                         }
                     }
-                    (KeyCode::Enter, DisplayState::FeatureSelect, false) => {
+                    (KeyCode::Enter, DisplayState::FeatureSelect, false)
+                    | (KeyCode::Char(' '), DisplayState::FeatureSelect, false) => {
                         if self.feature_selector.has_data() {
                             let dep = self
                                 .document
@@ -283,8 +287,8 @@ impl Display {
                     }
 
                     //typing
-                    (KeyCode::Char(' '), _, _) => {
-                        self.is_type_mode = !self.is_type_mode;
+                    (KeyCode::Char('s'), _, false) => {
+                        self.is_type_mode = true;
 
                         match self.state {
                             DisplayState::DepSelect => {
@@ -294,6 +298,14 @@ impl Display {
                                 self.feature_selector.selected = 0;
                             }
                         }
+                    }
+                    (KeyCode::Char('r'), _, false) => {
+                        self.search_text = "".to_string();
+
+                        self.update_selected_data();
+                    }
+                    (KeyCode::Enter, _, true) => {
+                        self.is_type_mode = false;
                     }
                     (KeyCode::Char(char), _, true) => {
                         self.search_text += char.to_string().as_str();
