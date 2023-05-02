@@ -54,7 +54,7 @@ impl Document {
 
             let mut dep_vec: Vec<(usize, usize)> = dep_vec
                 .iter()
-                .filter(|(_, name)| pattern.lev(&name, max_diff).next().is_some())
+                .filter(|(_, name)| pattern.lev(name, max_diff).next().is_some())
                 .map(|(index, name)| (*index, levenshtein(name, &filter)))
                 .collect();
 

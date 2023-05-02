@@ -1,5 +1,4 @@
 use bitap::Pattern;
-use clap::builder::Str;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -46,7 +45,7 @@ impl Dependency {
 
             let mut features: Vec<(String, usize)> = features
                 .iter()
-                .filter(|(name, _)| pattern.lev(&name, max_diff).next().is_some())
+                .filter(|(name, _)| pattern.lev(name, max_diff).next().is_some())
                 .map(|(name, _)| (name.to_string(), levenshtein(name, &filter)))
                 .collect();
 
@@ -62,10 +61,6 @@ impl Dependency {
 
     pub fn has_features(&self) -> bool {
         !self.features.is_empty()
-    }
-
-    pub fn get_features_count(&self) -> usize {
-        self.features.len()
     }
 
     pub fn can_use_default(&self) -> bool {
