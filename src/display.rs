@@ -304,7 +304,7 @@ impl Display {
 
                         self.update_selected_data();
                     }
-                    (KeyCode::Enter, _, true) => {
+                    (KeyCode::Enter, _, true) | (KeyCode::Down, _, true) => {
                         self.is_type_mode = false;
                     }
                     (KeyCode::Char(char), _, true) => {
