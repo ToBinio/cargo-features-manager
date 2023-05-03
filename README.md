@@ -53,3 +53,13 @@ When hovering above a feature it shows other features which the selected feature
 Features which an active feature requires are marked grey.
 
 ![greyFeature](resources/greyFeature.png)
+
+### search mode
+
+<kbd>s</kbd> to start searching
+
+When in search-mode you can type normally.
+
+<kbd>Enter</kbd> | <kbd>↓</kbd> to leave search-mode
+
+<kbd>r</kbd> to reset / clear current search

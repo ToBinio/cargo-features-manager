@@ -3,6 +3,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use bitap::Pattern;
+use levenshtein::levenshtein;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependency::{Dependency, DependencyOrigin};
@@ -39,8 +41,29 @@ impl Document {
         })
     }
 
-    pub fn get_deps(&self) -> &Vec<Dependency> {
-        &self.deps
+    pub fn get_deps_filtered_view(&self, filter: String) -> Vec<usize> {
+        let mut dep_vec = vec![];
+
+        for (index, dep) in self.deps.iter().enumerate() {
+            dep_vec.push((index, dep.get_name()));
+        }
+
+        if !filter.is_empty() {
+            let pattern = Pattern::new(&filter).unwrap();
+            let max_diff = (filter.len() as f32).log(3.0) as usize;
+
+            let mut dep_vec: Vec<(usize, usize)> = dep_vec
+                .iter()
+                .filter(|(_, name)| pattern.lev(name, max_diff).next().is_some())
+                .map(|(index, name)| (*index, levenshtein(name, &filter)))
+                .collect();
+
+            dep_vec.sort_by(|(_, lev_a), (_, lev_b)| lev_a.cmp(lev_b));
+
+            dep_vec.iter().map(|(index, _)| *index).collect()
+        } else {
+            dep_vec.iter().map(|(index, _)| *index).collect()
+        }
     }
 
     pub fn get_dep(&self, index: usize) -> anyhow::Result<&Dependency> {
@@ -48,6 +71,19 @@ impl Document {
             None => Err(anyhow::Error::msg("out of bounce")),
             Some(some) => Ok(some),
         }
+    }
+
+    pub fn get_dep_index(&self, name: &String) -> anyhow::Result<usize> {
+        for (index, current_crate) in self.deps.iter().enumerate() {
+            if &current_crate.get_name() == name {
+                return Ok(index);
+            }
+        }
+
+        Err(anyhow::Error::msg(format!(
+            "dependency \"{}\" could not be found",
+            name
+        )))
     }
 
     pub fn get_dep_mut(&mut self, index: usize) -> &mut Dependency {

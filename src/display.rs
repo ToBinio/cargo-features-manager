@@ -1,7 +1,7 @@
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
-use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::cursor::{Hide, MoveTo, RestorePosition, SavePosition, SetCursorStyle, Show};
 use crossterm::event::{read, Event, KeyCode, KeyEventKind};
 use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
 use crossterm::terminal::{size, Clear, ClearType};
@@ -18,24 +18,21 @@ pub struct Display {
     feature_selector: Selector<String>,
 
     state: DisplayState,
+
+    is_type_mode: bool,
+    search_text: String,
 }
 
 impl Display {
     pub fn new() -> anyhow::Result<Display> {
         let document = Document::new("./Cargo.toml")?;
 
-        let mut dep_vec = vec![];
-
-        for (index, _) in document.get_deps().iter().enumerate() {
-            dep_vec.push(index);
-        }
-
         Ok(Display {
             stdout: stdout(),
 
             dep_selector: Selector {
                 selected: 0,
-                data: dep_vec,
+                data: document.get_deps_filtered_view("".to_string()),
             },
 
             feature_selector: Selector {
@@ -46,39 +43,45 @@ impl Display {
             document,
 
             state: DisplayState::DepSelect,
+            is_type_mode: false,
+            search_text: "".to_string(),
         })
     }
 
     pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
-        for (index, current_crate) in self.document.get_deps().iter().enumerate() {
-            if current_crate.get_name() == dep_name {
+        match self.document.get_dep_index(&dep_name) {
+            Ok(index) => {
                 self.dep_selector.selected = index;
 
                 self.selected_dep();
-                return Ok(());
+                Ok(())
             }
+            Err(err) => Err(err),
         }
-
-        Err(anyhow::Error::msg(format!(
-            "dependency \"{}\" could not be found",
-            dep_name
-        )))
     }
 
     fn selected_dep(&mut self) {
         self.state = DisplayState::FeatureSelect;
 
-        let dep = self.document.get_dep(self.dep_selector.selected).unwrap();
+        let dep = self
+            .document
+            .get_dep(*self.dep_selector.get_selected().unwrap())
+            .unwrap();
 
         // update selector
-        self.feature_selector.data = dep.get_features_filtered_view();
+        self.feature_selector.data = dep.get_features_filtered_view(self.search_text.clone());
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
         execute!(self.stdout, Hide, Clear(ClearType::All))?;
 
         loop {
-            queue!(self.stdout, MoveTo(0, 0), Clear(ClearType::FromCursorDown))?;
+            queue!(
+                self.stdout,
+                MoveTo(0, 0),
+                Clear(ClearType::FromCursorDown),
+                Hide
+            )?;
 
             match self.state {
                 DisplayState::DepSelect => self.display_deps()?,
@@ -98,15 +101,17 @@ impl Display {
     }
 
     fn display_deps(&mut self) -> anyhow::Result<()> {
-        queue!(self.stdout, Print("Dependencies"))?;
+        queue!(self.stdout, Print("Dependencies"), SavePosition)?;
 
         let dep_range = self.get_max_range();
 
         let mut line_index = 1;
         let mut index = dep_range.start;
 
-        for dep in &self.document.get_deps()[dep_range] {
-            if index == self.dep_selector.selected {
+        for dep in &self.dep_selector.data[dep_range] {
+            let dep = self.document.get_dep(*dep).unwrap();
+
+            if index == self.dep_selector.selected && !self.is_type_mode {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
             }
 
@@ -128,12 +133,16 @@ impl Display {
             line_index += 1;
         }
 
+        self.display_type_mode()?;
+
         Ok(())
     }
 
     fn display_features(&mut self) -> anyhow::Result<()> {
-        let deps = self.document.get_deps();
-        let dep = deps.get(self.dep_selector.selected).unwrap();
+        let dep = self
+            .document
+            .get_dep(*self.dep_selector.get_selected().unwrap())
+            .unwrap();
 
         let feature_range = self.get_max_range();
 
@@ -142,7 +151,8 @@ impl Display {
 
         queue!(
             self.stdout,
-            Print(format!("{} {}", dep.get_name(), dep.get_version()))
+            Print(format!("{} {}", dep.get_name(), dep.get_version())),
+            SavePosition
         )?;
 
         for feature_name in &self.feature_selector.data[self.get_max_range()] {
@@ -174,7 +184,7 @@ impl Display {
             queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
             queue!(self.stdout, ResetColor)?;
 
-            if index == self.feature_selector.selected {
+            if index == self.feature_selector.selected && !self.is_type_mode {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
 
                 let sub_features = &data.sub_features;
@@ -199,34 +209,61 @@ impl Display {
             index += 1;
         }
 
+        self.display_type_mode()?;
+
+        Ok(())
+    }
+
+    /// crossterm::SavePosition has be been set before calling this function
+    fn display_type_mode(&mut self) -> anyhow::Result<()> {
+        if !self.search_text.is_empty() || self.is_type_mode {
+            queue!(
+                self.stdout,
+                RestorePosition,
+                Print(format!(" - {}", self.search_text)),
+            )?;
+        }
+
+        if self.is_type_mode {
+            queue!(self.stdout, Show, SetCursorStyle::BlinkingBar)?;
+        }
+
         Ok(())
     }
 
     fn input_event(&mut self) -> anyhow::Result<bool> {
         if let Event::Key(key_event) = read()? {
             if let KeyEventKind::Press = key_event.kind {
-                match key_event.code {
-                    KeyCode::Up => match self.state {
-                        DisplayState::DepSelect => {
-                            self.dep_selector.shift(-1);
-                        }
-                        DisplayState::FeatureSelect => {
+                match (key_event.code, &self.state, self.is_type_mode) {
+                    //movement
+                    //up
+                    (KeyCode::Up, DisplayState::DepSelect, false) => {
+                        self.dep_selector.shift(-1);
+                    }
+                    (KeyCode::Up, DisplayState::FeatureSelect, false) => {
+                        if self.feature_selector.has_data() {
                             self.feature_selector.shift(-1);
                         }
-                    },
-                    KeyCode::Down => match self.state {
-                        DisplayState::DepSelect => {
-                            self.dep_selector.shift(1);
-                        }
-                        DisplayState::FeatureSelect => {
+                    }
+                    //down
+                    (KeyCode::Down, DisplayState::DepSelect, false) => {
+                        self.dep_selector.shift(1);
+                    }
+                    (KeyCode::Down, DisplayState::FeatureSelect, false) => {
+                        if self.feature_selector.has_data() {
                             self.feature_selector.shift(1);
                         }
-                    },
-                    KeyCode::Char(' ') | KeyCode::Enter => match self.state {
-                        DisplayState::DepSelect => {
+                    }
+
+                    //selection
+                    (KeyCode::Enter, DisplayState::DepSelect, false)
+                    | (KeyCode::Char(' '), DisplayState::DepSelect, false) => {
+                        if self.dep_selector.has_data() {
+                            self.search_text = "".to_string();
+
                             if self
                                 .document
-                                .get_dep(*self.dep_selector.get_selected())?
+                                .get_dep(*self.dep_selector.get_selected().unwrap())?
                                 .has_features()
                             {
                                 self.selected_dep();
@@ -235,25 +272,69 @@ impl Display {
                                 self.feature_selector.shift(0);
                             }
                         }
-                        DisplayState::FeatureSelect => {
-                            let dep = self.document.get_dep_mut(*self.dep_selector.get_selected());
+                    }
+                    (KeyCode::Enter, DisplayState::FeatureSelect, false)
+                    | (KeyCode::Char(' '), DisplayState::FeatureSelect, false) => {
+                        if self.feature_selector.has_data() {
+                            let dep = self
+                                .document
+                                .get_dep_mut(*self.dep_selector.get_selected().unwrap());
 
-                            dep.toggle_feature_usage(self.feature_selector.get_selected());
+                            dep.toggle_feature_usage(self.feature_selector.get_selected().unwrap());
 
                             self.document.write_dep(self.dep_selector.selected);
                         }
-                    },
-                    KeyCode::Backspace => match self.state {
-                        DisplayState::DepSelect => {
-                            return Ok(true);
+                    }
+
+                    //typing
+                    (KeyCode::Char('s'), _, false) => {
+                        self.is_type_mode = true;
+
+                        match self.state {
+                            DisplayState::DepSelect => {
+                                self.dep_selector.selected = 0;
+                            }
+                            DisplayState::FeatureSelect => {
+                                self.feature_selector.selected = 0;
+                            }
                         }
-                        DisplayState::FeatureSelect => {
-                            self.state = DisplayState::DepSelect;
-                        }
-                    },
-                    KeyCode::Char('q') => {
+                    }
+                    (KeyCode::Char('r'), _, false) => {
+                        self.search_text = "".to_string();
+
+                        self.update_selected_data();
+                    }
+                    (KeyCode::Enter, _, true) | (KeyCode::Down, _, true) => {
+                        self.is_type_mode = false;
+                    }
+                    (KeyCode::Char(char), _, true) => {
+                        self.search_text += char.to_string().as_str();
+
+                        self.update_selected_data();
+                    }
+                    (KeyCode::Backspace, _, true) => {
+                        let _ = self.search_text.pop();
+
+                        self.update_selected_data();
+                    }
+
+                    //quit
+                    (KeyCode::Char('q'), _, false) => {
                         return Ok(true);
                     }
+
+                    //back
+                    (KeyCode::Backspace, DisplayState::DepSelect, false) => {
+                        return Ok(true);
+                    }
+                    (KeyCode::Backspace, DisplayState::FeatureSelect, false) => {
+                        self.search_text = "".to_string();
+
+                        self.state = DisplayState::DepSelect;
+
+                        self.update_selected_data();
+                    }
+
                     _ => {}
                 }
             }
@@ -269,27 +350,25 @@ impl Display {
         } as isize;
 
         let max_range = match self.state {
-            DisplayState::DepSelect => self.document.get_deps().len(),
-            DisplayState::FeatureSelect => self
-                .document
-                .get_dep(self.dep_selector.selected)
-                .unwrap()
-                .get_features_count(),
+            DisplayState::DepSelect => self.dep_selector.data.len(),
+            DisplayState::FeatureSelect => self.feature_selector.data.len(),
         };
 
         let mut offset = 0;
 
         if let DisplayState::FeatureSelect = self.state {
-            let dep = self
-                .document
-                .get_dep(*self.dep_selector.get_selected())
-                .unwrap();
+            if self.feature_selector.has_data() {
+                let dep = self
+                    .document
+                    .get_dep(*self.dep_selector.get_selected().unwrap())
+                    .unwrap();
 
-            let feature_name = self.feature_selector.get_selected();
-            let data = dep.get_feature(feature_name);
+                let feature_name = self.feature_selector.get_selected().unwrap();
+                let data = dep.get_feature(feature_name);
 
-            if !data.sub_features.is_empty() {
-                offset = 1;
+                if !data.sub_features.is_empty() {
+                    offset = 1;
+                }
             }
         }
 
@@ -300,6 +379,25 @@ impl Display {
             .max(0) as usize;
 
         start..max_range.min(start + height - 1 - offset)
+    }
+
+    fn update_selected_data(&mut self) {
+        match self.state {
+            DisplayState::DepSelect => {
+                self.dep_selector.data = self
+                    .document
+                    .get_deps_filtered_view(self.search_text.clone());
+            }
+            DisplayState::FeatureSelect => {
+                let dep = self
+                    .document
+                    .get_dep(*self.dep_selector.get_selected().unwrap())
+                    .unwrap();
+
+                self.feature_selector.data =
+                    dep.get_features_filtered_view(self.search_text.clone());
+            }
+        }
     }
 }
 
@@ -326,7 +424,11 @@ impl<T> Selector<T> {
         self.selected = selected_temp as usize;
     }
 
-    fn get_selected(&self) -> &T {
-        self.data.get(self.selected).unwrap()
+    fn get_selected(&self) -> Option<&T> {
+        self.data.get(self.selected)
+    }
+
+    fn has_data(&self) -> bool {
+        !self.data.is_empty()
     }
 }

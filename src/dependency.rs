@@ -1,5 +1,8 @@
+use bitap::Pattern;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+
+use levenshtein::levenshtein;
 
 pub struct Dependency {
     pub(crate) dep_name: String,
@@ -19,22 +22,37 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features_filtered_view(&self) -> Vec<String> {
+    pub fn get_features_filtered_view(&self, filter: String) -> Vec<String> {
         let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
-        features.sort_by(|(name_a, data_a), (name_b, data_b)| {
-            if data_a.is_default && !data_b.is_default {
-                return Ordering::Less;
-            }
+        if filter.is_empty() {
+            features.sort_by(|(name_a, data_a), (name_b, data_b)| {
+                if data_a.is_default && !data_b.is_default {
+                    return Ordering::Less;
+                }
 
-            if data_b.is_default && !data_a.is_default {
-                return Ordering::Greater;
-            }
+                if data_b.is_default && !data_a.is_default {
+                    return Ordering::Greater;
+                }
 
-            name_a.partial_cmp(name_b).unwrap()
-        });
+                name_a.partial_cmp(name_b).unwrap()
+            });
 
-        features.iter().map(|(name, _)| name.to_string()).collect()
+            features.iter().map(|(name, _)| name.to_string()).collect()
+        } else {
+            let pattern = Pattern::new(&filter).unwrap();
+            let max_diff = (filter.len() as f32).log(3.0) as usize;
+
+            let mut features: Vec<(String, usize)> = features
+                .iter()
+                .filter(|(name, _)| pattern.lev(name, max_diff).next().is_some())
+                .map(|(name, _)| (name.to_string(), levenshtein(name, &filter)))
+                .collect();
+
+            features.sort_by(|(_, lev_a), (_, lev_b)| lev_a.cmp(lev_b));
+
+            features.iter().map(|(name, _)| name.to_string()).collect()
+        }
     }
 
     pub fn get_feature(&self, feature_name: &String) -> &FeatureData {
@@ -43,10 +61,6 @@ impl Dependency {
 
     pub fn has_features(&self) -> bool {
         !self.features.is_empty()
-    }
-
-    pub fn get_features_count(&self) -> usize {
-        self.features.len()
     }
 
     pub fn can_use_default(&self) -> bool {
