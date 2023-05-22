@@ -1,8 +1,11 @@
 use std::io::stdout;
+use std::process::exit;
 
 use clap::{arg, Parser};
 use crossterm::execute;
 use crossterm::style::{Print, Stylize};
+use crossterm::terminal::{Clear, ClearType};
+use ctrlc::Error;
 
 use crate::display::Display;
 
@@ -26,6 +29,10 @@ struct FeaturesArgs {
 }
 
 fn main() {
+    match ctrlc::set_handler(|| exit(0)) {
+        _ => {}
+    };
+
     let CargoCli::Features(args) = CargoCli::parse();
 
     if let Err(err) = run(args) {
