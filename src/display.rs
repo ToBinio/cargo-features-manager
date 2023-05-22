@@ -1,7 +1,7 @@
 use std::io::{stdout, Stdout, Write};
 use std::ops::Range;
 
-use crossterm::cursor::{Hide, MoveTo, RestorePosition, SavePosition, SetCursorStyle, Show};
+use crossterm::cursor::{Hide, MoveTo, RestorePosition, SavePosition, Show};
 use crossterm::event::{read, Event, KeyCode, KeyEventKind};
 use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
 use crossterm::terminal::{size, Clear, ClearType};
