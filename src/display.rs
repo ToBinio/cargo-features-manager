@@ -88,7 +88,7 @@ impl Display {
 
             self.stdout.flush()?;
 
-            if self.input_event()? {
+            if let RunningState::Finished = self.input_event()? {
                 break;
             }
         }
@@ -225,7 +225,7 @@ impl Display {
         Ok(())
     }
 
-    fn input_event(&mut self) -> anyhow::Result<bool> {
+    fn input_event(&mut self) -> anyhow::Result<RunningState> {
         if let Event::Key(key_event) = read()? {
             if let KeyEventKind::Press = key_event.kind {
                 match (key_event.code, &self.state) {
@@ -291,23 +291,18 @@ impl Display {
                         }
                     }
                     (KeyCode::Backspace, _) => {
+                        if self.search_text.is_empty() {
+                            return Ok(self.move_back());
+                        }
+
                         let _ = self.search_text.pop();
 
                         self.update_selected_data();
                     }
 
                     //back
-                    (KeyCode::Esc, DisplayState::DepSelect)
-                    | (KeyCode::Left, DisplayState::DepSelect) => {
-                        return Ok(true);
-                    }
-                    (KeyCode::Esc, DisplayState::FeatureSelect)
-                    | (KeyCode::Left, DisplayState::FeatureSelect) => {
-                        self.search_text = "".to_string();
-
-                        self.state = DisplayState::DepSelect;
-
-                        self.update_selected_data();
+                    (KeyCode::Esc, _) | (KeyCode::Left, _) => {
+                        return Ok(self.move_back());
                     }
 
                     _ => {}
@@ -315,7 +310,7 @@ impl Display {
             }
         }
 
-        Ok(false)
+        Ok(RunningState::Running)
     }
 
     fn get_max_range(&self) -> Range<usize> {
@@ -374,6 +369,25 @@ impl Display {
             }
         }
     }
+
+    fn move_back(&mut self) -> RunningState {
+        match self.state {
+            DisplayState::DepSelect => RunningState::Finished,
+            DisplayState::FeatureSelect => {
+                self.search_text = "".to_string();
+
+                self.state = DisplayState::DepSelect;
+
+                self.update_selected_data();
+                RunningState::Running
+            }
+        }
+    }
+}
+
+enum RunningState {
+    Running,
+    Finished,
 }
 
 enum DisplayState {
