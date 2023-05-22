@@ -3,8 +3,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use bitap::Pattern;
-use levenshtein::levenshtein;
+use fuzzy_matcher::skim::SkimMatcherV2;
+use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependency::{Dependency, DependencyOrigin};
@@ -41,29 +41,25 @@ impl Document {
         })
     }
 
-    pub fn get_deps_filtered_view(&self, filter: String) -> Vec<usize> {
+    pub fn get_deps_filtered_view(&self, filter: String) -> Vec<(usize, Vec<usize>)> {
         let mut dep_vec = vec![];
 
         for (index, dep) in self.deps.iter().enumerate() {
             dep_vec.push((index, dep.get_name()));
         }
 
-        if !filter.is_empty() {
-            let pattern = Pattern::new(&filter).unwrap();
-            let max_diff = (filter.len() as f32).log(3.0) as usize;
+        let matcher = SkimMatcherV2::default();
 
-            let mut dep_vec: Vec<(usize, usize)> = dep_vec
-                .iter()
-                .filter(|(_, name)| pattern.lev(name, max_diff).next().is_some())
-                .map(|(index, name)| (*index, levenshtein(name, &filter)))
-                .collect();
-
-            dep_vec.sort_by(|(_, lev_a), (_, lev_b)| lev_a.cmp(lev_b));
-
-            dep_vec.iter().map(|(index, _)| *index).collect()
-        } else {
-            dep_vec.iter().map(|(index, _)| *index).collect()
-        }
+        dep_vec
+            .iter()
+            .filter_map(|(index, name)| {
+                matcher
+                    .fuzzy(name, &filter, true)
+                    .map(|some| (*index, some))
+            })
+            .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
+            .map(|(index, fuzzy)| (index, fuzzy.1.iter().map(|i| *i as usize).collect()))
+            .collect()
     }
 
     pub fn get_dep(&self, index: usize) -> anyhow::Result<&Dependency> {

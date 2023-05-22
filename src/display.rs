@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crossterm::cursor::{Hide, MoveTo, RestorePosition, SavePosition, Show};
 use crossterm::event::{read, Event, KeyCode, KeyEventKind};
-use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
+use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, StyledContent, Stylize};
 use crossterm::terminal::{size, Clear, ClearType};
 use crossterm::{execute, queue};
 
@@ -14,8 +14,8 @@ pub struct Display {
 
     document: Document,
 
-    dep_selector: Selector<usize>,
-    feature_selector: Selector<String>,
+    dep_selector: Selector<(usize, Vec<usize>)>,
+    feature_selector: Selector<(String, Vec<usize>)>,
 
     state: DisplayState,
 
@@ -63,7 +63,7 @@ impl Display {
 
         let dep = self
             .document
-            .get_dep(*self.dep_selector.get_selected().unwrap())
+            .get_dep(self.dep_selector.get_selected().unwrap().0)
             .unwrap();
 
         // update selector
@@ -107,25 +107,35 @@ impl Display {
         let mut index = dep_range.start;
 
         for dep in &self.dep_selector.data[dep_range] {
-            let dep = self.document.get_dep(*dep).unwrap();
+            let word_mark = &dep.1;
+            let dep = self.document.get_dep(dep.0).unwrap();
 
             if index == self.dep_selector.selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
             }
 
-            if !dep.has_features() {
-                queue!(
-                    self.stdout,
-                    SetForegroundColor(Color::from((100, 100, 100)))
-                )?;
+            queue!(self.stdout, MoveTo(2, line_index))?;
+
+            let word: Vec<StyledContent<String>> = dep
+                .get_name()
+                .chars()
+                .enumerate()
+                .map(|(index, c)| {
+                    match (dep.has_features(), word_mark.contains(&index)) {
+                        (true, true) => c.to_string().red(),
+                        (true, false) => c.to_string().white(),
+                        (false, true) => c.to_string().dark_red(),
+                        // SetForegroundColor(Color::from((100, 100, 100)))
+                        (false, false) => c.to_string().grey(),
+                    }
+                })
+                .collect();
+
+            for char in word {
+                queue!(self.stdout, Print(char))?;
             }
 
-            queue!(
-                self.stdout,
-                MoveTo(2, line_index),
-                Print(dep.get_name()),
-                ResetColor
-            )?;
+            queue!(self.stdout, ResetColor)?;
 
             index += 1;
             line_index += 1;
@@ -139,7 +149,7 @@ impl Display {
     fn display_features(&mut self) -> anyhow::Result<()> {
         let dep = self
             .document
-            .get_dep(*self.dep_selector.get_selected().unwrap())
+            .get_dep(self.dep_selector.get_selected().unwrap().0)
             .unwrap();
 
         let feature_range = self.get_max_range();
@@ -153,8 +163,8 @@ impl Display {
             SavePosition
         )?;
 
-        for feature_name in &self.feature_selector.data[self.get_max_range()] {
-            let data = dep.get_feature(feature_name);
+        for feature in &self.feature_selector.data[self.get_max_range()] {
+            let data = dep.get_feature(&feature.0);
 
             if data.is_default {
                 queue!(self.stdout, SetForegroundColor(Color::Green))?;
@@ -169,17 +179,29 @@ impl Display {
             queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
 
-            if !dep
-                .get_currently_dependent_features(feature_name)
-                .is_empty()
-            {
+            if !dep.get_currently_dependent_features(&feature.0).is_empty() {
                 queue!(
                     self.stdout,
                     SetForegroundColor(Color::from((100, 100, 100)))
                 )?;
             }
 
-            queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
+            queue!(self.stdout, MoveTo(6, line_index))?;
+
+            let word: Vec<StyledContent<String>> = feature
+                .0
+                .chars()
+                .enumerate()
+                .map(|(index, c)| match feature.1.contains(&index) {
+                    true => c.to_string().red(),
+                    false => c.to_string().white(),
+                })
+                .collect();
+
+            for char in word {
+                queue!(self.stdout, Print(char))?;
+            }
+
             queue!(self.stdout, ResetColor)?;
 
             if index == self.feature_selector.selected {
@@ -257,7 +279,7 @@ impl Display {
 
                             if self
                                 .document
-                                .get_dep(*self.dep_selector.get_selected().unwrap())?
+                                .get_dep(self.dep_selector.get_selected().unwrap().0)?
                                 .has_features()
                             {
                                 self.selected_dep();
@@ -272,9 +294,11 @@ impl Display {
                         if self.feature_selector.has_data() {
                             let dep = self
                                 .document
-                                .get_dep_mut(*self.dep_selector.get_selected().unwrap());
+                                .get_dep_mut(self.dep_selector.get_selected().unwrap().0);
 
-                            dep.toggle_feature_usage(self.feature_selector.get_selected().unwrap());
+                            dep.toggle_feature_usage(
+                                &self.feature_selector.get_selected().unwrap().0,
+                            );
 
                             self.document.write_dep(self.dep_selector.selected);
                         }
@@ -330,11 +354,11 @@ impl Display {
             if self.feature_selector.has_data() {
                 let dep = self
                     .document
-                    .get_dep(*self.dep_selector.get_selected().unwrap())
+                    .get_dep(self.dep_selector.get_selected().unwrap().0)
                     .unwrap();
 
                 let feature_name = self.feature_selector.get_selected().unwrap();
-                let data = dep.get_feature(feature_name);
+                let data = dep.get_feature(&feature_name.0);
 
                 if !data.sub_features.is_empty() {
                     offset = 1;
@@ -361,7 +385,7 @@ impl Display {
             DisplayState::FeatureSelect => {
                 let dep = self
                     .document
-                    .get_dep(*self.dep_selector.get_selected().unwrap())
+                    .get_dep(self.dep_selector.get_selected().unwrap().0)
                     .unwrap();
 
                 self.feature_selector.data =

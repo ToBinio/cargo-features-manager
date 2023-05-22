@@ -14,12 +14,12 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.70"
-bitap = "0.2.0"
 clap = { version = "4.2.4", features = ["derive"] }
 crates-index = "0.19.8"
 crossterm = "0.26.1"
 ctrlc = "3.3.0"
-levenshtein = "1.0.5"
+fuzzy-matcher = { version = "0.3.7", features = ["compact"] }
+itertools = "0.10.5"
 semver = "1.0.17"
 toml_edit = "0.19.8"
 

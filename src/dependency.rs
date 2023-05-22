@@ -1,8 +1,7 @@
-use bitap::Pattern;
+use fuzzy_matcher::skim::SkimMatcherV2;
+use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-
-use levenshtein::levenshtein;
 
 pub struct Dependency {
     pub(crate) dep_name: String,
@@ -22,7 +21,7 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features_filtered_view(&self, filter: String) -> Vec<String> {
+    pub fn get_features_filtered_view(&self, filter: String) -> Vec<(String, Vec<usize>)> {
         let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
         if filter.is_empty() {
@@ -38,20 +37,24 @@ impl Dependency {
                 name_a.partial_cmp(name_b).unwrap()
             });
 
-            features.iter().map(|(name, _)| name.to_string()).collect()
-        } else {
-            let pattern = Pattern::new(&filter).unwrap();
-            let max_diff = (filter.len() as f32).log(3.0) as usize;
-
-            let mut features: Vec<(String, usize)> = features
+            features
                 .iter()
-                .filter(|(name, _)| pattern.lev(name, max_diff).next().is_some())
-                .map(|(name, _)| (name.to_string(), levenshtein(name, &filter)))
-                .collect();
+                .map(|(name, _)| (name.to_string(), vec![]))
+                .collect()
+        } else {
+            let matcher = SkimMatcherV2::default();
 
-            features.sort_by(|(_, lev_a), (_, lev_b)| lev_a.cmp(lev_b));
-
-            features.iter().map(|(name, _)| name.to_string()).collect()
+            features
+                .iter()
+                .filter_map(|(name, _)| matcher.fuzzy(name, &filter, true).map(|some| (name, some)))
+                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
+                .map(|(name, fuzzy)| {
+                    (
+                        name.to_string(),
+                        fuzzy.1.iter().map(|i| *i as usize).collect(),
+                    )
+                })
+                .collect()
         }
     }
 
