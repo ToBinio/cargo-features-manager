@@ -19,7 +19,6 @@ pub struct Display {
 
     state: DisplayState,
 
-    is_type_mode: bool,
     search_text: String,
 }
 
@@ -43,7 +42,6 @@ impl Display {
             document,
 
             state: DisplayState::DepSelect,
-            is_type_mode: false,
             search_text: "".to_string(),
         })
     }
@@ -111,7 +109,7 @@ impl Display {
         for dep in &self.dep_selector.data[dep_range] {
             let dep = self.document.get_dep(*dep).unwrap();
 
-            if index == self.dep_selector.selected && !self.is_type_mode {
+            if index == self.dep_selector.selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
             }
 
@@ -184,7 +182,7 @@ impl Display {
             queue!(self.stdout, MoveTo(6, line_index), Print(feature_name))?;
             queue!(self.stdout, ResetColor)?;
 
-            if index == self.feature_selector.selected && !self.is_type_mode {
+            if index == self.feature_selector.selected {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
 
                 let sub_features = &data.sub_features;
@@ -216,16 +214,12 @@ impl Display {
 
     /// crossterm::SavePosition has be been set before calling this function
     fn display_type_mode(&mut self) -> anyhow::Result<()> {
-        if !self.search_text.is_empty() || self.is_type_mode {
+        if !self.search_text.is_empty() {
             queue!(
                 self.stdout,
                 RestorePosition,
                 Print(format!(" - {}", self.search_text)),
             )?;
-        }
-
-        if self.is_type_mode {
-            queue!(self.stdout, Show, SetCursorStyle::BlinkingBar)?;
         }
 
         Ok(())
@@ -234,30 +228,30 @@ impl Display {
     fn input_event(&mut self) -> anyhow::Result<bool> {
         if let Event::Key(key_event) = read()? {
             if let KeyEventKind::Press = key_event.kind {
-                match (key_event.code, &self.state, self.is_type_mode) {
+                match (key_event.code, &self.state) {
                     //movement
                     //up
-                    (KeyCode::Up, DisplayState::DepSelect, false) => {
+                    (KeyCode::Up, DisplayState::DepSelect) => {
                         self.dep_selector.shift(-1);
                     }
-                    (KeyCode::Up, DisplayState::FeatureSelect, false) => {
+                    (KeyCode::Up, DisplayState::FeatureSelect) => {
                         if self.feature_selector.has_data() {
                             self.feature_selector.shift(-1);
                         }
                     }
                     //down
-                    (KeyCode::Down, DisplayState::DepSelect, false) => {
+                    (KeyCode::Down, DisplayState::DepSelect) => {
                         self.dep_selector.shift(1);
                     }
-                    (KeyCode::Down, DisplayState::FeatureSelect, false) => {
+                    (KeyCode::Down, DisplayState::FeatureSelect) => {
                         if self.feature_selector.has_data() {
                             self.feature_selector.shift(1);
                         }
                     }
 
                     //selection
-                    (KeyCode::Enter, DisplayState::DepSelect, false)
-                    | (KeyCode::Char(' '), DisplayState::DepSelect, false) => {
+                    (KeyCode::Enter, DisplayState::DepSelect)
+                    | (KeyCode::Right, DisplayState::DepSelect) => {
                         if self.dep_selector.has_data() {
                             self.search_text = "".to_string();
 
@@ -273,8 +267,8 @@ impl Display {
                             }
                         }
                     }
-                    (KeyCode::Enter, DisplayState::FeatureSelect, false)
-                    | (KeyCode::Char(' '), DisplayState::FeatureSelect, false) => {
+                    (KeyCode::Enter, DisplayState::FeatureSelect)
+                    | (KeyCode::Right, DisplayState::FeatureSelect) => {
                         if self.feature_selector.has_data() {
                             let dep = self
                                 .document
@@ -286,48 +280,29 @@ impl Display {
                         }
                     }
 
-                    //typing
-                    (KeyCode::Char('s'), _, false) => {
-                        self.is_type_mode = true;
-
-                        match self.state {
-                            DisplayState::DepSelect => {
-                                self.dep_selector.selected = 0;
-                            }
-                            DisplayState::FeatureSelect => {
-                                self.feature_selector.selected = 0;
-                            }
-                        }
-                    }
-                    (KeyCode::Char('r'), _, false) => {
-                        self.search_text = "".to_string();
-
-                        self.update_selected_data();
-                    }
-                    (KeyCode::Enter, _, true) | (KeyCode::Down, _, true) => {
-                        self.is_type_mode = false;
-                    }
-                    (KeyCode::Char(char), _, true) => {
+                    (KeyCode::Char(char), _) => {
                         self.search_text += char.to_string().as_str();
 
                         self.update_selected_data();
+
+                        match self.state {
+                            DisplayState::DepSelect => self.dep_selector.shift(0),
+                            DisplayState::FeatureSelect => self.feature_selector.shift(0),
+                        }
                     }
-                    (KeyCode::Backspace, _, true) => {
+                    (KeyCode::Backspace, _) => {
                         let _ = self.search_text.pop();
 
                         self.update_selected_data();
                     }
 
-                    //quit
-                    (KeyCode::Char('q'), _, false) => {
-                        return Ok(true);
-                    }
-
                     //back
-                    (KeyCode::Backspace, DisplayState::DepSelect, false) => {
+                    (KeyCode::Esc, DisplayState::DepSelect)
+                    | (KeyCode::Left, DisplayState::DepSelect) => {
                         return Ok(true);
                     }
-                    (KeyCode::Backspace, DisplayState::FeatureSelect, false) => {
+                    (KeyCode::Esc, DisplayState::FeatureSelect)
+                    | (KeyCode::Left, DisplayState::FeatureSelect) => {
                         self.search_text = "".to_string();
 
                         self.state = DisplayState::DepSelect;
@@ -414,6 +389,11 @@ struct Selector<T> {
 
 impl<T> Selector<T> {
     fn shift(&mut self, shift: isize) {
+        if !self.has_data() {
+            self.selected = 0;
+            return;
+        }
+
         let mut selected_temp = self.selected as isize;
 
         selected_temp += self.data.len() as isize;
