@@ -273,7 +273,8 @@ impl Display {
 
                     //selection
                     (KeyCode::Enter, DisplayState::DepSelect)
-                    | (KeyCode::Right, DisplayState::DepSelect) => {
+                    | (KeyCode::Right, DisplayState::DepSelect)
+                    | (KeyCode::Char(' '), DisplayState::DepSelect) => {
                         if self.dep_selector.has_data() {
                             self.search_text = "".to_string();
 
@@ -290,7 +291,8 @@ impl Display {
                         }
                     }
                     (KeyCode::Enter, DisplayState::FeatureSelect)
-                    | (KeyCode::Right, DisplayState::FeatureSelect) => {
+                    | (KeyCode::Right, DisplayState::FeatureSelect)
+                    | (KeyCode::Char(' '), DisplayState::FeatureSelect) => {
                         if self.feature_selector.has_data() {
                             let dep = self
                                 .document
@@ -305,6 +307,10 @@ impl Display {
                     }
 
                     (KeyCode::Char(char), _) => {
+                        if char == ' ' {
+                            return Ok(RunningState::Running);
+                        }
+
                         self.search_text += char.to_string().as_str();
 
                         self.update_selected_data();
@@ -315,10 +321,6 @@ impl Display {
                         }
                     }
                     (KeyCode::Backspace, _) => {
-                        if self.search_text.is_empty() {
-                            return Ok(self.move_back());
-                        }
-
                         let _ = self.search_text.pop();
 
                         self.update_selected_data();
