@@ -28,11 +28,9 @@ When using `cargo features -d <dependency name>` it will directly open the corre
 
 <kbd>↓</kbd> to move down
 
-<kbd>q</kbd> to quit
+<kbd>Space</kbd> | <kbd>Enter</kbd> | <kbd>→</kbd> to select
 
-<kbd>Space</kbd> | <kbd>Enter</kbd> to select
-
-<kbd>BackSpace</kbd> to move back
+<kbd>ESC</kbd> | <kbd>←</kbd> to move back
 
 ### dependency selector
 
@@ -56,10 +54,5 @@ Features which an active feature requires are marked grey.
 
 ### search mode
 
-<kbd>s</kbd> to start searching
-
-When in search-mode you can type normally.
-
-<kbd>Enter</kbd> | <kbd>↓</kbd> to leave search-mode
-
-<kbd>r</kbd> to reset / clear current search
+At any point you can start typing like normal.
+This will start using your input as a search query.
