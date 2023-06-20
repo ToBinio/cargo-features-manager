@@ -15,7 +15,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.71"
 clap = { version = "4.3.2", features = ["derive"] }
-crates-index = "0.19.10"
+crates-index = "0.19.12"
 crossterm = "0.26.1"
 ctrlc = "3.4.0"
 fuzzy-matcher = { version = "0.3.7", features = ["compact"] }

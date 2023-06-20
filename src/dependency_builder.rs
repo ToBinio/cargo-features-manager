@@ -3,6 +3,7 @@ use std::fs;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use crates_index::Crate;
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
@@ -138,15 +139,33 @@ impl DependencyBuilder {
 
         Ok(())
     }
-    fn set_features_from_index(&mut self) -> anyhow::Result<()> {
-        //todo cache
-        let index = crates_index::Index::new_cargo_default()?;
 
+    fn get_crate_from_index(&self) -> anyhow::Result<Crate> {
+        //todo cache
+
+        if let Ok(index) = crates_index::SparseIndex::new_cargo_default() {
+            if let Ok(krate) = index.crate_from_cache(&self.dep_name) {
+                return Ok(krate);
+            }
+        }
+
+        if let Ok(index) = crates_index::Index::new_cargo_default() {
+            if let Some(krate) = index.crate_(&self.dep_name) {
+                return Ok(krate);
+            }
+        }
+
+        Err(anyhow!(
+            "could not find {} in either registry",
+            self.dep_name
+        ))
+    }
+
+    fn set_features_from_index(&mut self) -> anyhow::Result<()> {
         let version_req = VersionReq::parse(&self.version)?;
 
-        let mut possible_versions: Vec<crates_index::Version> = index
-            .crate_(&self.dep_name)
-            .ok_or(anyhow!("could not find {} in local index", self.dep_name))?
+        let mut possible_versions: Vec<crates_index::Version> = self
+            .get_crate_from_index()?
             .versions()
             .iter()
             .filter(|version| version_req.matches(&Version::parse(version.version()).unwrap()))
