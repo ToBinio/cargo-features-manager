@@ -1,6 +1,8 @@
 # Cargo Features Manger
 
-A TUI like cli tool to manage the features of your rust-project dependencies. 
+A TUI-like cli tool to manage the features of your rust-projects dependencies.
+
+You can view all available features and easily toggle (enable & disable) them with one button click. All of your changes will directly be reflected in your Cargo.toml file.
 
 ## install
 
