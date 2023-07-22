@@ -3,7 +3,7 @@ use crate::dependencies::dependency_builder::DependencyBuilder;
 use anyhow::bail;
 use crates_index::SparseIndex;
 use std::thread;
-use toml_edit::{Document, Table};
+use toml_edit::Document;
 
 pub mod dependency;
 pub mod dependency_builder;

@@ -23,7 +23,7 @@ impl Dependency {
     }
 
     pub fn get_features_filtered_view(&self, filter: &str) -> Vec<FeatureSelectorItem> {
-        let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
+        let features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
         if filter.is_empty() {
             features
@@ -46,7 +46,7 @@ impl Dependency {
 
             features
                 .iter()
-                .filter_map(|(name, _)| matcher.fuzzy(name, &filter, true).map(|some| (name, some)))
+                .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
                 .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
                 .map(|(name, fuzzy)| (name, fuzzy.1.iter().map(|i| *i as usize).collect()))
                 .map(|(name, indexes)| FeatureSelectorItem::new(name, indexes))

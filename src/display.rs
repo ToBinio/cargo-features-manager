@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crossterm::cursor::{Hide, MoveTo, RestorePosition, SavePosition, Show};
 use crossterm::event::{read, Event, KeyCode, KeyEventKind};
-use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, StyledContent, Stylize};
+use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
 use crossterm::terminal::{size, Clear, ClearType};
 use crossterm::{execute, queue};
 
@@ -62,7 +62,7 @@ impl Display {
 
         let dep = self
             .document
-            .get_dep(&self.dep_selector.get_selected().unwrap().name())
+            .get_dep(self.dep_selector.get_selected().unwrap().name())
             .unwrap();
 
         // update selector
@@ -106,7 +106,7 @@ impl Display {
         let mut index = dep_range.start;
 
         for selector in &self.dep_selector.data[dep_range] {
-            let dep = self.document.get_dep(selector.name()).unwrap();
+            let _dep = self.document.get_dep(selector.name()).unwrap();
 
             if index == self.dep_selector.selected_index {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;

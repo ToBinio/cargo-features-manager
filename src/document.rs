@@ -1,16 +1,16 @@
+use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use std::{fs, thread};
 
 use crate::dependencies::dependencies_from_document;
-use anyhow::{anyhow, bail};
-use crates_index::SparseIndex;
+use anyhow::anyhow;
+
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyOrigin};
-use crate::dependencies::dependency_builder::DependencyBuilder;
+
 use crate::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
@@ -41,14 +41,12 @@ impl Document {
             .iter()
             .filter_map(|dependency| {
                 matcher
-                    .fuzzy(&dependency.get_name(), &filter, true)
+                    .fuzzy(&dependency.get_name(), filter, true)
                     .map(|fuzzy_result| (dependency, fuzzy_result))
             })
             .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
             .map(|(dependency, fuzzy)| (dependency, fuzzy.1.iter().map(|i| *i as usize).collect()))
-            .map(|(dependency, indexes)| {
-                DependencySelectorItem::new(dependency, indexes)
-            })
+            .map(|(dependency, indexes)| DependencySelectorItem::new(dependency, indexes))
             .collect()
     }
 

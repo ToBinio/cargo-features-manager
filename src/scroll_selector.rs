@@ -1,6 +1,6 @@
 use crate::dependencies::dependency::Dependency;
-use clap::builder::Str;
-use crossterm::style::{StyledContent, Stylize};
+
+use crossterm::style::Stylize;
 
 pub struct ScrollSelector<T> {
     pub selected_index: usize,

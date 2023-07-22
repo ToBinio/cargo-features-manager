@@ -8,9 +8,9 @@ use crossterm::style::{Print, Stylize};
 use crate::display::Display;
 use crate::document::Document;
 
+mod dependencies;
 mod display;
 mod document;
-mod dependencies;
 mod scroll_selector;
 
 #[derive(Parser)] // requires `derive` feature
@@ -44,7 +44,6 @@ fn main() {
 }
 
 fn run(args: FeaturesArgs) -> anyhow::Result<()> {
-
     let document = Document::new("./Cargo.toml")?;
     let mut display = Display::new(document)?;
 
