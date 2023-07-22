@@ -23,15 +23,13 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new() -> anyhow::Result<Display> {
-        let document = Document::new("./Cargo.toml")?;
-
+    pub fn new(document: Document) -> anyhow::Result<Display> {
         Ok(Display {
             stdout: stdout(),
 
             dep_selector: Selector {
                 selected: 0,
-                data: document.get_deps_filtered_view("".to_string()),
+                data: document.get_deps_filtered_view(""),
             },
 
             feature_selector: Selector {
@@ -380,9 +378,7 @@ impl Display {
     fn update_selected_data(&mut self) {
         match self.state {
             DisplayState::DepSelect => {
-                self.dep_selector.data = self
-                    .document
-                    .get_deps_filtered_view(self.search_text.clone());
+                self.dep_selector.data = self.document.get_deps_filtered_view(&self.search_text);
             }
             DisplayState::FeatureSelect => {
                 let dep = self

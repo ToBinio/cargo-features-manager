@@ -6,11 +6,11 @@ use crossterm::execute;
 use crossterm::style::{Print, Stylize};
 
 use crate::display::Display;
+use crate::document::Document;
 
-mod dependency;
-mod dependency_builder;
 mod display;
 mod document;
+mod dependencies;
 
 #[derive(Parser)] // requires `derive` feature
 #[command(name = "cargo")]
@@ -43,7 +43,9 @@ fn main() {
 }
 
 fn run(args: FeaturesArgs) -> anyhow::Result<()> {
-    let mut display = Display::new()?;
+
+    let document = Document::new("./Cargo.toml")?;
+    let mut display = Display::new(document)?;
 
     if let Some(name) = args.dependency {
         display.set_selected_dep(name)?

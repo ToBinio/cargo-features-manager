@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 use std::fs;
 use std::str::FromStr;
-use std::sync::OnceLock;
-use std::time::Instant;
 
 use anyhow::anyhow;
 use crates_index::{Crate, SparseIndex};
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
-use crate::dependency::{Dependency, DependencyOrigin, FeatureData};
+use crate::dependencies::dependency::{Dependency, DependencyOrigin, FeatureData};
 
 pub struct DependencyBuilder {
     dep_name: String,

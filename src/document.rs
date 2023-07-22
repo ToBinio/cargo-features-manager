@@ -2,14 +2,15 @@ use std::path::Path;
 use std::str::FromStr;
 use std::{fs, thread};
 
+use crate::dependencies::dependencies_from_document;
 use anyhow::{anyhow, bail};
 use crates_index::SparseIndex;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependency::{Dependency, DependencyOrigin};
-use crate::dependency_builder::DependencyBuilder;
+use crate::dependencies::dependency::{Dependency, DependencyOrigin};
+use crate::dependencies::dependency_builder::DependencyBuilder;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
@@ -25,43 +26,14 @@ impl Document {
             fs::read_to_string(&path).map_err(|_| anyhow!("could not find Cargo.toml"))?;
         let doc = toml_edit::Document::from_str(&file_content)?;
 
-        let deps = match doc.get_key_value("dependencies") {
-            None => return Err(anyhow::Error::msg("no dependencies were found")),
-            Some(some) => some.1.as_table().unwrap(),
-        };
-
-        thread::scope(|scope| {
-            for (name, value) in deps {
-                scope.spawn(|| {
-                    let index = SparseIndex::new_cargo_default()?;
-
-                    let request: ureq::Request = index.make_cache_request(name)?.into();
-
-                    let response: http::Response<String> = request.call()?.into();
-
-                    let (parts, body) = response.into_parts();
-                    let response = http::Response::from_parts(parts, body.into_bytes());
-
-                    index.parse_cache_response(name, response, true)?;
-
-                    DependencyBuilder::build_dependency(name, value)
-                });
-            }
-        });
-
-        let deps = deps
-            .iter()
-            .map(|(name, value)| DependencyBuilder::build_dependency(name, value))
-            .collect::<Result<Vec<Dependency>, anyhow::Error>>()?;
-
         Ok(Document {
+            deps: dependencies_from_document(&doc)?,
             toml_doc: doc,
-            deps,
             path: path.as_ref().to_str().unwrap().to_string(),
         })
     }
 
-    pub fn get_deps_filtered_view(&self, filter: String) -> Vec<(usize, Vec<usize>)> {
+    pub fn get_deps_filtered_view(&self, filter: &str) -> Vec<(usize, Vec<usize>)> {
         let mut dep_vec = vec![];
 
         for (index, dep) in self.deps.iter().enumerate() {
