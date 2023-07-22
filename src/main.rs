@@ -11,6 +11,7 @@ use crate::document::Document;
 mod display;
 mod document;
 mod dependencies;
+mod scroll_selector;
 
 #[derive(Parser)] // requires `derive` feature
 #[command(name = "cargo")]

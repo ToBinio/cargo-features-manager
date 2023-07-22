@@ -8,14 +8,15 @@ use crossterm::terminal::{size, Clear, ClearType};
 use crossterm::{execute, queue};
 
 use crate::document::Document;
+use crate::scroll_selector::{DependencySelectorItem, FeatureSelectorItem, ScrollSelector};
 
 pub struct Display {
     stdout: Stdout,
 
     document: Document,
 
-    dep_selector: Selector<(usize, Vec<usize>)>,
-    feature_selector: Selector<(String, Vec<usize>)>,
+    dep_selector: ScrollSelector<DependencySelectorItem>,
+    feature_selector: ScrollSelector<FeatureSelectorItem>,
 
     state: DisplayState,
 
@@ -27,13 +28,13 @@ impl Display {
         Ok(Display {
             stdout: stdout(),
 
-            dep_selector: Selector {
-                selected: 0,
+            dep_selector: ScrollSelector {
+                selected_index: 0,
                 data: document.get_deps_filtered_view(""),
             },
 
-            feature_selector: Selector {
-                selected: 0,
+            feature_selector: ScrollSelector {
+                selected_index: 0,
                 data: vec![],
             },
 
@@ -47,25 +48,25 @@ impl Display {
     pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
         match self.document.get_dep_index(&dep_name) {
             Ok(index) => {
-                self.dep_selector.selected = index;
+                self.dep_selector.selected_index = index;
 
-                self.selected_dep();
+                self.select_selected_dep();
                 Ok(())
             }
             Err(err) => Err(err),
         }
     }
 
-    fn selected_dep(&mut self) {
+    fn select_selected_dep(&mut self) {
         self.state = DisplayState::FeatureSelect;
 
         let dep = self
             .document
-            .get_dep(self.dep_selector.get_selected().unwrap().0)
+            .get_dep(&self.dep_selector.get_selected().unwrap().name())
             .unwrap();
 
         // update selector
-        self.feature_selector.data = dep.get_features_filtered_view(self.search_text.clone());
+        self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -104,36 +105,19 @@ impl Display {
         let mut line_index = 1;
         let mut index = dep_range.start;
 
-        for dep in &self.dep_selector.data[dep_range] {
-            let word_mark = &dep.1;
-            let dep = self.document.get_dep(dep.0).unwrap();
+        for selector in &self.dep_selector.data[dep_range] {
+            let dep = self.document.get_dep(selector.name()).unwrap();
 
-            if index == self.dep_selector.selected {
+            if index == self.dep_selector.selected_index {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
             }
 
-            queue!(self.stdout, MoveTo(2, line_index))?;
-
-            let word: Vec<StyledContent<String>> = dep
-                .get_name()
-                .chars()
-                .enumerate()
-                .map(|(index, c)| {
-                    match (dep.has_features(), word_mark.contains(&index)) {
-                        (true, true) => c.to_string().red(),
-                        (true, false) => c.to_string().white(),
-                        (false, true) => c.to_string().dark_red(),
-                        // SetForegroundColor(Color::from((100, 100, 100)))
-                        (false, false) => c.to_string().grey(),
-                    }
-                })
-                .collect();
-
-            for char in word {
-                queue!(self.stdout, Print(char))?;
-            }
-
-            queue!(self.stdout, ResetColor)?;
+            queue!(
+                self.stdout,
+                MoveTo(2, line_index),
+                Print(selector.display_name()),
+                ResetColor
+            )?;
 
             index += 1;
             line_index += 1;
@@ -147,7 +131,7 @@ impl Display {
     fn display_features(&mut self) -> anyhow::Result<()> {
         let dep = self
             .document
-            .get_dep(self.dep_selector.get_selected().unwrap().0)
+            .get_dep(self.dep_selector.get_selected().unwrap().name())
             .unwrap();
 
         let feature_range = self.get_max_range();
@@ -162,7 +146,7 @@ impl Display {
         )?;
 
         for feature in &self.feature_selector.data[self.get_max_range()] {
-            let data = dep.get_feature(&feature.0);
+            let data = dep.get_feature(feature.name());
 
             if data.is_default {
                 queue!(self.stdout, SetForegroundColor(Color::Green))?;
@@ -177,32 +161,24 @@ impl Display {
             queue!(self.stdout, MoveTo(4, line_index), Print("]"))?;
             queue!(self.stdout, ResetColor)?;
 
-            if !dep.get_currently_dependent_features(&feature.0).is_empty() {
+            if !dep
+                .get_currently_dependent_features(feature.name())
+                .is_empty()
+            {
                 queue!(
                     self.stdout,
                     SetForegroundColor(Color::from((100, 100, 100)))
                 )?;
             }
 
-            queue!(self.stdout, MoveTo(6, line_index))?;
+            queue!(
+                self.stdout,
+                MoveTo(6, line_index),
+                Print(feature.display_name()),
+                ResetColor
+            )?;
 
-            let word: Vec<StyledContent<String>> = feature
-                .0
-                .chars()
-                .enumerate()
-                .map(|(index, c)| match feature.1.contains(&index) {
-                    true => c.to_string().red(),
-                    false => c.to_string().white(),
-                })
-                .collect();
-
-            for char in word {
-                queue!(self.stdout, Print(char))?;
-            }
-
-            queue!(self.stdout, ResetColor)?;
-
-            if index == self.feature_selector.selected {
+            if index == self.feature_selector.selected_index {
                 queue!(self.stdout, MoveTo(0, line_index), Print(">"))?;
 
                 let sub_features = &data.sub_features;
@@ -278,10 +254,10 @@ impl Display {
 
                             if self
                                 .document
-                                .get_dep(self.dep_selector.get_selected().unwrap().0)?
+                                .get_dep(self.dep_selector.get_selected().unwrap().name())?
                                 .has_features()
                             {
-                                self.selected_dep();
+                                self.select_selected_dep();
 
                                 //needed to wrap
                                 self.feature_selector.shift(0);
@@ -294,13 +270,13 @@ impl Display {
                         if self.feature_selector.has_data() {
                             let dep = self
                                 .document
-                                .get_dep_mut(self.dep_selector.get_selected().unwrap().0);
+                                .get_dep_mut(self.dep_selector.get_selected().unwrap().name())?;
 
                             dep.toggle_feature_usage(
-                                &self.feature_selector.get_selected().unwrap().0,
+                                self.feature_selector.get_selected().unwrap().name(),
                             );
 
-                            self.document.write_dep(self.dep_selector.selected);
+                            self.document.write_dep(self.dep_selector.selected_index);
                         }
                     }
 
@@ -339,8 +315,8 @@ impl Display {
 
     fn get_max_range(&self) -> Range<usize> {
         let current_selected = match self.state {
-            DisplayState::DepSelect => self.dep_selector.selected,
-            DisplayState::FeatureSelect => self.feature_selector.selected,
+            DisplayState::DepSelect => self.dep_selector.selected_index,
+            DisplayState::FeatureSelect => self.feature_selector.selected_index,
         } as isize;
 
         let max_range = match self.state {
@@ -354,11 +330,11 @@ impl Display {
             if self.feature_selector.has_data() {
                 let dep = self
                     .document
-                    .get_dep(self.dep_selector.get_selected().unwrap().0)
+                    .get_dep(self.dep_selector.get_selected().unwrap().name())
                     .unwrap();
 
                 let feature_name = self.feature_selector.get_selected().unwrap();
-                let data = dep.get_feature(&feature_name.0);
+                let data = dep.get_feature(feature_name.name());
 
                 if !data.sub_features.is_empty() {
                     offset = 1;
@@ -383,11 +359,10 @@ impl Display {
             DisplayState::FeatureSelect => {
                 let dep = self
                     .document
-                    .get_dep(self.dep_selector.get_selected().unwrap().0)
+                    .get_dep(self.dep_selector.get_selected().unwrap().name())
                     .unwrap();
 
-                self.feature_selector.data =
-                    dep.get_features_filtered_view(self.search_text.clone());
+                self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
             }
         }
     }
@@ -415,36 +390,4 @@ enum RunningState {
 enum DisplayState {
     DepSelect,
     FeatureSelect,
-}
-
-struct Selector<T> {
-    selected: usize,
-
-    data: Vec<T>,
-}
-
-impl<T> Selector<T> {
-    fn shift(&mut self, shift: isize) {
-        if !self.has_data() {
-            self.selected = 0;
-            return;
-        }
-
-        let mut selected_temp = self.selected as isize;
-
-        selected_temp += self.data.len() as isize;
-        selected_temp += shift;
-
-        selected_temp %= self.data.len() as isize;
-
-        self.selected = selected_temp as usize;
-    }
-
-    fn get_selected(&self) -> Option<&T> {
-        self.data.get(self.selected)
-    }
-
-    fn has_data(&self) -> bool {
-        !self.data.is_empty()
-    }
 }

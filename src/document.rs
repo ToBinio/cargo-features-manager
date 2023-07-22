@@ -11,6 +11,7 @@ use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyOrigin};
 use crate::dependencies::dependency_builder::DependencyBuilder;
+use crate::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
@@ -33,30 +34,30 @@ impl Document {
         })
     }
 
-    pub fn get_deps_filtered_view(&self, filter: &str) -> Vec<(usize, Vec<usize>)> {
-        let mut dep_vec = vec![];
-
-        for (index, dep) in self.deps.iter().enumerate() {
-            dep_vec.push((index, dep.get_name()));
-        }
-
+    pub fn get_deps_filtered_view(&self, filter: &str) -> Vec<DependencySelectorItem> {
         let matcher = SkimMatcherV2::default();
 
-        dep_vec
+        self.deps
             .iter()
-            .filter_map(|(index, name)| {
+            .filter_map(|dependency| {
                 matcher
-                    .fuzzy(name, &filter, true)
-                    .map(|some| (*index, some))
+                    .fuzzy(&dependency.get_name(), &filter, true)
+                    .map(|fuzzy_result| (dependency, fuzzy_result))
             })
             .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-            .map(|(index, fuzzy)| (index, fuzzy.1.iter().map(|i| *i as usize).collect()))
+            .map(|(dependency, fuzzy)| (dependency, fuzzy.1.iter().map(|i| *i as usize).collect()))
+            .map(|(dependency, indexes)| {
+                DependencySelectorItem::new(dependency, indexes)
+            })
             .collect()
     }
 
-    pub fn get_dep(&self, index: usize) -> anyhow::Result<&Dependency> {
-        match self.deps.get(index) {
-            None => Err(anyhow::Error::msg("out of bounce")),
+    pub fn get_dep(&self, name: &str) -> anyhow::Result<&Dependency> {
+        match self.deps.iter().find(|dep| dep.dep_name.eq(name)) {
+            None => Err(anyhow::Error::msg(format!(
+                "could not find dependency with name {}",
+                name,
+            ))),
             Some(some) => Ok(some),
         }
     }
@@ -74,8 +75,14 @@ impl Document {
         )))
     }
 
-    pub fn get_dep_mut(&mut self, index: usize) -> &mut Dependency {
-        self.deps.get_mut(index).unwrap()
+    pub fn get_dep_mut(&mut self, name: &str) -> anyhow::Result<&mut Dependency> {
+        match self.deps.iter_mut().find(|dep| dep.dep_name.eq(name)) {
+            None => Err(anyhow::Error::msg(format!(
+                "could not find dependency with name {}",
+                name,
+            ))),
+            Some(some) => Ok(some),
+        }
     }
 
     pub fn write_dep(&mut self, dep_index: usize) {

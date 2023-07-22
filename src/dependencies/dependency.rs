@@ -1,3 +1,4 @@
+use crate::scroll_selector::FeatureSelectorItem;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;
@@ -21,25 +22,24 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features_filtered_view(&self, filter: String) -> Vec<(String, Vec<usize>)> {
+    pub fn get_features_filtered_view(&self, filter: &str) -> Vec<FeatureSelectorItem> {
         let mut features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
         if filter.is_empty() {
-            features.sort_by(|(name_a, data_a), (name_b, data_b)| {
-                if data_a.is_default && !data_b.is_default {
-                    return Ordering::Less;
-                }
-
-                if data_b.is_default && !data_a.is_default {
-                    return Ordering::Greater;
-                }
-
-                name_a.partial_cmp(name_b).unwrap()
-            });
-
             features
                 .iter()
-                .map(|(name, _)| (name.to_string(), vec![]))
+                .sorted_by(|(name_a, data_a), (name_b, data_b)| {
+                    if data_a.is_default && !data_b.is_default {
+                        return Ordering::Less;
+                    }
+
+                    if data_b.is_default && !data_a.is_default {
+                        return Ordering::Greater;
+                    }
+
+                    name_a.partial_cmp(name_b).unwrap()
+                })
+                .map(|(name, _)| FeatureSelectorItem::new(name, vec![]))
                 .collect()
         } else {
             let matcher = SkimMatcherV2::default();
@@ -48,17 +48,13 @@ impl Dependency {
                 .iter()
                 .filter_map(|(name, _)| matcher.fuzzy(name, &filter, true).map(|some| (name, some)))
                 .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(name, fuzzy)| {
-                    (
-                        name.to_string(),
-                        fuzzy.1.iter().map(|i| *i as usize).collect(),
-                    )
-                })
+                .map(|(name, fuzzy)| (name, fuzzy.1.iter().map(|i| *i as usize).collect()))
+                .map(|(name, indexes)| FeatureSelectorItem::new(name, indexes))
                 .collect()
         }
     }
 
-    pub fn get_feature(&self, feature_name: &String) -> &FeatureData {
+    pub fn get_feature(&self, feature_name: &str) -> &FeatureData {
         self.features.get(feature_name).unwrap()
     }
 
@@ -88,7 +84,7 @@ impl Dependency {
             .collect()
     }
 
-    pub fn toggle_feature_usage(&mut self, feature_name: &String) {
+    pub fn toggle_feature_usage(&mut self, feature_name: &str) {
         let data = self.features.get(feature_name).unwrap();
 
         if data.is_enabled {
@@ -98,7 +94,7 @@ impl Dependency {
         }
     }
 
-    pub fn enable_feature_usage(&mut self, feature_name: &String) {
+    pub fn enable_feature_usage(&mut self, feature_name: &str) {
         let data = self.features.get_mut(feature_name).unwrap();
 
         if data.is_enabled {
@@ -116,7 +112,7 @@ impl Dependency {
         }
     }
 
-    pub fn disable_feature_usage(&mut self, feature_name: &String) {
+    pub fn disable_feature_usage(&mut self, feature_name: &str) {
         let data = self.features.get_mut(feature_name).unwrap();
 
         if !data.is_enabled {
@@ -132,11 +128,11 @@ impl Dependency {
     }
 
     /// returns all features which require the feature to be enabled
-    fn get_dependent_features(&self, feature_name: &String) -> Vec<String> {
+    fn get_dependent_features(&self, feature_name: &str) -> Vec<String> {
         let mut dep_features = vec![];
 
         for (name, data) in &self.features {
-            if data.sub_features.contains(feature_name) {
+            if data.sub_features.contains(&feature_name.to_string()) {
                 dep_features.push(name.to_string())
             }
         }
@@ -145,7 +141,7 @@ impl Dependency {
     }
 
     /// returns all features which are currently enabled and require the feature to be enabled
-    pub fn get_currently_dependent_features(&self, feature_name: &String) -> Vec<String> {
+    pub fn get_currently_dependent_features(&self, feature_name: &str) -> Vec<String> {
         self.get_dependent_features(feature_name)
             .iter()
             .filter(|name| self.features.get(*name).unwrap().is_enabled)
