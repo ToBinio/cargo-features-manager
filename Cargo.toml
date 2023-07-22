@@ -13,15 +13,17 @@ homepage = "https://github.com/ToBinio/cargo-features-manager.git"
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0.71"
-clap = { version = "4.3.2", features = ["derive"] }
-crates-index = "0.19.12"
+anyhow = "1.0.72"
+clap = { version = "4.3.18", features = ["derive"] }
+crates-index = { version = "1.0.0", features = ["sparse-http"], default-features = false }
 crossterm = "0.26.1"
 ctrlc = "3.4.0"
 fuzzy-matcher = { version = "0.3.7", features = ["compact"] }
-itertools = "0.10.5"
-semver = "1.0.17"
-toml_edit = "0.19.10"
+http = "0.2.9"
+itertools = "0.11.0"
+semver = "1.0.18"
+toml_edit = "0.19.14"
+ureq = { version = "2.7.1", features = ["http-interop"] }
 
 [[bin]]
 name = "cargo-features"

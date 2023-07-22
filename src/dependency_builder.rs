@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::fs;
 use std::str::FromStr;
+use std::sync::OnceLock;
+use std::time::Instant;
 
 use anyhow::anyhow;
-use crates_index::Crate;
+use crates_index::{Crate, SparseIndex};
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
@@ -141,16 +143,8 @@ impl DependencyBuilder {
     }
 
     fn get_crate_from_index(&self) -> anyhow::Result<Crate> {
-        //todo cache
-
-        if let Ok(index) = crates_index::SparseIndex::new_cargo_default() {
+        if let Ok(index) = SparseIndex::new_cargo_default() {
             if let Ok(krate) = index.crate_from_cache(&self.dep_name) {
-                return Ok(krate);
-            }
-        }
-
-        if let Ok(index) = crates_index::Index::new_cargo_default() {
-            if let Some(krate) = index.crate_(&self.dep_name) {
                 return Ok(krate);
             }
         }

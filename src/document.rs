@@ -1,8 +1,9 @@
-use std::fs;
 use std::path::Path;
 use std::str::FromStr;
+use std::{fs, thread};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
+use crates_index::SparseIndex;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
@@ -28,6 +29,25 @@ impl Document {
             None => return Err(anyhow::Error::msg("no dependencies were found")),
             Some(some) => some.1.as_table().unwrap(),
         };
+
+        thread::scope(|scope| {
+            for (name, value) in deps {
+                scope.spawn(|| {
+                    let index = SparseIndex::new_cargo_default()?;
+
+                    let request: ureq::Request = index.make_cache_request(name)?.into();
+
+                    let response: http::Response<String> = request.call()?.into();
+
+                    let (parts, body) = response.into_parts();
+                    let response = http::Response::from_parts(parts, body.into_bytes());
+
+                    index.parse_cache_response(name, response, true)?;
+
+                    DependencyBuilder::build_dependency(name, value)
+                });
+            }
+        });
 
         let deps = deps
             .iter()
