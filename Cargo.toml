@@ -11,6 +11,7 @@ repository = "https://github.com/ToBinio/cargo-features-manager"
 keywords = ["cli", "manager", "cargo", "crates", "feature"]
 homepage = "https://github.com/ToBinio/cargo-features-manager.git"
 readme = "README.md"
+rust-version = "1.64.0"
 
 [dependencies]
 anyhow = "1.0.72"
