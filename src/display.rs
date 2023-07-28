@@ -202,30 +202,6 @@ impl Display {
     }
 
     fn input_event(&mut self) -> anyhow::Result<RunningState> {
-        match self.term.read_key()? {
-            Key::Unknown => {}
-            Key::UnknownEscSeq(_) => {}
-            Key::ArrowLeft => {}
-            Key::ArrowRight => {}
-            Key::ArrowUp => {}
-            Key::ArrowDown => {}
-            Key::Enter => {}
-            Key::Escape => {}
-            Key::Backspace => {}
-            Key::Home => {}
-            Key::End => {}
-            Key::Tab => {}
-            Key::BackTab => {}
-            Key::Alt => {}
-            Key::Del => {}
-            Key::Shift => {}
-            Key::Insert => {}
-            Key::PageUp => {}
-            Key::PageDown => {}
-            Key::Char(_) => {}
-            _ => {}
-        }
-
         match (self.term.read_key()?, &self.state) {
             //movement
             //up
