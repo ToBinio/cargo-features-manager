@@ -162,7 +162,7 @@ impl DependencyBuilder {
         let possible_versions: Vec<crates_index::Version> = self
             .get_crate_from_index()?
             .versions()
-            .into_iter()
+            .iter()
             .filter(|version| version_req.matches(&Version::parse(version.version()).unwrap()))
             .sorted_by(|a, b| {
                 Version::parse(a.version())
@@ -177,7 +177,7 @@ impl DependencyBuilder {
                 "could not find appropriate version for {} in local index",
                 self.dep_name
             )),
-            Some(version) => return Ok(version.clone()),
+            Some(version) => Ok(version.clone()),
         }
     }
 
@@ -197,15 +197,13 @@ impl DependencyBuilder {
     }
 
     fn set_features_from_index(&mut self) -> anyhow::Result<()> {
-        let version;
-
-        match self.get_highest_version_from_index() {
-            Ok(latest_version) => version = latest_version,
+        let version = match self.get_highest_version_from_index() {
+            Ok(latest_version) => latest_version,
             Err(_error) => {
                 self.update_index()?;
-                version = self.get_highest_version_from_index()?;
+                self.get_highest_version_from_index()?
             }
-        }
+        };
 
         // add indirect features (features out of dependency)
         for dep in version.dependencies() {
