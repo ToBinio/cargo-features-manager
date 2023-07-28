@@ -16,8 +16,8 @@ rust-version = "1.64.0"
 [dependencies]
 anyhow = "1.0.72"
 clap = { version = "4.3.18", features = ["derive"] }
+console = "0.15.7"
 crates-index = { version = "1.0.0", features = ["sparse-http"], default-features = false }
-crossterm = "0.26.1"
 ctrlc = "3.4.0"
 fuzzy-matcher = { version = "0.3.7", features = ["compact"] }
 http = "0.2.9"

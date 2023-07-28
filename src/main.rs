@@ -2,8 +2,7 @@ use std::io::stdout;
 use std::process::exit;
 
 use clap::{arg, Parser};
-use crossterm::execute;
-use crossterm::style::{Print, Stylize};
+use console::style;
 
 use crate::display::Display;
 use crate::document::Document;
@@ -33,13 +32,7 @@ fn main() {
     let CargoCli::Features(args) = CargoCli::parse();
 
     if let Err(err) = run(args) {
-        execute!(
-            stdout(),
-            Print("error".red().bold()),
-            Print(": "),
-            Print(err.to_string())
-        )
-        .unwrap();
+        print!("{} : {}", style("error").red().bold(), err.to_string());
     }
 }
 

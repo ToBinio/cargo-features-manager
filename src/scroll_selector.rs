@@ -1,6 +1,5 @@
 use crate::dependencies::dependency::Dependency;
-
-use crossterm::style::Stylize;
+use console::style;
 
 pub struct ScrollSelector<T> {
     pub selected_index: usize,
@@ -44,15 +43,16 @@ impl DependencySelectorItem {
             .get_name()
             .chars()
             .enumerate()
-            .map(|(index, c)| {
-                match (dep.has_features(), highlighted_letters.contains(&index)) {
-                    (true, true) => c.to_string().red().to_string(),
-                    (true, false) => c.to_string().white().to_string(),
-                    (false, true) => c.to_string().dark_red().to_string(),
-                    // SetForegroundColor(Color::from((100, 100, 100)))
-                    (false, false) => c.to_string().grey().to_string(),
-                }
-            })
+            .map(
+                |(index, c)| match (dep.has_features(), highlighted_letters.contains(&index)) {
+                    (true, true) => style(c).red().to_string(),
+                    (true, false) => style(c).white().to_string(),
+                    //dark red
+                    (false, true) => style(c).color256(1).to_string(),
+                    //light gray
+                    (false, false) => style(c).color256(7).to_string(),
+                },
+            )
             .collect();
 
         Self {
@@ -81,8 +81,8 @@ impl FeatureSelectorItem {
             .chars()
             .enumerate()
             .map(|(index, c)| match highlighted_letters.contains(&index) {
-                true => c.to_string().red().to_string(),
-                false => c.to_string().white().to_string(),
+                true => style(c).red().to_string(),
+                false => style(c).white().to_string(),
             })
             .collect();
 
