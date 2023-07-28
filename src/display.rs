@@ -70,7 +70,7 @@ impl Display {
 
         loop {
             //clear previous screen
-            self.term.clear_last_lines(self.term.size().1 as usize)?;
+            self.term.clear_last_lines(self.term.size().0 as usize)?;
 
             match self.state {
                 DisplayState::DepSelect => self.display_deps()?,
@@ -316,7 +316,7 @@ impl Display {
             }
         }
 
-        let height = self.term.size().1 as usize;
+        let height = self.term.size().0 as usize;
 
         let start = (current_selected - height as isize / 2 + 1)
             .min(max_range as isize - height as isize + 1 + offset as isize)
