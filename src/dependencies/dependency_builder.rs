@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use crates_index::{Crate, SparseIndex};
+use itertools::Itertools;
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
@@ -45,6 +46,7 @@ impl DependencyBuilder {
                 .as_str()
                 .ok_or(anyhow!("could not parse {} - version tag", dep_name))?
                 .to_string();
+
             builder.set_features_from_index()?;
         } else {
             let table = item
@@ -74,6 +76,7 @@ impl DependencyBuilder {
                         .as_str()
                         .ok_or(anyhow!("could not parse {} - version", dep_name))?
                         .to_string();
+
                     builder.set_features_from_index()?;
                 }
                 Some(path) => {
@@ -148,45 +151,71 @@ impl DependencyBuilder {
         }
 
         Err(anyhow!(
-            "could not find {} in either registry",
+            "could not find {} in sparse registry",
             self.dep_name
         ))
     }
 
-    fn set_features_from_index(&mut self) -> anyhow::Result<()> {
+    fn get_highest_version_from_index(&self) -> anyhow::Result<crates_index::Version> {
         let version_req = VersionReq::parse(&self.version)?;
 
-        let mut possible_versions: Vec<crates_index::Version> = self
+        let possible_versions: Vec<crates_index::Version> = self
             .get_crate_from_index()?
             .versions()
-            .iter()
+            .into_iter()
             .filter(|version| version_req.matches(&Version::parse(version.version()).unwrap()))
+            .sorted_by(|a, b| {
+                Version::parse(a.version())
+                    .unwrap()
+                    .cmp(&Version::parse(b.version()).unwrap())
+            })
             .cloned()
             .collect();
 
-        possible_versions.sort_by(|a, b| {
-            Version::parse(a.version())
-                .unwrap()
-                .cmp(&Version::parse(b.version()).unwrap())
-        });
-
         match possible_versions.first() {
-            None => Err(anyhow!(
+            None => bail!(format!(
                 "could not find appropriate version for {} in local index",
                 self.dep_name
             )),
-            Some(version) => {
-                // add indirect features (features out of dependency)
-                for dep in version.dependencies() {
-                    if dep.is_optional() {
-                        self.optional_dependency.push(dep.name().to_string());
-                    }
-                }
+            Some(version) => return Ok(version.clone()),
+        }
+    }
 
-                self.all_features = version.features().clone();
-                Ok(())
+    fn update_index(&self) -> anyhow::Result<()> {
+        let index = SparseIndex::new_cargo_default()?;
+
+        let request: ureq::Request = index.make_cache_request(&self.dep_name)?.into();
+
+        let response: http::Response<String> = request.call()?.into();
+
+        let (parts, body) = response.into_parts();
+        let response = http::Response::from_parts(parts, body.into_bytes());
+
+        index.parse_cache_response(&self.dep_name, response, true)?;
+
+        Ok(())
+    }
+
+    fn set_features_from_index(&mut self) -> anyhow::Result<()> {
+        let version;
+
+        match self.get_highest_version_from_index() {
+            Ok(latest_version) => version = latest_version,
+            Err(_error) => {
+                self.update_index()?;
+                version = self.get_highest_version_from_index()?;
             }
         }
+
+        // add indirect features (features out of dependency)
+        for dep in version.dependencies() {
+            if dep.is_optional() {
+                self.optional_dependency.push(dep.name().to_string());
+            }
+        }
+
+        self.all_features = version.features().clone();
+        Ok(())
     }
 
     fn build(&self) -> Dependency {
