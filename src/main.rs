@@ -1,9 +1,7 @@
-use std::io::stdout;
 use std::process::exit;
 
 use clap::{arg, Parser};
-use crossterm::execute;
-use crossterm::style::{Print, Stylize};
+use console::{style, Term};
 
 use crate::display::Display;
 use crate::document::Document;
@@ -28,18 +26,10 @@ struct FeaturesArgs {
 }
 
 fn main() {
-    let _ = ctrlc::set_handler(|| exit(0));
-
     let CargoCli::Features(args) = CargoCli::parse();
 
     if let Err(err) = run(args) {
-        execute!(
-            stdout(),
-            Print("error".red().bold()),
-            Print(": "),
-            Print(err.to_string())
-        )
-        .unwrap();
+        print!("{} : {}", style("error").red().bold(), err);
     }
 }
 
@@ -50,6 +40,13 @@ fn run(args: FeaturesArgs) -> anyhow::Result<()> {
     if let Some(name) = args.dependency {
         display.set_selected_dep(name)?
     }
+
+    let _ = ctrlc::set_handler(|| {
+        let term = Term::stdout();
+        term.show_cursor().unwrap();
+
+        exit(0);
+    });
 
     display.start()?;
 
