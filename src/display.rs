@@ -1,7 +1,6 @@
 use console::{style, Key, Term};
-use std::io::{stdout, Stdout, Write};
+use std::io::Write;
 use std::ops::{Not, Range};
-use std::ptr::write;
 
 use crate::document::Document;
 use crate::scroll_selector::{DependencySelectorItem, FeatureSelectorItem, ScrollSelector};
@@ -70,7 +69,7 @@ impl Display {
         self.term.hide_cursor()?;
 
         for _ in 1..self.term.size().0 {
-            writeln!(self.term, "")?;
+            writeln!(self.term)?;
         }
 
         self.term.move_cursor_to(0, 0)?;
@@ -185,7 +184,7 @@ impl Display {
                     self.term.move_cursor_to(8, line_index)?;
 
                     for sub_feature in sub_features {
-                        write!(self.term,"{} ", sub_feature)?;
+                        write!(self.term, "{} ", sub_feature)?;
                     }
                 }
             }

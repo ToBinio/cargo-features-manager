@@ -1,4 +1,3 @@
-use std::io::stdout;
 use std::process::exit;
 
 use clap::{arg, Parser};
@@ -30,7 +29,7 @@ fn main() {
     let CargoCli::Features(args) = CargoCli::parse();
 
     if let Err(err) = run(args) {
-        print!("{} : {}", style("error").red().bold(), err.to_string());
+        print!("{} : {}", style("error").red().bold(), err);
     }
 }
 
@@ -43,7 +42,6 @@ fn run(args: FeaturesArgs) -> anyhow::Result<()> {
     }
 
     let _ = ctrlc::set_handler(|| {
-
         let term = Term::stdout();
         term.show_cursor().unwrap();
 
