@@ -69,10 +69,14 @@ impl Display {
         //setup
         self.term.hide_cursor()?;
 
-        loop {
-            //clear previous screen
-            self.term.clear_last_lines(self.term.size().0 as usize)?;
+        for _ in 1..self.term.size().0 {
+            writeln!(self.term, "")?;
+        }
 
+        self.term.move_cursor_to(0, 0)?;
+        self.term.flush()?;
+
+        loop {
             match self.state {
                 DisplayState::DepSelect => self.display_deps()?,
                 DisplayState::FeatureSelect => self.display_features()?,
@@ -80,12 +84,15 @@ impl Display {
 
             self.term.flush()?;
 
+            //clear previous screen
+            self.term.clear_last_lines(self.term.size().0 as usize)?;
             if let RunningState::Finished = self.input_event()? {
                 break;
             }
         }
 
         self.term.show_cursor()?;
+        self.term.flush()?;
 
         Ok(())
     }
