@@ -46,7 +46,7 @@ impl DependencySelectorItem {
             .map(
                 |(index, c)| match (dep.has_features(), highlighted_letters.contains(&index)) {
                     (true, true) => style(c).red().to_string(),
-                    (true, false) => style(c).white().to_string(),
+                    (true, false) => c.to_string(),
                     //dark red
                     (false, true) => style(c).color256(1).to_string(),
                     //light gray
@@ -82,7 +82,7 @@ impl FeatureSelectorItem {
             .enumerate()
             .map(|(index, c)| match highlighted_letters.contains(&index) {
                 true => style(c).red().to_string(),
-                false => style(c).white().to_string(),
+                false => c.to_string(),
             })
             .collect();
 

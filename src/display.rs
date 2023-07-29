@@ -1,6 +1,7 @@
 use console::{style, Key, Term};
 use std::io::{stdout, Stdout, Write};
 use std::ops::{Not, Range};
+use std::ptr::write;
 
 use crate::document::Document;
 use crate::scroll_selector::{DependencySelectorItem, FeatureSelectorItem, ScrollSelector};
@@ -143,10 +144,12 @@ impl Display {
 
             self.term.move_cursor_to(2, line_index)?;
 
-            if data.is_enabled {
-                write!(self.term, "{}", style("[X]").green())?;
+            let marker = if data.is_enabled { "[X]" } else { "[ ]" };
+
+            if data.is_default {
+                write!(self.term, "{}", style(marker).green())?;
             } else {
-                write!(self.term, "[ ]")?;
+                write!(self.term, "{}", marker)?;
             }
 
             let mut feature_name = style(feature.display_name());
@@ -159,6 +162,7 @@ impl Display {
                 feature_name = feature_name.color256(8);
             }
 
+            self.term.move_cursor_right(1)?;
             write!(self.term, "{}", feature_name)?;
 
             if index == self.feature_selector.selected_index {
