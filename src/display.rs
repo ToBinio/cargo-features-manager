@@ -115,7 +115,6 @@ impl Display {
             }
 
             self.term.move_cursor_to(2, line_index)?;
-            //todo?
             write!(self.term, "{}", selector.display_name())?;
 
             index += 1;
@@ -140,7 +139,6 @@ impl Display {
 
         self.display_search_header()?;
 
-        //todo
         let dep = self
             .document
             .get_dep(self.dep_selector.get_selected().unwrap().name())
@@ -184,16 +182,11 @@ impl Display {
                     self.term.move_cursor_to(6, line_index)?;
                     write!(self.term, "└")?;
 
-                    //todo print direct ?
-                    let mut sub_features_str = "".to_string();
+                    self.term.move_cursor_to(8, line_index)?;
 
                     for sub_feature in sub_features {
-                        sub_features_str += sub_feature;
-                        sub_features_str += " ";
+                        write!(self.term,"{} ", sub_feature)?;
                     }
-
-                    self.term.move_cursor_to(8, line_index)?;
-                    write!(self.term, "{}", sub_features_str)?;
                 }
             }
 
