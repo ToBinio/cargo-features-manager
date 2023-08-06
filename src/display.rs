@@ -253,9 +253,9 @@ impl Display {
                         .document
                         .get_dep_mut(self.dep_selector.get_selected().unwrap().name())?;
 
-                    dep.toggle_feature_usage(self.feature_selector.get_selected().unwrap().name());
+                    dep.toggle_feature(self.feature_selector.get_selected().unwrap().name());
 
-                    self.document.write_dep(self.dep_selector.selected_index);
+                    self.document.write_dep(self.dep_selector.selected_index)?;
                 }
             }
 

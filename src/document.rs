@@ -34,6 +34,10 @@ impl Document {
         })
     }
 
+    pub fn get_deps(&self) -> &Vec<Dependency> {
+        &self.deps
+    }
+
     pub fn get_deps_filtered_view(&self, filter: &str) -> Vec<DependencySelectorItem> {
         let matcher = SkimMatcherV2::default();
 
@@ -83,7 +87,18 @@ impl Document {
         }
     }
 
-    pub fn write_dep(&mut self, dep_index: usize) {
+    pub fn write_dep_by_name(&mut self, name: &str) -> anyhow::Result<()> {
+        let (index, _) = self
+            .deps
+            .iter()
+            .enumerate()
+            .find(|(index, dep)| dep.get_name().eq(name))
+            .ok_or(anyhow!("could not find dependency with name {}", name))?;
+
+        self.write_dep(index)
+    }
+
+    pub fn write_dep(&mut self, dep_index: usize) -> anyhow::Result<()> {
         let (_name, deps) = self.toml_doc.get_key_value_mut("dependencies").unwrap();
         let deps = deps.as_table_mut().unwrap();
 
@@ -139,5 +154,7 @@ impl Document {
         }
 
         fs::write(self.path.clone(), self.toml_doc.to_string()).unwrap();
+
+        Ok(())
     }
 }

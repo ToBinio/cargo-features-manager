@@ -297,7 +297,7 @@ impl DependencyBuilder {
         }
 
         for name in features_to_enable {
-            new_crate.enable_feature_usage(&name);
+            new_crate.enable_feature(&name);
         }
 
         new_crate
