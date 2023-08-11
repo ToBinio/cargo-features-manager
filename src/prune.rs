@@ -1,12 +1,13 @@
 use crate::document::Document;
 use anyhow::anyhow;
-use clap::command;
+
 use console::Term;
 use std::io::Write;
 use std::ops::Not;
+
 use std::process::{Command, Stdio};
 
-pub fn prune(mut document: Document) -> anyhow::Result<()> {
+pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let mut term = Term::stdout();
 
     let deps = document
@@ -22,7 +23,7 @@ pub fn prune(mut document: Document) -> anyhow::Result<()> {
         let enabled_features = dependency
             .features
             .iter()
-            .filter(|(name, data)| data.is_enabled)
+            .filter(|(_name, data)| data.is_enabled)
             .map(|(name, _)| name)
             .cloned()
             .collect::<Vec<String>>();
@@ -49,7 +50,11 @@ pub fn prune(mut document: Document) -> anyhow::Result<()> {
             document.write_dep_by_name(&name)?;
         }
 
-        if to_be_disabled.len() > 0 {
+        if is_dry_run {
+            continue;
+        }
+
+        if to_be_disabled.is_empty().not() {
             for feature in to_be_disabled {
                 document.get_dep_mut(&name)?.disable_feature(&feature);
             }
@@ -71,6 +76,4 @@ fn check() -> anyhow::Result<bool> {
     let code = child.wait()?.code().ok_or(anyhow!("Could not check"))?;
 
     Ok(code == 0)
-
-    // Ok(false)
 }

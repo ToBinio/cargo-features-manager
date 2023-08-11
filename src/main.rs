@@ -1,6 +1,6 @@
 use std::process::exit;
 
-use clap::{arg, Parser};
+use clap::{arg, Parser, Subcommand};
 use console::{style, Term};
 
 use crate::display::Display;
@@ -26,8 +26,16 @@ struct FeaturesArgs {
     #[arg(long, short)]
     dependency: Option<String>,
 
-    #[arg(long, short)]
-    prune: bool,
+    #[command(subcommand)]
+    sub: Option<FeaturesSubCommands>,
+}
+
+#[derive(Subcommand)]
+enum FeaturesSubCommands {
+    Prune {
+        #[arg(long, short)]
+        dry_run: bool,
+    },
 }
 
 fn main() {
@@ -41,8 +49,12 @@ fn main() {
 fn run(args: FeaturesArgs) -> anyhow::Result<()> {
     let document = Document::new("./Cargo.toml")?;
 
-    if args.prune {
-        prune(document)?;
+    if let Some(sub) = args.sub {
+        match sub {
+            FeaturesSubCommands::Prune { dry_run } => {
+                prune(document, dry_run)?;
+            }
+        }
     } else {
         let mut display = Display::new(document)?;
 

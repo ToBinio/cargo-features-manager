@@ -92,7 +92,7 @@ impl Document {
             .deps
             .iter()
             .enumerate()
-            .find(|(index, dep)| dep.get_name().eq(name))
+            .find(|(_index, dep)| dep.get_name().eq(name))
             .ok_or(anyhow!("could not find dependency with name {}", name))?;
 
         self.write_dep(index)
