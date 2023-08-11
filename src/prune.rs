@@ -39,7 +39,7 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
 
         for (id, feature) in enabled_features.iter().enumerate() {
             term.clear_line()?;
-            writeln!(term, "testing {}", feature)?;
+            writeln!(term, " └ {}", feature)?;
 
             document.get_dep_mut(&name)?.disable_feature(feature);
             document.write_dep_by_name(&name)?;
