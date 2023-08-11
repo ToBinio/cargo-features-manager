@@ -29,7 +29,7 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
             .collect::<Vec<String>>();
 
         if enabled_features.is_empty() {
-            continue
+            continue;
         }
 
         term.clear_line()?;
@@ -59,13 +59,19 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
             writeln!(term, "{} [{}/{}]", name, id + 1, enabled_features.len())?;
         }
 
+        let mut disabled_count = style(to_be_disabled.len());
+
+        if to_be_disabled.is_empty().not() {
+            disabled_count = disabled_count.red();
+        }
+
         term.move_cursor_up(1)?;
         term.clear_line()?;
         writeln!(
             term,
             "{} [{}/{}]",
             name,
-            style(to_be_disabled.len()).red(),
+            disabled_count,
             enabled_features.len()
         )?;
 
