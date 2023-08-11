@@ -1,11 +1,12 @@
 use crate::document::Document;
 use anyhow::anyhow;
 
-use console::Term;
+use console::{style, Style, Term};
 use std::io::Write;
 use std::ops::Not;
 
 use std::process::{Command, Stdio};
+use std::ptr::write;
 
 pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let mut term = Term::stdout();
@@ -16,9 +17,11 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
-    for name in deps {
+    for name in deps.iter() {
         let dependency = document.get_dep_mut(&name)?;
-        writeln!(term, "\nrunning for {}", name)?;
+
+        term.clear_line()?;
+        writeln!(term, "{} [0/0]", name)?;
 
         let enabled_features = dependency
             .features
@@ -30,7 +33,8 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
 
         let mut to_be_disabled = vec![];
 
-        for feature in &enabled_features {
+        for (id, feature) in enabled_features.iter().enumerate() {
+            term.clear_line()?;
             writeln!(term, "testing {}", feature)?;
 
             document.get_dep_mut(&name)?.disable_feature(feature);
@@ -38,9 +42,6 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
 
             if check()? {
                 to_be_disabled.push(feature.to_string());
-                writeln!(term, "bloat")?;
-            } else {
-                writeln!(term, "required")?;
             }
 
             //reset to start
@@ -48,7 +49,21 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
                 document.get_dep_mut(&name)?.enable_feature(feature);
             }
             document.write_dep_by_name(&name)?;
+
+            term.move_cursor_up(2)?;
+            term.clear_line()?;
+            writeln!(term, "{} [{}/{}]", name, id + 1, enabled_features.len())?;
         }
+
+        term.move_cursor_up(1)?;
+        term.clear_line()?;
+        writeln!(
+            term,
+            "{} [{}/{}]",
+            name,
+            style(to_be_disabled.len()).red(),
+            enabled_features.len()
+        )?;
 
         if is_dry_run {
             continue;
