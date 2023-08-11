@@ -20,9 +20,6 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     for name in deps.iter() {
         let dependency = document.get_dep_mut(&name)?;
 
-        term.clear_line()?;
-        writeln!(term, "{} [0/0]", name)?;
-
         let enabled_features = dependency
             .features
             .iter()
@@ -30,6 +27,13 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
             .map(|(name, _)| name)
             .cloned()
             .collect::<Vec<String>>();
+
+        if enabled_features.is_empty() {
+            continue
+        }
+
+        term.clear_line()?;
+        writeln!(term, "{} [0/0]", name)?;
 
         let mut to_be_disabled = vec![];
 
