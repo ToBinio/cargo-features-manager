@@ -1,12 +1,15 @@
 use crate::document::Document;
 use anyhow::anyhow;
+use std::collections::HashMap;
+use std::fs;
 
-use console::{style, Style, Term};
+use console::{style, Term};
 use std::io::Write;
+use std::iter::Map;
 use std::ops::Not;
 
 use std::process::{Command, Stdio};
-use std::ptr::write;
+use toml::Table;
 
 pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let mut term = Term::stdout();
@@ -17,6 +20,8 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
+    let ignored_features = get_ignored_features()?;
+
     for name in deps.iter() {
         let dependency = document.get_dep_mut(&name)?;
 
@@ -24,6 +29,12 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
             .features
             .iter()
             .filter(|(_name, data)| data.is_enabled)
+            .filter(|(feature_name, data)| {
+                !ignored_features
+                    .get(name)
+                    .unwrap_or(&vec![])
+                    .contains(feature_name)
+            })
             .map(|(name, _)| name)
             .cloned()
             .collect::<Vec<String>>();
@@ -101,4 +112,32 @@ fn check() -> anyhow::Result<bool> {
     let code = child.wait()?.code().ok_or(anyhow!("Could not check"))?;
 
     Ok(code == 0)
+}
+
+fn get_ignored_features() -> anyhow::Result<HashMap<String, Vec<String>>> {
+    let result = fs::read_to_string("Features.toml");
+
+    match result {
+        Ok(file) => {
+            let table = file.parse::<Table>()?;
+
+            let mut map = HashMap::new();
+
+            for (key, value) in table {
+                map.insert(
+                    key,
+                    value
+                        .as_array()
+                        .ok_or(anyhow!("Invalid Features.toml format"))?
+                        .iter()
+                        .to_owned()
+                        .filter_map(|value| value.as_str())
+                        .map(|value| value.to_string())
+                        .collect(),
+                );
+            }
+            Ok(map)
+        }
+        Err(_) => Ok(HashMap::new()),
+    }
 }
