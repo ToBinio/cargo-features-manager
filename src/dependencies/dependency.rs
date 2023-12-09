@@ -48,7 +48,7 @@ impl Dependency {
                 .iter()
                 .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
                 .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(name, fuzzy)| (name, fuzzy.1.iter().map(|i| *i as usize).collect()))
+                .map(|(name, fuzzy)| (name, fuzzy.1))
                 .map(|(name, indexes)| FeatureSelectorItem::new(name, indexes))
                 .collect()
         }

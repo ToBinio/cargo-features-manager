@@ -49,7 +49,7 @@ impl Document {
                     .map(|fuzzy_result| (dependency, fuzzy_result))
             })
             .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-            .map(|(dependency, fuzzy)| (dependency, fuzzy.1.iter().map(|i| *i as usize).collect()))
+            .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
             .map(|(dependency, indexes)| DependencySelectorItem::new(dependency, indexes))
             .collect()
     }

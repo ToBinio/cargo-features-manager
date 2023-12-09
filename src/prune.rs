@@ -5,7 +5,6 @@ use std::fs;
 
 use console::{style, Term};
 use std::io::Write;
-use std::iter::Map;
 use std::ops::Not;
 
 use std::process::{Command, Stdio};
@@ -29,7 +28,7 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
             .features
             .iter()
             .filter(|(_name, data)| data.is_enabled)
-            .filter(|(feature_name, data)| {
+            .filter(|(feature_name, _data)| {
                 !ignored_features
                     .get(name)
                     .unwrap_or(&vec![])
