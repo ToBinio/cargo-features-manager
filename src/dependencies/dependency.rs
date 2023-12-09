@@ -48,7 +48,7 @@ impl Dependency {
                 .iter()
                 .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
                 .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(name, fuzzy)| (name, fuzzy.1.iter().map(|i| *i as usize).collect()))
+                .map(|(name, fuzzy)| (name, fuzzy.1))
                 .map(|(name, indexes)| FeatureSelectorItem::new(name, indexes))
                 .collect()
         }
@@ -84,17 +84,17 @@ impl Dependency {
             .collect()
     }
 
-    pub fn toggle_feature_usage(&mut self, feature_name: &str) {
+    pub fn toggle_feature(&mut self, feature_name: &str) {
         let data = self.features.get(feature_name).unwrap();
 
         if data.is_enabled {
-            self.disable_feature_usage(feature_name);
+            self.disable_feature(feature_name);
         } else {
-            self.enable_feature_usage(feature_name);
+            self.enable_feature(feature_name);
         }
     }
 
-    pub fn enable_feature_usage(&mut self, feature_name: &str) {
+    pub fn enable_feature(&mut self, feature_name: &str) {
         let data = self.features.get_mut(feature_name).unwrap();
 
         if data.is_enabled {
@@ -108,11 +108,11 @@ impl Dependency {
         let sub_features = data.sub_features.clone();
 
         for sub_feature_name in sub_features {
-            self.enable_feature_usage(&sub_feature_name);
+            self.enable_feature(&sub_feature_name);
         }
     }
 
-    pub fn disable_feature_usage(&mut self, feature_name: &str) {
+    pub fn disable_feature(&mut self, feature_name: &str) {
         let data = self.features.get_mut(feature_name).unwrap();
 
         if !data.is_enabled {
@@ -123,7 +123,7 @@ impl Dependency {
         data.is_enabled = false;
 
         for name in self.get_dependent_features(feature_name) {
-            self.disable_feature_usage(&name)
+            self.disable_feature(&name)
         }
     }
 

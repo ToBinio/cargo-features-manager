@@ -15,16 +15,17 @@ include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
 anyhow = "1.0.72"
-clap = { version = "4.3.18", features = ["derive"] }
-console = "0.15.7"
+clap = { version = "4.3.18", features = ["derive", "help", "std"], default-features = false }
+console = { version = "0.15.7", default-features = false }
 crates-index = { version = "1.0.0", features = ["sparse-http"], default-features = false }
 ctrlc = "3.4.0"
-fuzzy-matcher = { version = "0.3.7", features = ["compact"] }
+fuzzy-matcher = "0.3.7"
 http = "0.2.9"
-itertools = "0.11.0"
-semver = "1.0.18"
+itertools = { version = "0.11.0", features = ["use_alloc"], default-features = false }
+semver = { version = "1.0.18", default-features = false }
+toml = { version = "0.8.8", features = ["parse"], default-features = false }
 toml_edit = "0.19.14"
-ureq = { version = "2.7.1", features = ["http-interop"] }
+ureq = { version = "2.7.1", features = ["http-interop"], default-features = false }
 
 [[bin]]
 name = "cargo-features"
