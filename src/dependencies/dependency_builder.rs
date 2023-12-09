@@ -185,13 +185,9 @@ impl DependencyBuilder {
         let index = SparseIndex::new_cargo_default()?;
 
         let request: ureq::Request = index.make_cache_request(&self.dep_name)?.into();
+        let response = request.call()?;
 
-        let response: http::Response<String> = request.call()?.into();
-
-        let (parts, body) = response.into_parts();
-        let response = http::Response::from_parts(parts, body.into_bytes());
-
-        index.parse_cache_response(&self.dep_name, response, true)?;
+        index.parse_cache_response(&self.dep_name, response.into(), true)?;
 
         Ok(())
     }
