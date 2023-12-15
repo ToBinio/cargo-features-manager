@@ -73,6 +73,6 @@ this will disable all features which are not required to compile.
 If your project requires a features to be enabled which does not make the compile fail. you can create a file
 called `Features.toml` in there you can define features which will not get disabled.
 
-`toml
+```toml
 clap = ["help"]
-`
+```
