@@ -3,15 +3,15 @@ use std::process::exit;
 use clap::{arg, Parser, Subcommand};
 use console::{style, Term};
 
-use crate::display::Display;
+use crate::rendering::display::Display;
 use crate::document::Document;
 use crate::prune::prune;
 
 mod dependencies;
-mod display;
 mod document;
+
+mod rendering;
 mod prune;
-mod scroll_selector;
 
 #[derive(Parser)]
 #[command(name = "cargo")]

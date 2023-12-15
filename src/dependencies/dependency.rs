@@ -1,4 +1,4 @@
-use crate::scroll_selector::FeatureSelectorItem;
+use crate::rendering::scroll_selector::FeatureSelectorItem;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;

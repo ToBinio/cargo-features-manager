@@ -3,7 +3,7 @@ use std::io::Write;
 use std::ops::{Not, Range};
 
 use crate::document::Document;
-use crate::scroll_selector::{DependencySelectorItem, FeatureSelectorItem, ScrollSelector};
+use crate::rendering::scroll_selector::{DependencySelectorItem, FeatureSelectorItem, ScrollSelector};
 
 pub struct Display {
     term: Term,

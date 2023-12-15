@@ -11,7 +11,7 @@ use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyOrigin};
 
-use crate::scroll_selector::DependencySelectorItem;
+use crate::rendering::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
     toml_doc: toml_edit::Document,
