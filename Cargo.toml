@@ -17,7 +17,7 @@ include = ["src/**/*", "LICENSE", "README.md"]
 anyhow = "1.0.75"
 clap = { version = "4.4.1", features = ["help", "derive", "std"], default-features = false }
 console = { version = "0.15.7", default-features = false }
-crates-index = "2.3.0"
+crates-index = "2.4.0"
 ctrlc = "3.4.1"
 fuzzy-matcher = "0.3.7"
 http = "1.0.0"
