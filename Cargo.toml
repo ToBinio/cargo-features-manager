@@ -18,7 +18,7 @@ anyhow = "1.0.79"
 clap = { version = "4.4.1", features = ["help", "derive", "std"], default-features = false }
 console = { version = "0.15.7", default-features = false }
 crates-index = "2.4.0"
-ctrlc = "3.4.1"
+ctrlc = "3.4.2"
 fuzzy-matcher = "0.3.7"
 http = "1.0.0"
 itertools = { version = "0.12.0", features = ["use_alloc"], default-features = false }
