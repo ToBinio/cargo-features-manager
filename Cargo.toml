@@ -22,7 +22,7 @@ ctrlc = "3.4.1"
 fuzzy-matcher = "0.3.7"
 http = "1.0.0"
 itertools = { version = "0.12.0", features = ["use_alloc"], default-features = false }
-semver = { version = "1.0.20", default-features = false }
+semver = { version = "1.0.21", default-features = false }
 toml = { version = "0.8.8", default-features = false }
 toml_edit = { version = "0.21.0", default-features = false }
 ureq = { version = "2.9.1", features = ["http-interop"], default-features = false }
