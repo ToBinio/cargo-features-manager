@@ -1,5 +1,5 @@
 
-## next
+## 5.0
 
 * handle workspaces
 * always sort features

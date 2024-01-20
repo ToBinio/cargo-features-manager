@@ -48,11 +48,15 @@ enum FeaturesSubCommands {
 fn main() {
     let CargoCli::Features(args) = CargoCli::parse();
 
-
     if let Some(generator) = args.generator {
         let cmd = &mut FeaturesArgs::command();
         eprintln!("Generating completion file for {generator:?}...");
-        generate(generator, cmd, cmd.get_name().to_string(), &mut io::stdout());
+        generate(
+            generator,
+            cmd,
+            cmd.get_name().to_string(),
+            &mut io::stdout(),
+        );
         return;
     }
 
