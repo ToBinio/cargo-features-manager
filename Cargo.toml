@@ -15,7 +15,7 @@ include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
 anyhow = "1.0.79"
-clap = { version = "4.4.13", features = ["derive", "help", "std"], default-features = false }
+clap = { version = "4.4.13", features = ["help", "std", "derive"], default-features = false }
 console = { version = "0.15.7", default-features = false }
 crates-index = "2.4.0"
 ctrlc = "3.4.2"
