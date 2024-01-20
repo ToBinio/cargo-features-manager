@@ -3,13 +3,17 @@ use std::io::Write;
 use std::ops::{Not, Range};
 
 use crate::document::Document;
-use crate::rendering::scroll_selector::{DependencySelectorItem, FeatureSelectorItem, ScrollSelector};
+
+use crate::rendering::scroll_selector::{
+    DependencySelectorItem, FeatureSelectorItem, ScrollSelector,
+};
 
 pub struct Display {
     term: Term,
 
     document: Document,
 
+    package_selector: ScrollSelector<String>,
     dep_selector: ScrollSelector<DependencySelectorItem>,
     feature_selector: ScrollSelector<FeatureSelectorItem>,
 
@@ -23,9 +27,14 @@ impl Display {
         Ok(Display {
             term: Term::buffered_stdout(),
 
+            package_selector: ScrollSelector {
+                selected_index: 0,
+                data: document.get_packages_names(),
+            },
+
             dep_selector: ScrollSelector {
                 selected_index: 0,
-                data: document.get_deps_filtered_view(""),
+                data: document.get_deps_filtered_view(0, ""),
             },
 
             feature_selector: ScrollSelector {
@@ -33,15 +42,31 @@ impl Display {
                 data: vec![],
             },
 
-            document,
-
-            state: DisplayState::DepSelect,
+            state: if document.is_workspace() {
+                DisplayState::Package
+            } else {
+                DisplayState::Dep
+            },
             search_text: "".to_string(),
+
+            document,
         })
     }
 
+    fn select_selected_package(&mut self) {
+        self.state = DisplayState::Dep;
+
+        // update selector
+        self.dep_selector.data = self
+            .document
+            .get_deps_filtered_view(self.package_selector.selected_index, "");
+    }
+
     pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
-        match self.document.get_dep_index(&dep_name) {
+        match self
+            .document
+            .get_dep_index(self.package_selector.selected_index, &dep_name)
+        {
             Ok(index) => {
                 self.dep_selector.selected_index = index;
 
@@ -53,11 +78,14 @@ impl Display {
     }
 
     fn select_selected_dep(&mut self) {
-        self.state = DisplayState::FeatureSelect;
+        self.state = DisplayState::Feature;
 
         let dep = self
             .document
-            .get_dep(self.dep_selector.get_selected().unwrap().name())
+            .get_dep(
+                self.package_selector.selected_index,
+                self.dep_selector.get_selected().unwrap().name(),
+            )
             .unwrap();
 
         // update selector
@@ -77,8 +105,9 @@ impl Display {
 
         loop {
             match self.state {
-                DisplayState::DepSelect => self.display_deps()?,
-                DisplayState::FeatureSelect => self.display_features()?,
+                DisplayState::Dep => self.display_deps()?,
+                DisplayState::Feature => self.display_features()?,
+                DisplayState::Package => self.display_packages()?,
             }
 
             self.term.flush()?;
@@ -96,6 +125,31 @@ impl Display {
         Ok(())
     }
 
+    fn display_packages(&mut self) -> anyhow::Result<()> {
+        write!(self.term, "Packages")?;
+        // self.display_search_header()?;
+
+        let dep_range = self.get_max_range();
+
+        let mut line_index = 1;
+        let mut index = dep_range.start;
+
+        for selected in &self.package_selector.data[dep_range] {
+            if index == self.package_selector.selected_index {
+                self.term.move_cursor_to(0, line_index)?;
+                write!(self.term, ">")?;
+            }
+
+            self.term.move_cursor_to(2, line_index)?;
+            write!(self.term, "{}", selected)?;
+
+            index += 1;
+            line_index += 1;
+        }
+
+        Ok(())
+    }
+
     fn display_deps(&mut self) -> anyhow::Result<()> {
         write!(self.term, "Dependencies")?;
         self.display_search_header()?;
@@ -106,7 +160,10 @@ impl Display {
         let mut index = dep_range.start;
 
         for selector in &self.dep_selector.data[dep_range] {
-            let _dep = self.document.get_dep(selector.name()).unwrap();
+            let _dep = self
+                .document
+                .get_dep(self.package_selector.selected_index, selector.name())
+                .unwrap();
 
             if index == self.dep_selector.selected_index {
                 self.term.move_cursor_to(0, line_index)?;
@@ -126,7 +183,10 @@ impl Display {
     fn display_features(&mut self) -> anyhow::Result<()> {
         let dep = self
             .document
-            .get_dep(self.dep_selector.get_selected().unwrap().name())
+            .get_dep(
+                self.package_selector.selected_index,
+                self.dep_selector.get_selected().unwrap().name(),
+            )
             .unwrap();
 
         let feature_range = self.get_max_range();
@@ -140,7 +200,10 @@ impl Display {
 
         let dep = self
             .document
-            .get_dep(self.dep_selector.get_selected().unwrap().name())
+            .get_dep(
+                self.package_selector.selected_index,
+                self.dep_selector.get_selected().unwrap().name(),
+            )
             .unwrap();
 
         for feature in &self.feature_selector.data[self.get_max_range()] {
@@ -208,34 +271,51 @@ impl Display {
         match (self.term.read_key()?, &self.state) {
             //movement
             //up
-            (Key::ArrowUp, DisplayState::DepSelect) => {
+            (Key::ArrowUp, DisplayState::Package) => {
+                self.package_selector.shift(-1);
+            }
+            (Key::ArrowUp, DisplayState::Dep) => {
                 self.dep_selector.shift(-1);
             }
-            (Key::ArrowUp, DisplayState::FeatureSelect) => {
+            (Key::ArrowUp, DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
                     self.feature_selector.shift(-1);
                 }
             }
             //down
-            (Key::ArrowDown, DisplayState::DepSelect) => {
+            (Key::ArrowDown, DisplayState::Package) => {
+                self.package_selector.shift(1);
+            }
+            (Key::ArrowDown, DisplayState::Dep) => {
                 self.dep_selector.shift(1);
             }
-            (Key::ArrowDown, DisplayState::FeatureSelect) => {
+            (Key::ArrowDown, DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
                     self.feature_selector.shift(1);
                 }
             }
 
             //selection
-            (Key::Enter, DisplayState::DepSelect)
-            | (Key::ArrowRight, DisplayState::DepSelect)
-            | (Key::Char(' '), DisplayState::DepSelect) => {
+            (Key::Enter, DisplayState::Package)
+            | (Key::ArrowRight, DisplayState::Package)
+            | (Key::Char(' '), DisplayState::Package) => {
+                self.select_selected_package();
+
+                //needed to wrap
+                self.dep_selector.shift(0);
+            }
+            (Key::Enter, DisplayState::Dep)
+            | (Key::ArrowRight, DisplayState::Dep)
+            | (Key::Char(' '), DisplayState::Dep) => {
                 if self.dep_selector.has_data() {
                     self.search_text = "".to_string();
 
                     if self
                         .document
-                        .get_dep(self.dep_selector.get_selected().unwrap().name())?
+                        .get_dep(
+                            self.package_selector.selected_index,
+                            self.dep_selector.get_selected().unwrap().name(),
+                        )?
                         .has_features()
                     {
                         self.select_selected_dep();
@@ -245,21 +325,26 @@ impl Display {
                     }
                 }
             }
-            (Key::Enter, DisplayState::FeatureSelect)
-            | (Key::ArrowRight, DisplayState::FeatureSelect)
-            | (Key::Char(' '), DisplayState::FeatureSelect) => {
+            (Key::Enter, DisplayState::Feature)
+            | (Key::ArrowRight, DisplayState::Feature)
+            | (Key::Char(' '), DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
-                    let dep = self
-                        .document
-                        .get_dep_mut(self.dep_selector.get_selected().unwrap().name())?;
+                    let dep = self.document.get_dep_mut(
+                        self.package_selector.selected_index,
+                        self.dep_selector.get_selected().unwrap().name(),
+                    )?;
 
                     dep.toggle_feature(self.feature_selector.get_selected().unwrap().name());
 
-                    self.document.write_dep(self.dep_selector.selected_index)?;
+                    self.document.write_dep(
+                        self.package_selector.selected_index,
+                        self.dep_selector.selected_index,
+                    )?;
                 }
             }
 
-            (Key::Char(char), _) => {
+            //search
+            (Key::Char(char), DisplayState::Dep | DisplayState::Feature) => {
                 if char == ' ' {
                     return Ok(RunningState::Running);
                 }
@@ -269,11 +354,12 @@ impl Display {
                 self.update_selected_data();
 
                 match self.state {
-                    DisplayState::DepSelect => self.dep_selector.shift(0),
-                    DisplayState::FeatureSelect => self.feature_selector.shift(0),
+                    DisplayState::Dep => self.dep_selector.shift(0),
+                    DisplayState::Feature => self.feature_selector.shift(0),
+                    DisplayState::Package => self.package_selector.shift(0),
                 }
             }
-            (Key::Backspace, _) => {
+            (Key::Backspace, DisplayState::Dep | DisplayState::Feature) => {
                 let _ = self.search_text.pop();
 
                 self.update_selected_data();
@@ -292,22 +378,27 @@ impl Display {
 
     fn get_max_range(&self) -> Range<usize> {
         let current_selected = match self.state {
-            DisplayState::DepSelect => self.dep_selector.selected_index,
-            DisplayState::FeatureSelect => self.feature_selector.selected_index,
+            DisplayState::Dep => self.dep_selector.selected_index,
+            DisplayState::Feature => self.feature_selector.selected_index,
+            DisplayState::Package => self.package_selector.selected_index,
         } as isize;
 
         let max_range = match self.state {
-            DisplayState::DepSelect => self.dep_selector.data.len(),
-            DisplayState::FeatureSelect => self.feature_selector.data.len(),
+            DisplayState::Dep => self.dep_selector.data.len(),
+            DisplayState::Feature => self.feature_selector.data.len(),
+            DisplayState::Package => self.package_selector.data.len(),
         };
 
         let mut offset = 0;
 
-        if let DisplayState::FeatureSelect = self.state {
+        if let DisplayState::Feature = self.state {
             if self.feature_selector.has_data() {
                 let dep = self
                     .document
-                    .get_dep(self.dep_selector.get_selected().unwrap().name())
+                    .get_dep(
+                        self.package_selector.selected_index,
+                        self.dep_selector.get_selected().unwrap().name(),
+                    )
                     .unwrap();
 
                 let feature_name = self.feature_selector.get_selected().unwrap();
@@ -330,13 +421,20 @@ impl Display {
 
     fn update_selected_data(&mut self) {
         match self.state {
-            DisplayState::DepSelect => {
-                self.dep_selector.data = self.document.get_deps_filtered_view(&self.search_text);
+            DisplayState::Package => {}
+            DisplayState::Dep => {
+                self.dep_selector.data = self.document.get_deps_filtered_view(
+                    self.package_selector.selected_index,
+                    &self.search_text,
+                );
             }
-            DisplayState::FeatureSelect => {
+            DisplayState::Feature => {
                 let dep = self
                     .document
-                    .get_dep(self.dep_selector.get_selected().unwrap().name())
+                    .get_dep(
+                        self.package_selector.selected_index,
+                        self.dep_selector.get_selected().unwrap().name(),
+                    )
                     .unwrap();
 
                 self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
@@ -346,11 +444,23 @@ impl Display {
 
     fn move_back(&mut self) -> RunningState {
         match self.state {
-            DisplayState::DepSelect => RunningState::Finished,
-            DisplayState::FeatureSelect => {
+            DisplayState::Package => RunningState::Finished,
+            DisplayState::Dep => {
+                if !self.document.is_workspace() {
+                    return RunningState::Finished;
+                }
+
                 self.search_text = "".to_string();
 
-                self.state = DisplayState::DepSelect;
+                self.state = DisplayState::Package;
+
+                self.update_selected_data();
+                RunningState::Running
+            }
+            DisplayState::Feature => {
+                self.search_text = "".to_string();
+
+                self.state = DisplayState::Dep;
 
                 self.update_selected_data();
                 RunningState::Running
@@ -365,6 +475,7 @@ enum RunningState {
 }
 
 enum DisplayState {
-    DepSelect,
-    FeatureSelect,
+    Package,
+    Dep,
+    Feature,
 }

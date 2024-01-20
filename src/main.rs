@@ -3,15 +3,17 @@ use std::process::exit;
 use clap::{arg, Parser, Subcommand};
 use console::{style, Term};
 
-use crate::rendering::display::Display;
 use crate::document::Document;
 use crate::prune::prune;
+use crate::rendering::display::Display;
 
 mod dependencies;
 mod document;
 
-mod rendering;
 mod prune;
+mod rendering;
+
+mod package;
 
 #[derive(Parser)]
 #[command(name = "cargo")]
@@ -47,7 +49,7 @@ fn main() {
 }
 
 fn run(args: FeaturesArgs) -> anyhow::Result<()> {
-    let document = Document::new("./Cargo.toml")?;
+    let document = Document::new("./")?;
 
     if let Some(sub) = args.sub {
         match sub {

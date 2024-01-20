@@ -1,3 +1,8 @@
+
+## next
+
+* handle workspaces
+
 ## 4.0
 
 * `cargo features prune` see [README.md](README.md#prune)
