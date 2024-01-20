@@ -1,6 +1,6 @@
 [package]
 name = "cargo-features-manager"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["ToBinio"]
 license = "MIT"
@@ -21,6 +21,7 @@ console = { version = "0.15.7", default-features = false }
 crates-index = "2.4.0"
 ctrlc = "3.4.2"
 fuzzy-matcher = "0.3.7"
+glob = "0.3.1"
 http = "1.0.0"
 itertools = { version = "0.12.0", features = ["use_alloc"], default-features = false }
 semver = { version = "1.0.21", default-features = false }

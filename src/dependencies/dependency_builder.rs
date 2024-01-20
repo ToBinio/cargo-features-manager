@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
@@ -25,7 +26,13 @@ pub struct DependencyBuilder {
 }
 
 impl DependencyBuilder {
-    pub fn build_dependency(dep_name: &str, item: &Item) -> anyhow::Result<Dependency> {
+    pub fn build_dependency(
+        dep_name: &str,
+        item: &Item,
+        base_dir: &str,
+    ) -> anyhow::Result<Dependency> {
+        println!("{}", base_dir);
+
         let mut builder = DependencyBuilder {
             dep_name: dep_name.to_string(),
 
@@ -87,11 +94,11 @@ impl DependencyBuilder {
 
                     builder.origin = DependencyOrigin::Local(path.clone());
 
-                    let path = "./".to_string() + &path + "/Cargo.toml";
+                    let path = Path::new(base_dir).join(&path).join("Cargo.toml");
 
                     let toml_document =
                         toml_edit::Document::from_str(&fs::read_to_string(path.clone()).map_err(
-                            |_| anyhow!("could not find dependency {} - {}", dep_name, path),
+                            |_| anyhow!("could not find dependency {} - {:?}", dep_name, path),
                         )?)?;
 
                     builder.set_data_from_toml(toml_document)?;

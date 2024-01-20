@@ -1,4 +1,9 @@
 
+## 5.1
+
+* allow * to be in workspace path
+* fix local dependencies
+
 ## 5.0
 
 * handle workspaces

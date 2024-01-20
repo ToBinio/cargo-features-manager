@@ -1,6 +1,7 @@
 use crate::dependencies::dependency::Dependency;
 use crate::dependencies::dependency_builder::DependencyBuilder;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
+use glob::glob;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
@@ -43,9 +44,21 @@ pub fn packages_from_workspace(document: &Document) -> anyhow::Result<Vec<Packag
     for entry in members {
         let path = entry.as_str().ok_or(anyhow!("invalid member found"))?;
 
-        let document = document_from_path(path)?;
+        for path in glob(path)? {
+            let path = path?;
+            let document = document_from_path(&path)?;
 
-        packages.push(package_from_document(document, path.to_string())?);
+            packages.push(package_from_document(
+                document,
+                path.to_str()
+                    .ok_or(anyhow!("invalid path {:?}", path))?
+                    .to_string(),
+            )?);
+        }
+    }
+
+    if packages.is_empty() {
+        bail!("no Package was found")
     }
 
     Ok(packages)
@@ -73,7 +86,7 @@ pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result
 
     let deps = deps_table
         .iter()
-        .map(|(name, value)| DependencyBuilder::build_dependency(name, value))
+        .map(|(name, value)| DependencyBuilder::build_dependency(name, value, &base_path))
         .collect::<Result<Vec<Dependency>, anyhow::Error>>()?;
 
     Ok(Package {
