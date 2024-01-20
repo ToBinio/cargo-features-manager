@@ -49,6 +49,10 @@ impl Document {
             .collect()
     }
 
+    pub fn get_package(&self, package_id: usize) -> Option<&Package> {
+        self.packages.get(package_id)
+    }
+
     pub fn get_deps(&self, package_id: usize) -> &Vec<Dependency> {
         &self.packages.get(package_id).unwrap().dependencies
     }
@@ -185,7 +189,9 @@ impl Document {
 
         let package = self.packages.get(package_id).unwrap();
 
-        fs::write(package.path.clone(), package.toml_doc.to_string()).unwrap();
+        let path = Path::new(&package.dir_path).join("Cargo.toml");
+
+        fs::write(path, package.toml_doc.to_string()).unwrap();
 
         Ok(())
     }

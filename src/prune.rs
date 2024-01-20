@@ -6,6 +6,7 @@ use std::fs;
 use console::{style, Term};
 use std::io::Write;
 use std::ops::Not;
+use std::path::Path;
 
 use std::process::{Command, Stdio};
 use toml::Table;
@@ -13,12 +14,28 @@ use toml::Table;
 pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let mut term = Term::stdout();
 
+    let ignored_features = get_ignored_features("./")?;
+
     for (index, name) in document.get_packages_names().iter().enumerate() {
         if document.is_workspace() {
             writeln!(term, "{}", name)?;
-            prune_package(&mut document, is_dry_run, &mut term, index, 2)?;
+            prune_package(
+                &mut document,
+                is_dry_run,
+                &mut term,
+                index,
+                2,
+                &ignored_features,
+            )?;
         } else {
-            prune_package(&mut document, is_dry_run, &mut term, index, 0)?;
+            prune_package(
+                &mut document,
+                is_dry_run,
+                &mut term,
+                index,
+                0,
+                &ignored_features,
+            )?;
         }
     }
 
@@ -31,6 +48,7 @@ fn prune_package(
     term: &mut Term,
     package_id: usize,
     inset: usize,
+    base_ignored: &HashMap<String, Vec<String>>,
 ) -> anyhow::Result<()> {
     let deps = document
         .get_deps(package_id)
@@ -38,7 +56,10 @@ fn prune_package(
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
-    let ignored_features = get_ignored_features()?;
+    println!("{:?}", base_ignored);
+
+    let ignored_features =
+        get_ignored_features(&document.get_package(package_id).unwrap().dir_path)?;
 
     for name in deps.iter() {
         let dependency = document.get_dep_mut(package_id, &name)?;
@@ -53,6 +74,12 @@ fn prune_package(
                     .unwrap_or(&vec![])
                     .contains(feature_name)
             })
+            .filter(|(feature_name, _data)| {
+                !base_ignored
+                    .get(name)
+                    .unwrap_or(&vec![])
+                    .contains(feature_name)
+            })
             .map(|(name, _)| name)
             .cloned()
             .collect::<Vec<String>>();
@@ -62,7 +89,6 @@ fn prune_package(
         }
 
         term.clear_line()?;
-        writeln!(term, "{:inset$}{} [0/0]", "", name)?;
 
         let mut to_be_disabled = vec![];
 
@@ -145,8 +171,10 @@ fn check() -> anyhow::Result<bool> {
     Ok(code == 0)
 }
 
-fn get_ignored_features() -> anyhow::Result<HashMap<String, Vec<String>>> {
-    let result = fs::read_to_string("Features.toml");
+fn get_ignored_features<P: AsRef<Path>>(
+    base_path: P,
+) -> anyhow::Result<HashMap<String, Vec<String>>> {
+    let result = fs::read_to_string(base_path.as_ref().join("Features.toml"));
 
     match result {
         Ok(file) => {

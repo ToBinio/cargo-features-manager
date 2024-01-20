@@ -12,9 +12,11 @@ pub mod dependency_builder;
 
 //todo move to better location
 
-pub fn document_from_path<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
+pub fn document_from_path<P: AsRef<Path>>(dir_path: P) -> anyhow::Result<Document> {
+    let path = dir_path.as_ref().join("Cargo.toml");
+
     let file_content = fs::read_to_string(&path)
-        .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", path.as_ref()))?;
+        .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", path))?;
     Ok(toml_edit::Document::from_str(&file_content)?)
 }
 
@@ -40,17 +42,15 @@ pub fn packages_from_workspace(document: &Document) -> anyhow::Result<Vec<Packag
     for entry in members {
         let path = entry.as_str().ok_or(anyhow!("invalid member found"))?;
 
-        let path = path.to_owned() + "/Cargo.toml";
-
         let document = document_from_path(&path)?;
 
-        packages.push(package_from_document(document, path)?);
+        packages.push(package_from_document(document, path.to_string())?);
     }
 
     Ok(packages)
 }
 
-pub fn package_from_document(doc: Document, path: String) -> anyhow::Result<Package> {
+pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result<Package> {
     let deps_table = doc
         .get_key_value("dependencies")
         .ok_or(anyhow!("no dependencies were found"))?
@@ -79,6 +79,6 @@ pub fn package_from_document(doc: Document, path: String) -> anyhow::Result<Pack
         dependencies: deps,
         name: name.to_string(),
         toml_doc: doc,
-        path,
+        dir_path: base_path,
     })
 }
