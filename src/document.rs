@@ -136,8 +136,10 @@ impl Document {
 
         let dependency = package.dependencies.get(dep_index).unwrap();
 
+        let mut enabled_features = dependency.get_features_to_enable();
+
         if !dependency.can_use_default()
-            || !dependency.get_features_to_enable().is_empty()
+            || !enabled_features.is_empty()
             || dependency.origin != DependencyOrigin::Remote
         {
             let mut table = InlineTable::new();
@@ -157,7 +159,9 @@ impl Document {
             //features
             let mut features = Array::new();
 
-            for name in dependency.get_features_to_enable() {
+            enabled_features.sort();
+
+            for name in enabled_features {
                 features.push(Value::String(Formatted::new(name)));
             }
 

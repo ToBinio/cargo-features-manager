@@ -5,12 +5,12 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 pub struct Dependency {
-    pub(crate) dep_name: String,
-    pub(crate) version: String,
+    pub dep_name: String,
+    pub version: String,
 
-    pub(crate) origin: DependencyOrigin,
+    pub origin: DependencyOrigin,
 
-    pub(crate) features: HashMap<String, FeatureData>,
+    pub features: HashMap<String, FeatureData>,
 }
 
 impl Dependency {

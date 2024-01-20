@@ -2,6 +2,7 @@
 ## next
 
 * handle workspaces
+* always sort features
 
 ## 4.0
 
