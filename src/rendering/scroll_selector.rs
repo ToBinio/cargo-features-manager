@@ -1,4 +1,5 @@
 use crate::dependencies::dependency::Dependency;
+use crate::package::Package;
 use console::style;
 
 pub struct ScrollSelector<T> {

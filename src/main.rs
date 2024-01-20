@@ -13,6 +13,8 @@ mod document;
 mod rendering;
 mod prune;
 
+mod package;
+
 #[derive(Parser)]
 #[command(name = "cargo")]
 #[command(bin_name = "cargo")]

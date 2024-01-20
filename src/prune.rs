@@ -13,8 +13,23 @@ use toml::Table;
 pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let mut term = Term::stdout();
 
+    for (index, name) in document.get_packages_names().iter().enumerate() {
+        writeln!(term, "{}", name)?;
+        prune_package(&mut document, is_dry_run, &mut term, index, 2)?;
+    }
+
+    Ok(())
+}
+
+fn prune_package(
+    document: &mut Document,
+    is_dry_run: bool,
+    term: &mut Term,
+    package_id: usize,
+    inset: usize,
+) -> anyhow::Result<()> {
     let deps = document
-        .get_deps()
+        .get_deps(package_id)
         .iter()
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
@@ -22,7 +37,7 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let ignored_features = get_ignored_features()?;
 
     for name in deps.iter() {
-        let dependency = document.get_dep_mut(&name)?;
+        let dependency = document.get_dep_mut(package_id, &name)?;
 
         let enabled_features = dependency
             .features
@@ -43,16 +58,18 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
         }
 
         term.clear_line()?;
-        writeln!(term, "{} [0/0]", name)?;
+        writeln!(term, "{:inset$}{} [0/0]", "", name)?;
 
         let mut to_be_disabled = vec![];
 
         for (id, feature) in enabled_features.iter().enumerate() {
             term.clear_line()?;
-            writeln!(term, " └ {}", feature)?;
+            writeln!(term, "{:inset$} └ {}", "", feature)?;
 
-            document.get_dep_mut(&name)?.disable_feature(feature);
-            document.write_dep_by_name(&name)?;
+            document
+                .get_dep_mut(package_id, &name)?
+                .disable_feature(feature);
+            document.write_dep_by_name(package_id, &name)?;
 
             if check()? {
                 to_be_disabled.push(feature.to_string());
@@ -60,13 +77,22 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
 
             //reset to start
             for feature in &enabled_features {
-                document.get_dep_mut(&name)?.enable_feature(feature);
+                document
+                    .get_dep_mut(package_id, &name)?
+                    .enable_feature(feature);
             }
-            document.write_dep_by_name(&name)?;
+            document.write_dep_by_name(package_id, &name)?;
 
             term.move_cursor_up(2)?;
             term.clear_line()?;
-            writeln!(term, "{} [{}/{}]", name, id + 1, enabled_features.len())?;
+            writeln!(
+                term,
+                "{:inset$}{} [{}/{}]",
+                "",
+                name,
+                id + 1,
+                enabled_features.len()
+            )?;
         }
 
         let mut disabled_count = style(to_be_disabled.len());
@@ -79,7 +105,8 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
         term.clear_line()?;
         writeln!(
             term,
-            "{} [{}/{}]",
+            "{:inset$}{} [{}/{}]",
+            "",
             name,
             disabled_count,
             enabled_features.len()
@@ -91,13 +118,14 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
 
         if to_be_disabled.is_empty().not() {
             for feature in to_be_disabled {
-                document.get_dep_mut(&name)?.disable_feature(&feature);
+                document
+                    .get_dep_mut(package_id, &name)?
+                    .disable_feature(&feature);
             }
 
-            document.write_dep_by_name(&name)?;
+            document.write_dep_by_name(package_id, &name)?;
         }
     }
-
     Ok(())
 }
 

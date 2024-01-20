@@ -2,46 +2,54 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
-use crate::dependencies::dependencies_from_document;
-use anyhow::anyhow;
+use crate::dependencies::{document_from_path, packages_from_document};
+use anyhow::{anyhow, bail};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyOrigin};
+use crate::package::Package;
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
-    toml_doc: toml_edit::Document,
-
-    deps: Vec<Dependency>,
-
-    path: String,
+    packages: Vec<Package>,
 }
 
 impl Document {
     pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
-        let file_content =
-            fs::read_to_string(&path).map_err(|_| anyhow!("could not find Cargo.toml"))?;
-        let doc = toml_edit::Document::from_str(&file_content)?;
+        let doc = document_from_path(&path)?;
 
         Ok(Document {
-            deps: dependencies_from_document(&doc)?,
-            toml_doc: doc,
-            path: path.as_ref().to_str().unwrap().to_string(),
+            packages: packages_from_document(doc, path.as_ref().to_str().unwrap().to_string())?,
         })
     }
 
-    pub fn get_deps(&self) -> &Vec<Dependency> {
-        &self.deps
+    pub fn get_packages_names(&self) -> Vec<String> {
+        self.packages
+            .iter()
+            .map(|package| package.name.to_string())
+            .collect()
     }
 
-    pub fn get_deps_filtered_view(&self, filter: &str) -> Vec<DependencySelectorItem> {
+    pub fn get_deps(&self, package_id: usize) -> &Vec<Dependency> {
+        &self.packages.get(package_id).unwrap().dependencies
+    }
+
+    pub fn get_deps_mut(&mut self, package_id: usize) -> &mut Vec<Dependency> {
+        &mut self.packages.get_mut(package_id).unwrap().dependencies
+    }
+
+    pub fn get_deps_filtered_view(
+        &self,
+        package_id: usize,
+        filter: &str,
+    ) -> Vec<DependencySelectorItem> {
         let matcher = SkimMatcherV2::default();
 
-        self.deps
+        self.get_deps(package_id)
             .iter()
             .filter_map(|dependency| {
                 matcher
@@ -54,55 +62,62 @@ impl Document {
             .collect()
     }
 
-    pub fn get_dep(&self, name: &str) -> anyhow::Result<&Dependency> {
-        match self.deps.iter().find(|dep| dep.dep_name.eq(name)) {
-            None => Err(anyhow::Error::msg(format!(
-                "could not find dependency with name {}",
-                name,
-            ))),
+    pub fn get_dep(&self, package_id: usize, name: &str) -> anyhow::Result<&Dependency> {
+        let dep = self
+            .get_deps(package_id)
+            .iter()
+            .find(|dep| dep.dep_name.eq(name));
+
+        match dep {
+            None => bail!("could not find dependency with name {}", name),
             Some(some) => Ok(some),
         }
     }
 
-    pub fn get_dep_index(&self, name: &String) -> anyhow::Result<usize> {
-        for (index, current_crate) in self.deps.iter().enumerate() {
-            if &current_crate.get_name() == name {
-                return Ok(index);
-            }
-        }
-
-        Err(anyhow::Error::msg(format!(
-            "dependency \"{}\" could not be found",
-            name
-        )))
+    pub fn get_dep_index(&self, package_id: usize, name: &String) -> anyhow::Result<usize> {
+        Ok(self
+            .get_deps(package_id)
+            .iter()
+            .enumerate()
+            .find(|(_, dep)| dep.get_name() == *name)
+            .ok_or(anyhow!("dependency \"{}\" could not be found", name))?
+            .0)
     }
 
-    pub fn get_dep_mut(&mut self, name: &str) -> anyhow::Result<&mut Dependency> {
-        match self.deps.iter_mut().find(|dep| dep.dep_name.eq(name)) {
-            None => Err(anyhow::Error::msg(format!(
-                "could not find dependency with name {}",
-                name,
-            ))),
+    pub fn get_dep_mut(
+        &mut self,
+        package_id: usize,
+        name: &str,
+    ) -> anyhow::Result<&mut Dependency> {
+        let dep = self
+            .get_deps_mut(package_id)
+            .iter_mut()
+            .find(|dep| dep.dep_name.eq(name));
+
+        match dep {
+            None => bail!("could not find dependency with name {}", name),
             Some(some) => Ok(some),
         }
     }
 
-    pub fn write_dep_by_name(&mut self, name: &str) -> anyhow::Result<()> {
+    pub fn write_dep_by_name(&mut self, package_id: usize, name: &str) -> anyhow::Result<()> {
         let (index, _) = self
-            .deps
+            .get_deps(package_id)
             .iter()
             .enumerate()
             .find(|(_index, dep)| dep.get_name().eq(name))
             .ok_or(anyhow!("could not find dependency with name {}", name))?;
 
-        self.write_dep(index)
+        self.write_dep(package_id, index)
     }
 
-    pub fn write_dep(&mut self, dep_index: usize) -> anyhow::Result<()> {
-        let (_name, deps) = self.toml_doc.get_key_value_mut("dependencies").unwrap();
+    pub fn write_dep(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
+        let package = self.packages.get_mut(package_id).unwrap();
+
+        let (_name, deps) = package.toml_doc.get_key_value_mut("dependencies").unwrap();
         let deps = deps.as_table_mut().unwrap();
 
-        let dependency = self.deps.get(dep_index).unwrap();
+        let dependency = package.dependencies.get(dep_index).unwrap();
 
         if !dependency.can_use_default()
             || !dependency.get_features_to_enable().is_empty()
@@ -153,7 +168,9 @@ impl Document {
             );
         }
 
-        fs::write(self.path.clone(), self.toml_doc.to_string()).unwrap();
+        let package = self.packages.get(package_id).unwrap();
+
+        fs::write(package.path.clone(), package.toml_doc.to_string()).unwrap();
 
         Ok(())
     }
