@@ -31,8 +31,6 @@ impl DependencyBuilder {
         item: &Item,
         base_dir: &str,
     ) -> anyhow::Result<Dependency> {
-        println!("{}", base_dir);
-
         let mut builder = DependencyBuilder {
             dep_name: dep_name.to_string(),
 
