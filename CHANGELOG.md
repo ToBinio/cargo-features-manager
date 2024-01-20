@@ -3,6 +3,7 @@
 
 * handle workspaces
 * always sort features
+* add basic terminal autocompletion
 
 ## 4.0
 

@@ -1,6 +1,8 @@
+use std::io;
 use std::process::exit;
 
-use clap::{arg, Parser, Subcommand};
+use clap::{arg, CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use console::{style, Term};
 
 use crate::document::Document;
@@ -25,6 +27,9 @@ enum CargoCli {
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct FeaturesArgs {
+    #[arg(long = "generate", value_enum)]
+    generator: Option<Shell>,
+
     #[arg(long, short)]
     dependency: Option<String>,
 
@@ -42,6 +47,14 @@ enum FeaturesSubCommands {
 
 fn main() {
     let CargoCli::Features(args) = CargoCli::parse();
+
+
+    if let Some(generator) = args.generator {
+        let cmd = &mut FeaturesArgs::command();
+        eprintln!("Generating completion file for {generator:?}...");
+        generate(generator, cmd, cmd.get_name().to_string(), &mut io::stdout());
+        return;
+    }
 
     if let Err(err) = run(args) {
         print!("{} : {}", style("error").red().bold(), err);
