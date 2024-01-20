@@ -56,8 +56,6 @@ fn prune_package(
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
-    println!("{:?}", base_ignored);
-
     let ignored_features =
         get_ignored_features(&document.get_package(package_id).unwrap().dir_path)?;
 
@@ -89,6 +87,7 @@ fn prune_package(
         }
 
         term.clear_line()?;
+        writeln!(term, "{:inset$}{} [0/0]", "", name)?;
 
         let mut to_be_disabled = vec![];
 
