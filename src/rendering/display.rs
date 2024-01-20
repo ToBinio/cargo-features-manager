@@ -3,7 +3,7 @@ use std::io::Write;
 use std::ops::{Not, Range};
 
 use crate::document::Document;
-use crate::package::Package;
+
 use crate::rendering::scroll_selector::{
     DependencySelectorItem, FeatureSelectorItem, ScrollSelector,
 };
@@ -42,10 +42,10 @@ impl Display {
                 data: vec![],
             },
 
-            state: if (document.is_workspace()) {
-                DisplayState::PackageSelect
+            state: if document.is_workspace() {
+                DisplayState::Package
             } else {
-                DisplayState::DepSelect
+                DisplayState::Dep
             },
             search_text: "".to_string(),
 
@@ -54,7 +54,7 @@ impl Display {
     }
 
     fn select_selected_package(&mut self) {
-        self.state = DisplayState::DepSelect;
+        self.state = DisplayState::Dep;
 
         // update selector
         self.dep_selector.data = self
@@ -78,7 +78,7 @@ impl Display {
     }
 
     fn select_selected_dep(&mut self) {
-        self.state = DisplayState::FeatureSelect;
+        self.state = DisplayState::Feature;
 
         let dep = self
             .document
@@ -105,9 +105,9 @@ impl Display {
 
         loop {
             match self.state {
-                DisplayState::DepSelect => self.display_deps()?,
-                DisplayState::FeatureSelect => self.display_features()?,
-                DisplayState::PackageSelect => self.display_packages()?,
+                DisplayState::Dep => self.display_deps()?,
+                DisplayState::Feature => self.display_features()?,
+                DisplayState::Package => self.display_packages()?,
             }
 
             self.term.flush()?;
@@ -271,42 +271,42 @@ impl Display {
         match (self.term.read_key()?, &self.state) {
             //movement
             //up
-            (Key::ArrowUp, DisplayState::PackageSelect) => {
+            (Key::ArrowUp, DisplayState::Package) => {
                 self.package_selector.shift(-1);
             }
-            (Key::ArrowUp, DisplayState::DepSelect) => {
+            (Key::ArrowUp, DisplayState::Dep) => {
                 self.dep_selector.shift(-1);
             }
-            (Key::ArrowUp, DisplayState::FeatureSelect) => {
+            (Key::ArrowUp, DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
                     self.feature_selector.shift(-1);
                 }
             }
             //down
-            (Key::ArrowDown, DisplayState::PackageSelect) => {
+            (Key::ArrowDown, DisplayState::Package) => {
                 self.package_selector.shift(1);
             }
-            (Key::ArrowDown, DisplayState::DepSelect) => {
+            (Key::ArrowDown, DisplayState::Dep) => {
                 self.dep_selector.shift(1);
             }
-            (Key::ArrowDown, DisplayState::FeatureSelect) => {
+            (Key::ArrowDown, DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
                     self.feature_selector.shift(1);
                 }
             }
 
             //selection
-            (Key::Enter, DisplayState::PackageSelect)
-            | (Key::ArrowRight, DisplayState::PackageSelect)
-            | (Key::Char(' '), DisplayState::PackageSelect) => {
+            (Key::Enter, DisplayState::Package)
+            | (Key::ArrowRight, DisplayState::Package)
+            | (Key::Char(' '), DisplayState::Package) => {
                 self.select_selected_package();
 
                 //needed to wrap
                 self.dep_selector.shift(0);
             }
-            (Key::Enter, DisplayState::DepSelect)
-            | (Key::ArrowRight, DisplayState::DepSelect)
-            | (Key::Char(' '), DisplayState::DepSelect) => {
+            (Key::Enter, DisplayState::Dep)
+            | (Key::ArrowRight, DisplayState::Dep)
+            | (Key::Char(' '), DisplayState::Dep) => {
                 if self.dep_selector.has_data() {
                     self.search_text = "".to_string();
 
@@ -325,9 +325,9 @@ impl Display {
                     }
                 }
             }
-            (Key::Enter, DisplayState::FeatureSelect)
-            | (Key::ArrowRight, DisplayState::FeatureSelect)
-            | (Key::Char(' '), DisplayState::FeatureSelect) => {
+            (Key::Enter, DisplayState::Feature)
+            | (Key::ArrowRight, DisplayState::Feature)
+            | (Key::Char(' '), DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
                     let dep = self.document.get_dep_mut(
                         self.package_selector.selected_index,
@@ -344,7 +344,7 @@ impl Display {
             }
 
             //search
-            (Key::Char(char), DisplayState::DepSelect | DisplayState::FeatureSelect) => {
+            (Key::Char(char), DisplayState::Dep | DisplayState::Feature) => {
                 if char == ' ' {
                     return Ok(RunningState::Running);
                 }
@@ -354,12 +354,12 @@ impl Display {
                 self.update_selected_data();
 
                 match self.state {
-                    DisplayState::DepSelect => self.dep_selector.shift(0),
-                    DisplayState::FeatureSelect => self.feature_selector.shift(0),
-                    DisplayState::PackageSelect => self.package_selector.shift(0),
+                    DisplayState::Dep => self.dep_selector.shift(0),
+                    DisplayState::Feature => self.feature_selector.shift(0),
+                    DisplayState::Package => self.package_selector.shift(0),
                 }
             }
-            (Key::Backspace, DisplayState::DepSelect | DisplayState::FeatureSelect) => {
+            (Key::Backspace, DisplayState::Dep | DisplayState::Feature) => {
                 let _ = self.search_text.pop();
 
                 self.update_selected_data();
@@ -378,20 +378,20 @@ impl Display {
 
     fn get_max_range(&self) -> Range<usize> {
         let current_selected = match self.state {
-            DisplayState::DepSelect => self.dep_selector.selected_index,
-            DisplayState::FeatureSelect => self.feature_selector.selected_index,
-            DisplayState::PackageSelect => self.package_selector.selected_index,
+            DisplayState::Dep => self.dep_selector.selected_index,
+            DisplayState::Feature => self.feature_selector.selected_index,
+            DisplayState::Package => self.package_selector.selected_index,
         } as isize;
 
         let max_range = match self.state {
-            DisplayState::DepSelect => self.dep_selector.data.len(),
-            DisplayState::FeatureSelect => self.feature_selector.data.len(),
-            DisplayState::PackageSelect => self.package_selector.data.len(),
+            DisplayState::Dep => self.dep_selector.data.len(),
+            DisplayState::Feature => self.feature_selector.data.len(),
+            DisplayState::Package => self.package_selector.data.len(),
         };
 
         let mut offset = 0;
 
-        if let DisplayState::FeatureSelect = self.state {
+        if let DisplayState::Feature = self.state {
             if self.feature_selector.has_data() {
                 let dep = self
                     .document
@@ -421,14 +421,14 @@ impl Display {
 
     fn update_selected_data(&mut self) {
         match self.state {
-            DisplayState::PackageSelect => {}
-            DisplayState::DepSelect => {
+            DisplayState::Package => {}
+            DisplayState::Dep => {
                 self.dep_selector.data = self.document.get_deps_filtered_view(
                     self.package_selector.selected_index,
                     &self.search_text,
                 );
             }
-            DisplayState::FeatureSelect => {
+            DisplayState::Feature => {
                 let dep = self
                     .document
                     .get_dep(
@@ -444,23 +444,23 @@ impl Display {
 
     fn move_back(&mut self) -> RunningState {
         match self.state {
-            DisplayState::PackageSelect => RunningState::Finished,
-            DisplayState::DepSelect => {
+            DisplayState::Package => RunningState::Finished,
+            DisplayState::Dep => {
                 if !self.document.is_workspace() {
                     return RunningState::Finished;
                 }
 
                 self.search_text = "".to_string();
 
-                self.state = DisplayState::PackageSelect;
+                self.state = DisplayState::Package;
 
                 self.update_selected_data();
                 RunningState::Running
             }
-            DisplayState::FeatureSelect => {
+            DisplayState::Feature => {
                 self.search_text = "".to_string();
 
-                self.state = DisplayState::DepSelect;
+                self.state = DisplayState::Dep;
 
                 self.update_selected_data();
                 RunningState::Running
@@ -475,7 +475,7 @@ enum RunningState {
 }
 
 enum DisplayState {
-    PackageSelect,
-    DepSelect,
-    FeatureSelect,
+    Package,
+    Dep,
+    Feature,
 }

@@ -3,15 +3,15 @@ use std::process::exit;
 use clap::{arg, Parser, Subcommand};
 use console::{style, Term};
 
-use crate::rendering::display::Display;
 use crate::document::Document;
 use crate::prune::prune;
+use crate::rendering::display::Display;
 
 mod dependencies;
 mod document;
 
-mod rendering;
 mod prune;
+mod rendering;
 
 mod package;
 

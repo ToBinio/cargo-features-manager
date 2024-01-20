@@ -1,10 +1,6 @@
 use std::fs;
 use std::path::Path;
-use std::str::FromStr;
 
-use crate::dependencies::{
-    document_from_path, is_workspace, package_from_document, packages_from_workspace,
-};
 use anyhow::{anyhow, bail};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -12,7 +8,9 @@ use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyOrigin};
-use crate::package::Package;
+use crate::package::{
+    document_from_path, is_workspace, package_from_document, packages_from_workspace, Package,
+};
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
 
