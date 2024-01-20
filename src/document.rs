@@ -2,7 +2,9 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
-use crate::dependencies::{document_from_path, packages_from_document};
+use crate::dependencies::{
+    document_from_path, is_workspace, package_from_document, packages_from_workspace,
+};
 use anyhow::{anyhow, bail};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -16,14 +18,27 @@ use crate::rendering::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
     packages: Vec<Package>,
+    is_workspace: bool,
 }
 
 impl Document {
     pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
         let doc = document_from_path(&path)?;
 
+        let is_workspace = is_workspace(&doc);
+
+        let packages = if is_workspace {
+            packages_from_workspace(&doc)?
+        } else {
+            vec![package_from_document(
+                doc,
+                path.as_ref().to_str().unwrap().to_string(),
+            )?]
+        };
+
         Ok(Document {
-            packages: packages_from_document(doc, path.as_ref().to_str().unwrap().to_string())?,
+            packages,
+            is_workspace,
         })
     }
 
@@ -173,5 +188,8 @@ impl Document {
         fs::write(package.path.clone(), package.toml_doc.to_string()).unwrap();
 
         Ok(())
+    }
+    pub fn is_workspace(&self) -> bool {
+        self.is_workspace
     }
 }

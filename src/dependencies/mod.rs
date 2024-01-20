@@ -18,11 +18,11 @@ pub fn document_from_path<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
     Ok(toml_edit::Document::from_str(&file_content)?)
 }
 
-pub fn packages_from_document(document: Document, path: String) -> anyhow::Result<Vec<Package>> {
-    if document.contains_key("dependencies") {
-        return Ok(vec![package_from_document(document, path)?]);
-    }
+pub fn is_workspace(document: &Document) -> bool {
+    return document.contains_key("workspace");
+}
 
+pub fn packages_from_workspace(document: &Document) -> anyhow::Result<Vec<Package>> {
     let members = document
         .get_key_value("workspace")
         .ok_or(anyhow!("no workspace found"))?
@@ -50,7 +50,7 @@ pub fn packages_from_document(document: Document, path: String) -> anyhow::Resul
     Ok(packages)
 }
 
-fn package_from_document(doc: Document, path: String) -> anyhow::Result<Package> {
+pub fn package_from_document(doc: Document, path: String) -> anyhow::Result<Package> {
     let deps_table = doc
         .get_key_value("dependencies")
         .ok_or(anyhow!("no dependencies were found"))?

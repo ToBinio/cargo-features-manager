@@ -34,7 +34,7 @@ impl Display {
 
             dep_selector: ScrollSelector {
                 selected_index: 0,
-                data: vec![],
+                data: document.get_deps_filtered_view(0, ""),
             },
 
             feature_selector: ScrollSelector {
@@ -42,11 +42,24 @@ impl Display {
                 data: vec![],
             },
 
-            document,
-
-            state: DisplayState::PackageSelect,
+            state: if (document.is_workspace()) {
+                DisplayState::PackageSelect
+            } else {
+                DisplayState::DepSelect
+            },
             search_text: "".to_string(),
+
+            document,
         })
+    }
+
+    fn select_selected_package(&mut self) {
+        self.state = DisplayState::DepSelect;
+
+        // update selector
+        self.dep_selector.data = self
+            .document
+            .get_deps_filtered_view(self.package_selector.selected_index, "");
     }
 
     pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
@@ -77,15 +90,6 @@ impl Display {
 
         // update selector
         self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
-    }
-
-    fn select_selected_package(&mut self) {
-        self.state = DisplayState::DepSelect;
-
-        // update selector
-        self.dep_selector.data = self
-            .document
-            .get_deps_filtered_view(self.package_selector.selected_index, "");
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -442,6 +446,10 @@ impl Display {
         match self.state {
             DisplayState::PackageSelect => RunningState::Finished,
             DisplayState::DepSelect => {
+                if !self.document.is_workspace() {
+                    return RunningState::Finished;
+                }
+
                 self.search_text = "".to_string();
 
                 self.state = DisplayState::PackageSelect;

@@ -14,8 +14,12 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
     let mut term = Term::stdout();
 
     for (index, name) in document.get_packages_names().iter().enumerate() {
-        writeln!(term, "{}", name)?;
-        prune_package(&mut document, is_dry_run, &mut term, index, 2)?;
+        if document.is_workspace() {
+            writeln!(term, "{}", name)?;
+            prune_package(&mut document, is_dry_run, &mut term, index, 2)?;
+        } else {
+            prune_package(&mut document, is_dry_run, &mut term, index, 0)?;
+        }
     }
 
     Ok(())
