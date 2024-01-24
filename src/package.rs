@@ -43,37 +43,44 @@ pub fn is_workspace(document: &Document) -> bool {
     document.contains_key("workspace")
 }
 
-pub fn packages_from_workspace(document: &Document) -> anyhow::Result<Vec<Package>> {
-    let members = document
+pub fn packages_from_workspace(
+    document: &Document,
+    base_path: String,
+) -> anyhow::Result<Vec<Package>> {
+    let mut packages = vec![];
+
+    if let Some(members) = document
         .get("workspace")
         .ok_or(anyhow!("no workspace found"))?
         .as_table()
         .ok_or(anyhow!("no workspace found"))?
         .get("members")
-        .ok_or(anyhow!("no members found"))?
-        .as_array()
-        .ok_or(anyhow!("no members found"))?;
+    {
+        let members = members.as_array().ok_or(anyhow!("no members found"))?;
 
-    let mut packages = vec![];
+        for entry in members {
+            let path = entry.as_str().ok_or(anyhow!("invalid member found"))?;
 
-    for entry in members {
-        let path = entry.as_str().ok_or(anyhow!("invalid member found"))?;
+            for path in glob(path)? {
+                let path = path?;
+                let document = document_from_path(&path)?;
 
-        for path in glob(path)? {
-            let path = path?;
-            let document = document_from_path(&path)?;
-
-            packages.push(package_from_document(
-                document,
-                path.to_str()
-                    .ok_or(anyhow!("invalid path {:?}", path))?
-                    .to_string(),
-            )?);
+                packages.push(package_from_document(
+                    document,
+                    path.to_str()
+                        .ok_or(anyhow!("invalid path {:?}", path))?
+                        .to_string(),
+                )?);
+            }
         }
     }
 
+    if document.contains_key("package") {
+        packages.push(package_from_document(document.clone(), base_path.clone())?)
+    }
+
     if let Some(dependencies) = get_dependencies(&document, DependencyType::Workspace.key())? {
-        let dependencies = dependencies_from_table("", dependencies)?;
+        let dependencies = dependencies_from_table(&base_path, dependencies)?;
 
         packages.push(Package {
             dependencies,
