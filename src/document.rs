@@ -132,7 +132,16 @@ impl Document {
     pub fn write_dep(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
         let package = self.packages.get_mut(package_id).unwrap();
 
-        let (_name, deps) = package.toml_doc.get_key_value_mut("dependencies").unwrap();
+        let key = package.dependency_type.key();
+
+        let mut deps = package.toml_doc.as_item_mut();
+
+        for key in key.split('.') {
+            deps = deps
+                .get_mut(key)
+                .ok_or(anyhow!("could not find dependency - {}", package.name))?;
+        }
+
         let deps = deps.as_table_mut().unwrap();
 
         let dependency = package.dependencies.get(dep_index).unwrap();

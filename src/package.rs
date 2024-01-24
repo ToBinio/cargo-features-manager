@@ -7,7 +7,7 @@ use itertools::Itertools;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use toml_edit::{Document, Table};
+use toml_edit::{Document, Item, Table};
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
@@ -45,14 +45,12 @@ pub fn is_workspace(document: &Document) -> bool {
 
 pub fn packages_from_workspace(document: &Document) -> anyhow::Result<Vec<Package>> {
     let members = document
-        .get_key_value("workspace")
+        .get("workspace")
         .ok_or(anyhow!("no workspace found"))?
-        .1
         .as_table()
         .ok_or(anyhow!("no workspace found"))?
-        .get_key_value("members")
+        .get("members")
         .ok_or(anyhow!("no members found"))?
-        .1
         .as_array()
         .ok_or(anyhow!("no members found"))?;
 
@@ -94,14 +92,12 @@ pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result
         .ok_or(anyhow!("no dependencies were found"))?;
 
     let name = doc
-        .get_key_value("package")
+        .get("package")
         .ok_or(anyhow!("invalid Package - no name found"))?
-        .1
         .as_table()
         .ok_or(anyhow!("invalid Package - no name found"))?
-        .get_key_value("name")
+        .get("name")
         .ok_or(anyhow!("invalid Package - no name found"))?
-        .1
         .as_str()
         .ok_or(anyhow!("invalid Package - no name found"))?;
 
