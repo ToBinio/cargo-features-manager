@@ -2,7 +2,7 @@
 ## 5.1
 
 * allow * to be in workspace path
-* fix local dependencies
+* fix local dependencies resolution
 
 ## 5.0
 
