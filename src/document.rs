@@ -5,7 +5,6 @@ use anyhow::{anyhow, bail};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
-use semver::Op;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyOrigin};

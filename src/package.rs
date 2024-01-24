@@ -1,18 +1,16 @@
 use crate::dependencies::dependency::Dependency;
 use crate::dependencies::dependency_builder::DependencyBuilder;
-use anyhow::{anyhow, bail};
-use clap::builder::Str;
+use anyhow::anyhow;
 use glob::glob;
-use itertools::Itertools;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use toml_edit::{Document, Item, Table};
+use toml_edit::{Document, Table};
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
     pub name: String,
-    pub toml_doc: toml_edit::Document,
+    pub toml_doc: Document,
     pub dir_path: String,
     pub dependency_type: DependencyType,
 }
@@ -79,7 +77,7 @@ pub fn packages_from_workspace(
         packages.push(package_from_document(document.clone(), base_path.clone())?)
     }
 
-    if let Some(dependencies) = get_dependencies(&document, DependencyType::Workspace.key())? {
+    if let Some(dependencies) = get_dependencies(document, DependencyType::Workspace.key())? {
         let dependencies = dependencies_from_table(&base_path, dependencies)?;
 
         packages.push(Package {
@@ -142,10 +140,10 @@ fn get_dependencies<'a>(doc: &'a Document, key: &str) -> anyhow::Result<Option<&
 fn dependencies_from_table(base_path: &str, deps_table: &Table) -> anyhow::Result<Vec<Dependency>> {
     let deps: Vec<Option<Dependency>> = deps_table
         .iter()
-        .map(|(name, value)| DependencyBuilder::build_dependency(name, value, &base_path))
+        .map(|(name, value)| DependencyBuilder::build_dependency(name, value, base_path))
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    let deps = deps.into_iter().filter_map(|dep| dep).collect();
+    let deps = deps.into_iter().flatten().collect();
 
     Ok(deps)
 }
