@@ -30,7 +30,7 @@ impl DependencyBuilder {
         dep_name: &str,
         item: &Item,
         base_dir: &str,
-    ) -> anyhow::Result<Dependency> {
+    ) -> anyhow::Result<Option<Dependency>> {
         let mut builder = DependencyBuilder {
             dep_name: dep_name.to_string(),
 
@@ -57,6 +57,16 @@ impl DependencyBuilder {
             let table = item
                 .as_inline_table()
                 .ok_or(anyhow!("could not parse {} - body", dep_name))?;
+
+            if let Some(value) = table.get("workspace") {
+                let is_workspace = value
+                    .as_bool()
+                    .ok_or(anyhow!("could not parse {} - workspace", dep_name))?;
+
+                if is_workspace {
+                    return Ok(None);
+                }
+            }
 
             if let Some(value) = table.get("features") {
                 builder.enabled_features = value
@@ -104,7 +114,7 @@ impl DependencyBuilder {
             }
         }
 
-        Ok(builder.build())
+        Ok(Some(builder.build()))
     }
 
     fn set_data_from_toml(&mut self, toml: toml_edit::Document) -> anyhow::Result<()> {

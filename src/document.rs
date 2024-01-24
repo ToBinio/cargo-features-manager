@@ -16,28 +16,23 @@ use crate::rendering::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
     packages: Vec<Package>,
-    is_workspace: bool,
 }
 
 impl Document {
     pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
         let doc = document_from_path(&path)?;
 
+        let base_path = path.as_ref().to_str().unwrap().to_string();
+
         let is_workspace = is_workspace(&doc);
 
         let packages = if is_workspace {
-            packages_from_workspace(&doc)?
+            packages_from_workspace(&doc, base_path)?
         } else {
-            vec![package_from_document(
-                doc,
-                path.as_ref().to_str().unwrap().to_string(),
-            )?]
+            vec![package_from_document(doc, base_path)?]
         };
 
-        Ok(Document {
-            packages,
-            is_workspace,
-        })
+        Ok(Document { packages })
     }
 
     pub fn get_packages_names(&self) -> Vec<String> {
@@ -131,7 +126,16 @@ impl Document {
     pub fn write_dep(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
         let package = self.packages.get_mut(package_id).unwrap();
 
-        let (_name, deps) = package.toml_doc.get_key_value_mut("dependencies").unwrap();
+        let key = package.dependency_type.key();
+
+        let mut deps = package.toml_doc.as_item_mut();
+
+        for key in key.split('.') {
+            deps = deps
+                .get_mut(key)
+                .ok_or(anyhow!("could not find dependency - {}", package.name))?;
+        }
+
         let deps = deps.as_table_mut().unwrap();
 
         let dependency = package.dependencies.get(dep_index).unwrap();
@@ -198,6 +202,6 @@ impl Document {
         Ok(())
     }
     pub fn is_workspace(&self) -> bool {
-        self.is_workspace
+        self.packages.len() > 1
     }
 }
