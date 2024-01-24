@@ -84,7 +84,7 @@ pub fn packages_from_workspace(
 
         packages.push(Package {
             dependencies,
-            name: "Workspace".to_string(),
+            name: "󰏓 Workspace".to_string(),
             toml_doc: document.clone(),
             dir_path: "".to_string(),
             dependency_type: DependencyType::Workspace,

@@ -1,4 +1,10 @@
 
+## 5.2
+
+* don't crash when using workspace dependencies
+* display workspace dependencies as package
+* handle one cargo.toml being a workspace and a package
+
 ## 5.1
 
 * allow * to be in workspace path
