@@ -1,7 +1,8 @@
-use crate::dependencies::dependency::Dependency;
+use crate::dependencies::dependency::{Dependency, DependencyType};
 use crate::dependencies::dependency_builder::DependencyBuilder;
 use anyhow::anyhow;
 use glob::glob;
+use itertools::Itertools;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
@@ -12,19 +13,19 @@ pub struct Package {
     pub name: String,
     pub toml_doc: Document,
     pub dir_path: String,
-    pub dependency_type: DependencyType,
+    pub dependency_type: PackageType,
 }
 
-pub enum DependencyType {
+pub enum PackageType {
     Normal,
     Workspace,
 }
 
-impl DependencyType {
+impl PackageType {
     pub fn key(&self) -> &'static str {
         match self {
-            DependencyType::Normal => "dependencies",
-            DependencyType::Workspace => "workspace.dependencies",
+            PackageType::Normal => "dependencies",
+            PackageType::Workspace => "workspace.dependencies",
         }
     }
 }
@@ -77,7 +78,9 @@ pub fn packages_from_workspace(
         packages.push(package_from_document(document.clone(), base_path.clone())?)
     }
 
-    if let Some(dependencies) = get_dependencies(document, DependencyType::Workspace.key())? {
+    if let Some(dependencies) =
+        get_dependencies(document, PackageType::Workspace.key(), &base_path)?
+    {
         let dependencies = dependencies_from_table(&base_path, dependencies)?;
 
         packages.push(Package {
@@ -85,7 +88,7 @@ pub fn packages_from_workspace(
             name: "󰏓 Workspace".to_string(),
             toml_doc: document.clone(),
             dir_path: "".to_string(),
-            dependency_type: DependencyType::Workspace,
+            dependency_type: PackageType::Workspace,
         });
     }
 
@@ -93,8 +96,8 @@ pub fn packages_from_workspace(
 }
 
 pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result<Package> {
-    let deps_table = get_dependencies(&doc, DependencyType::Normal.key())?
-        .ok_or(anyhow!("no dependencies were found"))?;
+    let deps_table = get_dependencies(&doc, PackageType::Normal.key(), &base_path)?
+        .ok_or(anyhow!("no dependencies were found - {}", base_path))?;
 
     let name = doc
         .get("package")
@@ -113,11 +116,15 @@ pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result
         name: name.to_string(),
         toml_doc: doc,
         dir_path: base_path,
-        dependency_type: DependencyType::Normal,
+        dependency_type: PackageType::Normal,
     })
 }
 
-fn get_dependencies<'a>(doc: &'a Document, key: &str) -> anyhow::Result<Option<&'a Table>> {
+fn get_dependencies<'a>(
+    doc: &'a Document,
+    key: &str,
+    path: &str,
+) -> anyhow::Result<Option<&'a Table>> {
     let mut item = doc.as_item();
 
     for key in key.split('.') {
@@ -132,18 +139,27 @@ fn get_dependencies<'a>(doc: &'a Document, key: &str) -> anyhow::Result<Option<&
 
     let deps_table = item
         .as_table()
-        .ok_or(anyhow!("no dependencies were found"))?;
+        .ok_or(anyhow!("no dependencies were found - {}", path))?;
 
     Ok(Some(deps_table))
 }
 
 fn dependencies_from_table(base_path: &str, deps_table: &Table) -> anyhow::Result<Vec<Dependency>> {
-    let deps: Vec<Option<Dependency>> = deps_table
+    let deps = deps_table
         .iter()
-        .map(|(name, value)| DependencyBuilder::build_dependency(name, value, base_path))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+        .filter_map(|(name, value)| {
+            let dependency = DependencyBuilder::build_dependency(name, value, base_path);
 
-    let deps = deps.into_iter().flatten().collect();
+            dependency.unwrap_or_else(|err| {
+                Some(Dependency {
+                    dep_name: name.to_string(),
+                    version: "".to_string(),
+                    dep_type: DependencyType::Error(err.to_string()),
+                    features: Default::default(),
+                })
+            })
+        })
+        .collect_vec();
 
     Ok(deps)
 }

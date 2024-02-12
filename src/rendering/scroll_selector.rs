@@ -1,4 +1,4 @@
-use crate::dependencies::dependency::Dependency;
+use crate::dependencies::dependency::{Dependency, DependencyType};
 
 use console::style;
 
@@ -40,7 +40,7 @@ pub struct DependencySelectorItem {
 
 impl DependencySelectorItem {
     pub fn new(dep: &Dependency, highlighted_letters: Vec<usize>) -> Self {
-        let display_name: String = dep
+        let mut display_name: String = dep
             .get_name()
             .chars()
             .enumerate()
@@ -51,10 +51,14 @@ impl DependencySelectorItem {
                     //dark red
                     (false, true) => style(c).color256(1).to_string(),
                     //light gray
-                    (false, false) => style(c).color256(7).to_string(),
+                    (false, false) => style(c).color256(8).to_string(),
                 },
             )
             .collect();
+
+        if let DependencyType::Error(err) = &dep.dep_type {
+            display_name += &*format!(" - {}", style(err).red().to_string());
+        }
 
         Self {
             name: dep.get_name(),

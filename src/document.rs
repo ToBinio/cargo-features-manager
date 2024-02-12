@@ -7,7 +7,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{Dependency, DependencyOrigin};
+use crate::dependencies::dependency::{Dependency, DependencyType};
 use crate::package::{
     document_from_path, is_workspace, package_from_document, packages_from_workspace, Package,
 };
@@ -144,11 +144,11 @@ impl Document {
 
         if !dependency.can_use_default()
             || !enabled_features.is_empty()
-            || dependency.origin != DependencyOrigin::Remote
+            || dependency.dep_type != DependencyType::Remote
         {
             let mut table = InlineTable::new();
 
-            if let DependencyOrigin::Local(path) = &dependency.origin {
+            if let DependencyType::Local(path) = &dependency.dep_type {
                 table.insert("path", Value::String(Formatted::new(path.to_string())));
             }
 

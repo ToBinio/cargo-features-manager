@@ -9,13 +9,13 @@ use itertools::Itertools;
 use semver::{Version, VersionReq};
 use toml_edit::Item;
 
-use crate::dependencies::dependency::{Dependency, DependencyOrigin, FeatureData};
+use crate::dependencies::dependency::{Dependency, DependencyType, FeatureData};
 
 pub struct DependencyBuilder {
     dep_name: String,
     version: String,
 
-    origin: DependencyOrigin,
+    dep_type: DependencyType,
 
     all_features: HashMap<String, Vec<String>>,
 
@@ -36,7 +36,7 @@ impl DependencyBuilder {
 
             version: "".to_string(),
 
-            origin: DependencyOrigin::Remote,
+            dep_type: DependencyType::Remote,
 
             all_features: HashMap::new(),
 
@@ -100,7 +100,7 @@ impl DependencyBuilder {
                         .ok_or(anyhow!("could not parse {} - path", dep_name))?
                         .to_string();
 
-                    builder.origin = DependencyOrigin::Local(path.clone());
+                    builder.dep_type = DependencyType::Local(path.clone());
 
                     let path = Path::new(base_dir).join(&path).join("Cargo.toml");
 
@@ -293,7 +293,7 @@ impl DependencyBuilder {
             dep_name: self.dep_name.to_string(),
             version: self.version.to_string(),
 
-            origin: self.origin.clone(),
+            dep_type: self.dep_type.clone(),
 
             features,
         };

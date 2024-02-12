@@ -8,7 +8,7 @@ pub struct Dependency {
     pub dep_name: String,
     pub version: String,
 
-    pub origin: DependencyOrigin,
+    pub dep_type: DependencyType,
 
     pub features: HashMap<String, FeatureData>,
 }
@@ -151,9 +151,10 @@ impl Dependency {
 }
 
 #[derive(PartialEq, Clone)]
-pub enum DependencyOrigin {
+pub enum DependencyType {
     Local(String),
     Remote,
+    Error(String),
 }
 
 #[derive(Clone)]

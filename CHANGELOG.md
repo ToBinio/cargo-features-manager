@@ -1,4 +1,8 @@
 
+## 5.3
+
+* display dependency-parsing-error next to dependency instead of crashing  
+
 ## 5.2
 
 * don't crash when using workspace dependencies
