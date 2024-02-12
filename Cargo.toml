@@ -15,19 +15,19 @@ include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
 anyhow = "1.0.79"
-clap = { version = "4.4.13", features = ["derive", "help"], default-features = false }
-clap_complete = "4.4.8"
-console = { version = "0.15.7", default-features = false }
-crates-index = "2.4.0"
+clap = { version = "4.5.0", features = ["color", "derive", "error-context", "help", "suggestions", "usage"], default-features = false }
+clap_complete = "4.5.0"
+console = { version = "0.15.8", default-features = false }
+crates-index = "2.5.1"
 ctrlc = "3.4.2"
 fuzzy-matcher = "0.3.7"
 glob = "0.3.1"
 http = "1.0.0"
-itertools = { version = "0.12.0", features = ["use_alloc"], default-features = false }
+itertools = { version = "0.12.1", features = ["use_alloc"], default-features = false }
 semver = { version = "1.0.21", default-features = false }
-toml = { version = "0.8.8", default-features = false }
-toml_edit = { version = "0.21.0", default-features = false }
-ureq = { version = "2.9.1", features = ["http-interop"], default-features = false }
+toml = { version = "0.8.10", default-features = false }
+toml_edit = { version = "0.22.4", default-features = false }
+ureq = { version = "2.9.5", features = ["http-interop"], default-features = false }
 
 [[bin]]
 name = "cargo-features"

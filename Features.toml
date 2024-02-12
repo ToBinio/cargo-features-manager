@@ -1,1 +1,1 @@
-clap = ["help"]
+clap = ["color", "error-context", "help", "suggestions", "usage"]
