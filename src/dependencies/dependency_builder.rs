@@ -82,35 +82,33 @@ impl DependencyBuilder {
                     .as_bool()
                     .ok_or(anyhow!("could not parse {} - default-features", dep_name))?;
             }
+            if let Some(_git) = table.get("git") {
+                bail!("git dependencies can not be passed yet")
+            } else if let Some(path) = table.get("path") {
+                let path = path
+                    .as_str()
+                    .ok_or(anyhow!("could not parse {} - path", dep_name))?
+                    .to_string();
 
-            match table.get("path") {
-                None => {
-                    builder.version = table
-                        .get("version")
-                        .ok_or(anyhow!("could not parse {} - version", dep_name))?
-                        .as_str()
-                        .ok_or(anyhow!("could not parse {} - version", dep_name))?
-                        .to_string();
+                builder.dep_type = DependencyType::Local(path.clone());
 
-                    builder.set_features_from_index()?;
-                }
-                Some(path) => {
-                    let path = path
-                        .as_str()
-                        .ok_or(anyhow!("could not parse {} - path", dep_name))?
-                        .to_string();
+                let path = Path::new(base_dir).join(&path).join("Cargo.toml");
 
-                    builder.dep_type = DependencyType::Local(path.clone());
+                let toml_document =
+                    toml_edit::Document::from_str(&fs::read_to_string(path.clone()).map_err(
+                        |_| anyhow!("could not find dependency {} - {:?}", dep_name, path),
+                    )?)?;
 
-                    let path = Path::new(base_dir).join(&path).join("Cargo.toml");
+                builder.set_data_from_toml(toml_document)?;
+            } else {
+                builder.version = table
+                    .get("version")
+                    .ok_or(anyhow!("could not parse {} - version", dep_name))?
+                    .as_str()
+                    .ok_or(anyhow!("could not parse {} - version", dep_name))?
+                    .to_string();
 
-                    let toml_document =
-                        toml_edit::Document::from_str(&fs::read_to_string(path.clone()).map_err(
-                            |_| anyhow!("could not find dependency {} - {:?}", dep_name, path),
-                        )?)?;
-
-                    builder.set_data_from_toml(toml_document)?;
-                }
+                builder.set_features_from_index()?;
             }
         }
 
