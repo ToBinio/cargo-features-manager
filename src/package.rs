@@ -78,9 +78,7 @@ pub fn packages_from_workspace(
         packages.push(package_from_document(document.clone(), base_path.clone())?)
     }
 
-    if let Some(dependencies) =
-        get_dependencies(document, PackageType::Workspace.key(), &base_path)?
-    {
+    if let Some(dependencies) = get_dependencies(document, PackageType::Workspace.key()) {
         let dependencies = dependencies_from_table(&base_path, dependencies)?;
 
         packages.push(Package {
@@ -96,9 +94,6 @@ pub fn packages_from_workspace(
 }
 
 pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result<Package> {
-    let deps_table = get_dependencies(&doc, PackageType::Normal.key(), &base_path)?
-        .ok_or(anyhow!("no dependencies were found - {}", base_path))?;
-
     let name = doc
         .get("package")
         .ok_or(anyhow!("invalid Package - no name found"))?
@@ -109,7 +104,11 @@ pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result
         .as_str()
         .ok_or(anyhow!("invalid Package - no name found"))?;
 
-    let deps = dependencies_from_table(&base_path, deps_table)?;
+    let deps = if let Some(deps_table) = get_dependencies(&doc, PackageType::Normal.key()) {
+        dependencies_from_table(&base_path, deps_table)?
+    } else {
+        vec![]
+    };
 
     Ok(Package {
         dependencies: deps,
@@ -120,28 +119,14 @@ pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result
     })
 }
 
-fn get_dependencies<'a>(
-    doc: &'a Document,
-    key: &str,
-    path: &str,
-) -> anyhow::Result<Option<&'a Table>> {
+fn get_dependencies<'a>(doc: &'a Document, key: &str) -> Option<&'a Table> {
     let mut item = doc.as_item();
 
     for key in key.split('.') {
-        let new_item = item.get(key);
-
-        if new_item.is_none() {
-            return Ok(None);
-        }
-
-        item = new_item.unwrap()
+        item = item.get(key)?
     }
 
-    let deps_table = item
-        .as_table()
-        .ok_or(anyhow!("no dependencies were found - {}", path))?;
-
-    Ok(Some(deps_table))
+    item.as_table()
 }
 
 fn dependencies_from_table(base_path: &str, deps_table: &Table) -> anyhow::Result<Vec<Dependency>> {

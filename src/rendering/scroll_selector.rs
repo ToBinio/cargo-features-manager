@@ -57,7 +57,7 @@ impl DependencySelectorItem {
             .collect();
 
         if let DependencyType::Error(err) = &dep.dep_type {
-            display_name += &*format!(" - {}", style(err).red().to_string());
+            display_name += &*format!(" - {}", style(err).red());
         }
 
         Self {

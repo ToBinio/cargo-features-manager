@@ -1,7 +1,8 @@
 
 ## 5.3
 
-* display dependency-parsing-error next to dependency instead of crashing  
+* display dependency-parsing-error next to dependency instead of crashing
+* ignore `no dependencies were found` when working in a workspace
 
 ## 5.2
 

@@ -29,7 +29,13 @@ impl Document {
         let packages = if is_workspace {
             packages_from_workspace(&doc, base_path)?
         } else {
-            vec![package_from_document(doc, base_path)?]
+            let package = package_from_document(doc, base_path)?;
+
+            if package.dependencies.is_empty() {
+                bail!("no dependencies were found")
+            }
+
+            vec![package]
         };
 
         Ok(Document { packages })
