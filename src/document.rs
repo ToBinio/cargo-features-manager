@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::Path;
-use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
 
@@ -16,7 +15,8 @@ use crate::rendering::scroll_selector::DependencySelectorItem;
 pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> anyhow::Result<toml_edit::Document> {
     let file_content = fs::read_to_string(&dir_path)
         .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", dir_path.as_ref()))?;
-    Ok(toml_edit::Document::from_str(&file_content)?)
+
+    Ok(file_content.parse()?)
 }
 
 pub struct Document {
