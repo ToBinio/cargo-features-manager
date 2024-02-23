@@ -56,8 +56,13 @@ fn prune_package(
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
-    let ignored_features =
-        get_ignored_features(&document.get_package(package_id).unwrap().dir_path)?;
+    let ignored_features = get_ignored_features(
+        document
+            .get_package(package_id)
+            .unwrap()
+            .manifest_path
+            .trim_end_matches("/Cargo.toml"),
+    )?;
 
     for name in deps.iter() {
         let dependency = document.get_dep_mut(package_id, name)?;

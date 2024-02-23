@@ -3,6 +3,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 pub struct Dependency {
     pub dep_name: String,
@@ -95,7 +96,10 @@ impl Dependency {
     }
 
     pub fn enable_feature(&mut self, feature_name: &str) {
-        let data = self.features.get_mut(feature_name).unwrap();
+        let data = self
+            .features
+            .get_mut(feature_name)
+            .unwrap_or_else(|| panic!("couldnt find package {}", feature_name));
 
         if data.is_enabled {
             //early return to prevent loop
@@ -105,7 +109,12 @@ impl Dependency {
         data.is_enabled = true;
 
         //enable sub features
-        let sub_features = data.sub_features.clone();
+        let sub_features = data
+            .sub_features
+            .iter()
+            .filter(|(_, feature_type)| feature_type == &FeatureType::Normal)
+            .map(|(name, _)| name.to_string())
+            .collect_vec();
 
         for sub_feature_name in sub_features {
             self.enable_feature(&sub_feature_name);
@@ -132,7 +141,11 @@ impl Dependency {
         let mut dep_features = vec![];
 
         for (name, data) in &self.features {
-            if data.sub_features.contains(&feature_name.to_string()) {
+            if data
+                .sub_features
+                .iter()
+                .any(|(name, _)| name == &feature_name.to_string())
+            {
                 dep_features.push(name.to_string())
             }
         }
@@ -159,7 +172,30 @@ pub enum DependencyType {
 
 #[derive(Clone)]
 pub struct FeatureData {
-    pub(crate) sub_features: Vec<String>,
-    pub(crate) is_default: bool,
-    pub(crate) is_enabled: bool,
+    pub sub_features: Vec<(String, FeatureType)>,
+    pub is_default: bool,
+    pub is_enabled: bool,
+}
+
+#[derive(Clone, PartialEq)]
+pub enum FeatureType {
+    Normal,
+    Dependency,
+    DependencyFeature,
+}
+
+impl FromStr for FeatureType {
+    type Err = ();
+
+    //todo cleanup
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with("dep:") {
+            return Ok(FeatureType::Dependency);
+        }
+        if s.contains('/') {
+            return Ok(FeatureType::DependencyFeature);
+        }
+
+        Ok(FeatureType::Normal)
+    }
 }

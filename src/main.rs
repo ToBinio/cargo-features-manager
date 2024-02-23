@@ -66,7 +66,7 @@ fn main() {
 }
 
 fn run(args: FeaturesArgs) -> anyhow::Result<()> {
-    let document = Document::new("./")?;
+    let document = Document::new()?;
 
     if let Some(sub) = args.sub {
         match sub {

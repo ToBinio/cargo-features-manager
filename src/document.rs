@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
 
@@ -8,35 +9,27 @@ use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, DependencyType};
-use crate::package::{
-    document_from_path, is_workspace, package_from_document, packages_from_workspace, Package,
-};
+use crate::package::{get_packages, Package};
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
+
+pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> anyhow::Result<toml_edit::Document> {
+    let file_content = fs::read_to_string(&dir_path)
+        .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", dir_path.as_ref()))?;
+    Ok(toml_edit::Document::from_str(&file_content)?)
+}
 
 pub struct Document {
     packages: Vec<Package>,
 }
 
 impl Document {
-    pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Document> {
-        let doc = document_from_path(&path)?;
+    pub fn new() -> anyhow::Result<Document> {
+        let packages = get_packages()?;
 
-        let base_path = path.as_ref().to_str().unwrap().to_string();
-
-        let is_workspace = is_workspace(&doc);
-
-        let packages = if is_workspace {
-            packages_from_workspace(&doc, base_path)?
-        } else {
-            let package = package_from_document(doc, base_path)?;
-
-            if package.dependencies.is_empty() {
-                bail!("no dependencies were found")
-            }
-
-            vec![package]
-        };
+        if packages.len() == 1 && packages.first().unwrap().dependencies.is_empty() {
+            bail!("no dependencies were found")
+        }
 
         Ok(Document { packages })
     }
@@ -134,7 +127,8 @@ impl Document {
 
         let key = package.dependency_type.key();
 
-        let mut deps = package.toml_doc.as_item_mut();
+        let mut doc = toml_document_from_path(&package.manifest_path)?;
+        let mut deps = doc.as_item_mut();
 
         for key in key.split('.') {
             deps = deps
@@ -201,9 +195,7 @@ impl Document {
 
         let package = self.packages.get(package_id).unwrap();
 
-        let path = Path::new(&package.dir_path).join("Cargo.toml");
-
-        fs::write(path, package.toml_doc.to_string()).unwrap();
+        fs::write(&package.manifest_path, doc.to_string()).unwrap();
 
         Ok(())
     }

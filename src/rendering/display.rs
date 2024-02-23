@@ -246,8 +246,9 @@ impl Display {
 
                     self.term.move_cursor_to(8, line_index)?;
 
-                    for sub_feature in sub_features {
-                        write!(self.term, "{} ", sub_feature)?;
+                    for (sub_feature_name,_) in sub_features {
+                        //todo add icon
+                        write!(self.term, "{} ", sub_feature_name)?;
                     }
                 }
             }

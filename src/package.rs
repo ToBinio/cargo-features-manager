@@ -1,18 +1,17 @@
-use crate::dependencies::dependency::{Dependency, DependencyType};
-use crate::dependencies::dependency_builder::DependencyBuilder;
-use anyhow::anyhow;
-use glob::glob;
+use crate::dependencies::dependency::{Dependency, DependencyType, FeatureData, FeatureType};
+
+use cargo_metadata::{CargoOpt, PackageId};
+
 use itertools::Itertools;
-use std::fs;
-use std::path::Path;
+use semver::VersionReq;
+use std::collections::HashMap;
 use std::str::FromStr;
-use toml_edit::{Document, Table};
+
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
     pub name: String,
-    pub toml_doc: Document,
-    pub dir_path: String,
+    pub manifest_path: String,
     pub dependency_type: PackageType,
 }
 
@@ -30,121 +29,118 @@ impl PackageType {
     }
 }
 
-pub fn document_from_path<P: AsRef<Path>>(dir_path: P) -> anyhow::Result<Document> {
-    let path = dir_path.as_ref().join("Cargo.toml");
+pub fn get_packages() -> anyhow::Result<Vec<Package>> {
+    let metadata = cargo_metadata::MetadataCommand::new()
+        .features(CargoOpt::AllFeatures)
+        .exec()?;
 
-    let file_content = fs::read_to_string(&path)
-        .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", path))?;
-    Ok(toml_edit::Document::from_str(&file_content)?)
+    let packages: HashMap<PackageId, cargo_metadata::Package> = metadata
+        .packages
+        .into_iter()
+        .map(|package| (package.id.clone(), package))
+        .collect();
+
+    let resolve = metadata.resolve.expect("no resolver found");
+
+    if let Some(root) = resolve.root {
+        Ok(vec![parse_package(&root, &packages, PackageType::Normal)?])
+    } else {
+        metadata
+            .workspace_members
+            .iter()
+            .map(|package| parse_package(package, &packages, PackageType::Workspace))
+            .collect()
+    }
 }
 
-pub fn is_workspace(document: &Document) -> bool {
-    document.contains_key("workspace")
+pub fn parse_package(
+    package: &PackageId,
+    packages: &HashMap<PackageId, cargo_metadata::Package>,
+    package_type: PackageType,
+) -> anyhow::Result<Package> {
+    let package = packages.get(package).unwrap();
+
+    let dependencies: anyhow::Result<Vec<Dependency>> = package
+        .dependencies
+        .iter()
+        .map(|dep| parse_dependency(dep, packages))
+        .collect();
+
+    Ok(Package {
+        dependencies: dependencies?,
+        name: package.name.to_string(),
+        manifest_path: package.manifest_path.to_string(),
+        dependency_type: package_type,
+    })
 }
 
-pub fn packages_from_workspace(
-    document: &Document,
-    base_path: String,
-) -> anyhow::Result<Vec<Package>> {
-    let mut packages = vec![];
+pub fn parse_dependency(
+    dependency: &cargo_metadata::Dependency,
+    packages: &HashMap<PackageId, cargo_metadata::Package>,
+) -> anyhow::Result<Dependency> {
+    let package = get_package_from_version(&dependency.name, &dependency.req, packages)?;
 
-    if let Some(members) = document
-        .get("workspace")
-        .ok_or(anyhow!("no workspace found"))?
-        .as_table()
-        .ok_or(anyhow!("no workspace found"))?
-        .get("members")
-    {
-        let members = members.as_array().ok_or(anyhow!("no members found"))?;
+    let default_features = package.features.get("default").cloned().unwrap_or(vec![]);
 
-        for entry in members {
-            let path = entry.as_str().ok_or(anyhow!("invalid member found"))?;
+    let features = package
+        .features
+        .iter()
+        .filter(|(name, _)| name != &"default")
+        .map(|(feature, sub_features)| {
+            (
+                feature.to_string(),
+                FeatureData {
+                    sub_features: sub_features
+                        .iter()
+                        .map(|name| (name.to_string(), FeatureType::from_str(name).unwrap()))
+                        .collect_vec(),
+                    is_default: default_features.contains(feature),
+                    is_enabled: false,
+                },
+            )
+        })
+        .collect();
 
-            for path in glob(path)? {
-                let path = path?;
-                let document = document_from_path(&path)?;
+    let dependency_type = dependency
+        .source
+        .as_ref()
+        .map(|source| DependencyType::Local(source.to_string()))
+        .unwrap_or(DependencyType::Remote);
 
-                packages.push(package_from_document(
-                    document,
-                    path.to_str()
-                        .ok_or(anyhow!("invalid path {:?}", path))?
-                        .to_string(),
-                )?);
+    let mut new_dependency = Dependency {
+        dep_name: dependency.name.to_string(),
+        version: dependency.req.to_string(),
+        dep_type: dependency_type,
+        features,
+    };
+
+    //todo join 2 loops
+    for feature in &dependency.features {
+        if FeatureType::from_str(feature) == Ok(FeatureType::Normal) {
+            new_dependency.enable_feature(feature);
+        }
+    }
+
+    if dependency.uses_default_features {
+        for feature in &default_features {
+            if FeatureType::from_str(feature) == Ok(FeatureType::Normal) {
+                new_dependency.enable_feature(feature);
             }
         }
     }
 
-    if document.contains_key("package") {
-        packages.push(package_from_document(document.clone(), base_path.clone())?)
-    }
-
-    if let Some(dependencies) = get_dependencies(document, PackageType::Workspace.key()) {
-        let dependencies = dependencies_from_table(&base_path, dependencies)?;
-
-        packages.push(Package {
-            dependencies,
-            name: "󰏓 Workspace".to_string(),
-            toml_doc: document.clone(),
-            dir_path: "".to_string(),
-            dependency_type: PackageType::Workspace,
-        });
-    }
-
-    Ok(packages)
+    Ok(new_dependency)
 }
 
-pub fn package_from_document(doc: Document, base_path: String) -> anyhow::Result<Package> {
-    let name = doc
-        .get("package")
-        .ok_or(anyhow!("invalid Package - no name found"))?
-        .as_table()
-        .ok_or(anyhow!("invalid Package - no name found"))?
-        .get("name")
-        .ok_or(anyhow!("invalid Package - no name found"))?
-        .as_str()
-        .ok_or(anyhow!("invalid Package - no name found"))?;
-
-    let deps = if let Some(deps_table) = get_dependencies(&doc, PackageType::Normal.key()) {
-        dependencies_from_table(&base_path, deps_table)?
-    } else {
-        vec![]
-    };
-
-    Ok(Package {
-        dependencies: deps,
-        name: name.to_string(),
-        toml_doc: doc,
-        dir_path: base_path,
-        dependency_type: PackageType::Normal,
-    })
-}
-
-fn get_dependencies<'a>(doc: &'a Document, key: &str) -> Option<&'a Table> {
-    let mut item = doc.as_item();
-
-    for key in key.split('.') {
-        item = item.get(key)?
-    }
-
-    item.as_table()
-}
-
-fn dependencies_from_table(base_path: &str, deps_table: &Table) -> anyhow::Result<Vec<Dependency>> {
-    let deps = deps_table
+pub fn get_package_from_version<'a>(
+    name: &str,
+    version_req: &VersionReq,
+    packages: &'a HashMap<PackageId, cargo_metadata::Package>,
+) -> anyhow::Result<&'a cargo_metadata::Package> {
+    Ok(packages
         .iter()
-        .filter_map(|(name, value)| {
-            let dependency = DependencyBuilder::build_dependency(name, value, base_path);
-
-            dependency.unwrap_or_else(|err| {
-                Some(Dependency {
-                    dep_name: name.to_string(),
-                    version: "".to_string(),
-                    dep_type: DependencyType::Error(err.to_string()),
-                    features: Default::default(),
-                })
-            })
-        })
-        .collect_vec();
-
-    Ok(deps)
+        .map(|(_, package)| package)
+        .find(|package| package.name == name && version_req.matches(&package.version))
+        .unwrap_or_else(|| panic!("could not find version for {} {}",
+            name, version_req)))
 }
