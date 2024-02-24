@@ -1,3 +1,10 @@
+## next
+
+* use `cargo metadata` instead of custom parsing this helps a lot for parsing edge cases e.g. git
+* handle git dependencies
+* fix bug where changes where not saved when filtering dependencies
+* handle build-dependencies and dev-dependencies
+* display which dependencies a feature will enable
 
 ## 5.3
 

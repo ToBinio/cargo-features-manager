@@ -246,7 +246,7 @@ impl Display {
 
                     self.term.move_cursor_to(8, line_index)?;
 
-                    for (sub_feature_name,_) in sub_features {
+                    for (sub_feature_name, _) in sub_features {
                         //todo add icon
                         write!(self.term, "{} ", sub_feature_name)?;
                     }
@@ -330,17 +330,16 @@ impl Display {
             | (Key::ArrowRight, DisplayState::Feature)
             | (Key::Char(' '), DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
-                    let dep = self.document.get_dep_mut(
-                        self.package_selector.selected_index,
-                        self.dep_selector.get_selected().unwrap().name(),
-                    )?;
+                    let dep_name = self.dep_selector.get_selected().unwrap().name();
+
+                    let dep = self
+                        .document
+                        .get_dep_mut(self.package_selector.selected_index, dep_name)?;
 
                     dep.toggle_feature(self.feature_selector.get_selected().unwrap().name());
 
-                    self.document.write_dep(
-                        self.package_selector.selected_index,
-                        self.dep_selector.selected_index,
-                    )?;
+                    self.document
+                        .write_dep(self.package_selector.selected_index, dep_name)?;
                 }
             }
 

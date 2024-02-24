@@ -21,10 +21,10 @@ clap_complete = "4.5.0"
 console = { version = "0.15.8", default-features = false }
 ctrlc = "3.4.2"
 fuzzy-matcher = "0.3.7"
-itertools = { version = "0.12.1", features = ["use_alloc"], default-features = false }
+itertools = { version = "0.12.1", default-features = false, features = ["use_alloc"] }
 semver = { version = "1.0.21", default-features = false }
-toml = { version = "0.8.10" }
-toml_edit = {  version = "0.22.4", features = ["serde"] }
+toml = { version = "0.8.10", default-features = false, features = ["parse"] }
+toml_edit = { version = "0.22.4", default-features = false, features = ["display"] }
 
 [[bin]]
 name = "cargo-features"

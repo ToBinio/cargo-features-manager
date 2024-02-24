@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::process::exit;
 
 use anyhow::{anyhow, bail};
 
@@ -7,7 +8,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{Dependency, DependencyType};
+use crate::dependencies::dependency::{Dependency, get_path_from_dependency_kind};
 use crate::package::{get_packages, Package};
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
@@ -77,7 +78,7 @@ impl Document {
         let dep = self
             .get_deps(package_id)
             .iter()
-            .find(|dep| dep.dep_name.eq(name));
+            .find(|dep| dep.name.eq(name));
 
         match dep {
             None => bail!("could not find dependency with name {}", name),
@@ -103,7 +104,7 @@ impl Document {
         let dep = self
             .get_deps_mut(package_id)
             .iter_mut()
-            .find(|dep| dep.dep_name.eq(name));
+            .find(|dep| dep.name.eq(name));
 
         match dep {
             None => bail!("could not find dependency with name {}", name),
@@ -111,7 +112,7 @@ impl Document {
         }
     }
 
-    pub fn write_dep_by_name(&mut self, package_id: usize, name: &str) -> anyhow::Result<()> {
+    pub fn write_dep(&mut self, package_id: usize, name: &str) -> anyhow::Result<()> {
         let (index, _) = self
             .get_deps(package_id)
             .iter()
@@ -119,13 +120,16 @@ impl Document {
             .find(|(_index, dep)| dep.get_name().eq(name))
             .ok_or(anyhow!("could not find dependency with name {}", name))?;
 
-        self.write_dep(package_id, index)
+        self.write_dep_raw(package_id, index)
     }
 
-    pub fn write_dep(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
+    fn write_dep_raw(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
         let package = self.packages.get_mut(package_id).unwrap();
-
-        let key = package.dependency_type.key();
+        
+        let dependency = package.dependencies.get(dep_index).unwrap();
+        let mut features_to_enable = dependency.get_features_to_enable();
+        
+        let key = get_path_from_dependency_kind(dependency.kind);
 
         let mut doc = toml_document_from_path(&package.manifest_path)?;
         let mut deps = doc.as_item_mut();
@@ -138,59 +142,69 @@ impl Document {
 
         let deps = deps.as_table_mut().unwrap();
 
-        let dependency = package.dependencies.get(dep_index).unwrap();
-
-        let mut enabled_features = dependency.get_features_to_enable();
-
-        if !dependency.can_use_default()
-            || !enabled_features.is_empty()
-            || dependency.dep_type != DependencyType::Remote
+        let table = match deps
+            .get_mut(&dependency.get_name())
+            .unwrap()
+            .as_table_like_mut()
         {
-            let mut table = InlineTable::new();
+            None => {
+                deps.insert(
+                    &dependency.get_name(),
+                    Item::Value(Value::InlineTable(InlineTable::new())),
+                );
 
-            if let DependencyType::Local(path) = &dependency.dep_type {
-                table.insert("path", Value::String(Formatted::new(path.to_string())));
+                deps.get_mut(&dependency.get_name())
+                    .unwrap()
+                    .as_table_like_mut()
+                    .unwrap()
             }
+            Some(table) => table,
+        };
 
+        let has_custom_attributes = table
+            .get_values()
+            .iter()
+            .map(|(name, _)| name.first().map(|key| key.to_string()).unwrap_or_default())
+            .any(|name| !["features", "default-features", "version"].contains(&&*name));
+
+        if dependency.can_use_default() && features_to_enable.is_empty() && !has_custom_attributes {
+            deps.insert(
+                &dependency.get_name(),
+                Item::Value(Value::String(Formatted::new(dependency.get_version()))),
+            );
+        } else {
             //version
-            if !dependency.version.is_empty() {
+            if !dependency.version.is_empty() && !table.contains_key("git") {
                 table.insert(
                     "version",
-                    Value::String(Formatted::new(dependency.get_version())),
+                    Item::Value(Value::String(Formatted::new(dependency.get_version()))),
                 );
             }
 
             //features
             let mut features = Array::new();
 
-            enabled_features.sort();
+            features_to_enable.sort();
 
-            for name in enabled_features {
+            for name in features_to_enable {
                 features.push(Value::String(Formatted::new(name)));
             }
 
-            if !features.is_empty() {
-                table.insert("features", Value::Array(features));
+            if features.is_empty() {
+                table.remove("features");
+            } else {
+                table.insert("features", Item::Value(Value::Array(features)));
             }
 
             //default-feature
-            let uses_default = dependency.can_use_default();
-            if !uses_default {
+            if dependency.can_use_default() {
+                table.remove("default-features");
+            } else {
                 table.insert(
                     "default-features",
-                    Value::Boolean(Formatted::new(uses_default)),
+                    Item::Value(Value::Boolean(Formatted::new(false))),
                 );
             }
-
-            deps.insert(
-                &dependency.get_name(),
-                Item::Value(Value::InlineTable(table)),
-            );
-        } else {
-            deps.insert(
-                &dependency.get_name(),
-                Item::Value(Value::String(Formatted::new(dependency.get_version()))),
-            );
         }
 
         let package = self.packages.get(package_id).unwrap();

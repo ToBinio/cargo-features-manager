@@ -103,7 +103,7 @@ fn prune_package(
             document
                 .get_dep_mut(package_id, name)?
                 .disable_feature(feature);
-            document.write_dep_by_name(package_id, name)?;
+            document.write_dep(package_id, name)?;
 
             if check()? {
                 to_be_disabled.push(feature.to_string());
@@ -115,7 +115,7 @@ fn prune_package(
                     .get_dep_mut(package_id, name)?
                     .enable_feature(feature);
             }
-            document.write_dep_by_name(package_id, name)?;
+            document.write_dep(package_id, name)?;
 
             term.move_cursor_up(2)?;
             term.clear_line()?;
@@ -157,7 +157,7 @@ fn prune_package(
                     .disable_feature(&feature);
             }
 
-            document.write_dep_by_name(package_id, name)?;
+            document.write_dep(package_id, name)?;
         }
     }
     Ok(())

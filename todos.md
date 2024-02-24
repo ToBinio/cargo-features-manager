@@ -1,5 +1,3 @@
- * fix parse path (remotes are printed as path)
  * icons for features in display
- * only edit features element not whole document entry when writing file
- * { workspace = true }
- * version always outputting with ^
+ * icons for build deps, dev deps,... in display
+ * error handling (no unwrap)

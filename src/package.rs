@@ -1,32 +1,17 @@
-use crate::dependencies::dependency::{Dependency, DependencyType, FeatureData, FeatureType};
+use crate::dependencies::dependency::{Dependency, DependencySource, FeatureData, FeatureType};
 
-use cargo_metadata::{CargoOpt, PackageId};
+use cargo_metadata::{CargoOpt, DependencyKind, PackageId};
 
 use itertools::Itertools;
 use semver::VersionReq;
 use std::collections::HashMap;
 use std::str::FromStr;
-
+use anyhow::bail;
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
     pub name: String,
     pub manifest_path: String,
-    pub dependency_type: PackageType,
-}
-
-pub enum PackageType {
-    Normal,
-    Workspace,
-}
-
-impl PackageType {
-    pub fn key(&self) -> &'static str {
-        match self {
-            PackageType::Normal => "dependencies",
-            PackageType::Workspace => "workspace.dependencies",
-        }
-    }
 }
 
 pub fn get_packages() -> anyhow::Result<Vec<Package>> {
@@ -43,12 +28,12 @@ pub fn get_packages() -> anyhow::Result<Vec<Package>> {
     let resolve = metadata.resolve.expect("no resolver found");
 
     if let Some(root) = resolve.root {
-        Ok(vec![parse_package(&root, &packages, PackageType::Normal)?])
+        Ok(vec![parse_package(&root, &packages)?])
     } else {
         metadata
             .workspace_members
             .iter()
-            .map(|package| parse_package(package, &packages, PackageType::Workspace))
+            .map(|package| parse_package(package, &packages))
             .collect()
     }
 }
@@ -56,7 +41,6 @@ pub fn get_packages() -> anyhow::Result<Vec<Package>> {
 pub fn parse_package(
     package: &PackageId,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
-    package_type: PackageType,
 ) -> anyhow::Result<Package> {
     let package = packages.get(package).unwrap();
 
@@ -70,7 +54,6 @@ pub fn parse_package(
         dependencies: dependencies?,
         name: package.name.to_string(),
         manifest_path: package.manifest_path.to_string(),
-        dependency_type: package_type,
     })
 }
 
@@ -101,16 +84,21 @@ pub fn parse_dependency(
         })
         .collect();
 
-    let dependency_type = dependency
-        .source
+    let dependency_source = dependency
+        .path
         .as_ref()
-        .map(|source| DependencyType::Local(source.to_string()))
-        .unwrap_or(DependencyType::Remote);
+        .map(|source| DependencySource::Local(source.to_string()))
+        .unwrap_or(DependencySource::Remote);
 
     let mut new_dependency = Dependency {
-        dep_name: dependency.name.to_string(),
-        version: dependency.req.to_string(),
-        dep_type: dependency_type,
+        name: dependency.name.to_string(),
+        version: dependency
+            .req
+            .to_string()
+            .trim_start_matches('^')
+            .to_owned(),
+        source: dependency_source,
+        kind: dependency.kind,
         features,
     };
 
@@ -141,6 +129,5 @@ pub fn get_package_from_version<'a>(
         .iter()
         .map(|(_, package)| package)
         .find(|package| package.name == name && version_req.matches(&package.version))
-        .unwrap_or_else(|| panic!("could not find version for {} {}",
-            name, version_req)))
+        .unwrap_or_else(|| panic!("could not find version for {} {}", name, version_req)))
 }

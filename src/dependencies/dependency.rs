@@ -1,4 +1,5 @@
 use crate::rendering::scroll_selector::FeatureSelectorItem;
+use cargo_metadata::DependencyKind;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;
@@ -6,17 +7,18 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 pub struct Dependency {
-    pub dep_name: String,
+    pub name: String,
     pub version: String,
 
-    pub dep_type: DependencyType,
+    pub source: DependencySource,
+    pub kind: DependencyKind,
 
     pub features: HashMap<String, FeatureData>,
 }
 
 impl Dependency {
     pub fn get_name(&self) -> String {
-        self.dep_name.to_string()
+        self.name.to_string()
     }
 
     pub fn get_version(&self) -> String {
@@ -164,20 +166,29 @@ impl Dependency {
 }
 
 #[derive(PartialEq, Clone)]
-pub enum DependencyType {
+pub enum DependencySource {
     Local(String),
     Remote,
-    Error(String),
 }
 
-#[derive(Clone)]
+pub fn get_path_from_dependency_kind(kind: DependencyKind) -> &'static str {
+    //todo test
+    match kind {
+        DependencyKind::Normal => "dependencies",
+        DependencyKind::Development => "dev-dependencies",
+        DependencyKind::Build => "build-dependencies",
+        DependencyKind::Unknown => "dependencies",
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct FeatureData {
     pub sub_features: Vec<(String, FeatureType)>,
     pub is_default: bool,
     pub is_enabled: bool,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum FeatureType {
     Normal,
     Dependency,
