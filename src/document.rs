@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::Path;
-use std::process::exit;
 
 use anyhow::{anyhow, bail};
 
@@ -8,7 +7,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{Dependency, get_path_from_dependency_kind};
+use crate::dependencies::dependency::{get_path_from_dependency_kind, Dependency};
 use crate::package::{get_packages, Package};
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
@@ -125,10 +124,10 @@ impl Document {
 
     fn write_dep_raw(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
         let package = self.packages.get_mut(package_id).unwrap();
-        
+
         let dependency = package.dependencies.get(dep_index).unwrap();
         let mut features_to_enable = dependency.get_features_to_enable();
-        
+
         let key = get_path_from_dependency_kind(dependency.kind);
 
         let mut doc = toml_document_from_path(&package.manifest_path)?;

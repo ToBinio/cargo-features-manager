@@ -1,4 +1,5 @@
-use console::{style, Key, Term};
+use cargo_metadata::DependencyKind;
+use console::{style, Emoji, Key, Term};
 use std::io::Write;
 use std::ops::{Not, Range};
 
@@ -160,7 +161,7 @@ impl Display {
         let mut index = dep_range.start;
 
         for selector in &self.dep_selector.data[dep_range] {
-            let _dep = self
+            let dep = self
                 .document
                 .get_dep(self.package_selector.selected_index, selector.name())
                 .unwrap();
@@ -171,7 +172,28 @@ impl Display {
             }
 
             self.term.move_cursor_to(2, line_index)?;
-            write!(self.term, "{}", selector.display_name())?;
+
+            match dep.kind {
+                DependencyKind::Normal => write!(self.term, "{}", selector.display_name())?,
+                DependencyKind::Development => write!(
+                    self.term,
+                    "{} {}",
+                    Emoji(" 🧪", &style("dev").color256(8).to_string()),
+                    selector.display_name()
+                )?,
+                DependencyKind::Build => write!(
+                    self.term,
+                    "{} {}",
+                    Emoji("🛠️", &style("build").color256(8).to_string()),
+                    selector.display_name()
+                )?,
+                DependencyKind::Unknown => write!(
+                    self.term,
+                    "{} {}",
+                    Emoji("❔", &style("unknown").color256(8).to_string()),
+                    selector.display_name()
+                )?,
+            };
 
             index += 1;
             line_index += 1;
@@ -246,9 +268,8 @@ impl Display {
 
                     self.term.move_cursor_to(8, line_index)?;
 
-                    for (sub_feature_name, _) in sub_features {
-                        //todo add icon
-                        write!(self.term, "{} ", sub_feature_name)?;
+                    for sub in sub_features {
+                        write!(self.term, "{} ", sub)?;
                     }
                 }
             }

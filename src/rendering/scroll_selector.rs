@@ -1,4 +1,4 @@
-use crate::dependencies::dependency::{Dependency, DependencySource};
+use crate::dependencies::dependency::Dependency;
 
 use console::style;
 

@@ -1,12 +1,12 @@
-use crate::dependencies::dependency::{Dependency, DependencySource, FeatureData, FeatureType};
+use crate::dependencies::dependency::{
+    Dependency, DependencySource, FeatureData, FeatureType, SubFeature,
+};
 
-use cargo_metadata::{CargoOpt, DependencyKind, PackageId};
+use cargo_metadata::{CargoOpt, PackageId};
 
 use itertools::Itertools;
 use semver::VersionReq;
 use std::collections::HashMap;
-use std::str::FromStr;
-use anyhow::bail;
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
@@ -75,7 +75,11 @@ pub fn parse_dependency(
                 FeatureData {
                     sub_features: sub_features
                         .iter()
-                        .map(|name| (name.to_string(), FeatureType::from_str(name).unwrap()))
+                        .map(|name| SubFeature {
+                            name: name.to_string(),
+                            kind: name.as_str().into(),
+                        })
+                        .filter(|sub_feature| sub_feature.kind != FeatureType::DependencyFeature)
                         .collect_vec(),
                     is_default: default_features.contains(feature),
                     is_enabled: false,
@@ -102,16 +106,15 @@ pub fn parse_dependency(
         features,
     };
 
-    //todo join 2 loops
     for feature in &dependency.features {
-        if FeatureType::from_str(feature) == Ok(FeatureType::Normal) {
+        if Into::<FeatureType>::into(feature.as_str()) == FeatureType::Normal {
             new_dependency.enable_feature(feature);
         }
     }
 
     if dependency.uses_default_features {
         for feature in &default_features {
-            if FeatureType::from_str(feature) == Ok(FeatureType::Normal) {
+            if Into::<FeatureType>::into(feature.as_str()) == FeatureType::Normal {
                 new_dependency.enable_feature(feature);
             }
         }

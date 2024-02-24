@@ -1,10 +1,11 @@
 use crate::rendering::scroll_selector::FeatureSelectorItem;
 use cargo_metadata::DependencyKind;
+use console::Emoji;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::str::FromStr;
+use std::fmt::{Display, Formatter};
 
 pub struct Dependency {
     pub name: String,
@@ -114,8 +115,8 @@ impl Dependency {
         let sub_features = data
             .sub_features
             .iter()
-            .filter(|(_, feature_type)| feature_type == &FeatureType::Normal)
-            .map(|(name, _)| name.to_string())
+            .filter(|sub_feature| sub_feature.kind == FeatureType::Normal)
+            .map(|sub_feature| sub_feature.name.to_string())
             .collect_vec();
 
         for sub_feature_name in sub_features {
@@ -146,7 +147,7 @@ impl Dependency {
             if data
                 .sub_features
                 .iter()
-                .any(|(name, _)| name == &feature_name.to_string())
+                .any(|sub_feature| sub_feature.name == *feature_name)
             {
                 dep_features.push(name.to_string())
             }
@@ -172,7 +173,6 @@ pub enum DependencySource {
 }
 
 pub fn get_path_from_dependency_kind(kind: DependencyKind) -> &'static str {
-    //todo test
     match kind {
         DependencyKind::Normal => "dependencies",
         DependencyKind::Development => "dev-dependencies",
@@ -183,9 +183,15 @@ pub fn get_path_from_dependency_kind(kind: DependencyKind) -> &'static str {
 
 #[derive(Clone, Debug)]
 pub struct FeatureData {
-    pub sub_features: Vec<(String, FeatureType)>,
+    pub sub_features: Vec<SubFeature>,
     pub is_default: bool,
     pub is_enabled: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct SubFeature {
+    pub name: String,
+    pub kind: FeatureType,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -195,18 +201,32 @@ pub enum FeatureType {
     DependencyFeature,
 }
 
-impl FromStr for FeatureType {
-    type Err = ();
+impl Display for SubFeature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.kind == FeatureType::Dependency {
+            f.write_str(&format!(
+                "{}{}",
+                Emoji("📦", "dep:"),
+                self.name.trim_start_matches("dep:")
+            ))?
+        } else {
+            f.write_str(&self.name)?
+        }
 
-    //todo cleanup
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(())
+    }
+}
+
+impl From<&str> for FeatureType {
+    fn from(s: &str) -> Self {
         if s.starts_with("dep:") {
-            return Ok(FeatureType::Dependency);
-        }
-        if s.contains('/') {
-            return Ok(FeatureType::DependencyFeature);
+            return FeatureType::Dependency;
         }
 
-        Ok(FeatureType::Normal)
+        if s.contains('/') {
+            return FeatureType::DependencyFeature;
+        }
+
+        FeatureType::Normal
     }
 }
