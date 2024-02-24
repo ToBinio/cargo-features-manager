@@ -1,4 +1,5 @@
 use crate::rendering::scroll_selector::FeatureSelectorItem;
+use anyhow::Context;
 use cargo_metadata::DependencyKind;
 use console::Emoji;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -41,7 +42,7 @@ impl Dependency {
                         return Ordering::Greater;
                     }
 
-                    name_a.partial_cmp(name_b).unwrap()
+                    name_a.cmp(name_b)
                 })
                 .map(|(name, _)| FeatureSelectorItem::new(name, vec![]))
                 .collect()
@@ -58,8 +59,8 @@ impl Dependency {
         }
     }
 
-    pub fn get_feature(&self, feature_name: &str) -> &FeatureData {
-        self.features.get(feature_name).unwrap()
+    pub fn get_feature(&self, feature_name: &str) -> Option<&FeatureData> {
+        self.features.get(feature_name)
     }
 
     pub fn has_features(&self) -> bool {
@@ -88,14 +89,19 @@ impl Dependency {
             .collect()
     }
 
-    pub fn toggle_feature(&mut self, feature_name: &str) {
-        let data = self.features.get(feature_name).unwrap();
+    pub fn toggle_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
+        let data = self
+            .features
+            .get(feature_name)
+            .context(format!("could not find {}", feature_name))?;
 
         if data.is_enabled {
-            self.disable_feature(feature_name);
+            self.disable_feature(feature_name)?;
         } else {
             self.enable_feature(feature_name);
         }
+
+        Ok(())
     }
 
     pub fn enable_feature(&mut self, feature_name: &str) {
@@ -124,19 +130,24 @@ impl Dependency {
         }
     }
 
-    pub fn disable_feature(&mut self, feature_name: &str) {
-        let data = self.features.get_mut(feature_name).unwrap();
+    pub fn disable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
+        let data = self
+            .features
+            .get_mut(feature_name)
+            .context(format!("could not find {}", feature_name))?;
 
         if !data.is_enabled {
             //early return to prevent loop
-            return;
+            return Ok(());
         }
 
         data.is_enabled = false;
 
         for name in self.get_dependent_features(feature_name) {
-            self.disable_feature(&name)
+            self.disable_feature(&name)?
         }
+
+        Ok(())
     }
 
     /// returns all features which require the feature to be enabled
@@ -160,8 +171,9 @@ impl Dependency {
     pub fn get_currently_dependent_features(&self, feature_name: &str) -> Vec<String> {
         self.get_dependent_features(feature_name)
             .iter()
-            .filter(|name| self.features.get(*name).unwrap().is_enabled)
-            .map(|s| s.to_string())
+            .filter_map(|name| self.features.get(name).map(|feature| (name, feature)))
+            .filter(|(_, feature)| feature.is_enabled)
+            .map(|(name, _)| name.to_string())
             .collect()
     }
 }

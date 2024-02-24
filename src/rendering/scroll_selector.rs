@@ -1,4 +1,5 @@
 use crate::dependencies::dependency::Dependency;
+use anyhow::Context;
 
 use console::style;
 
@@ -24,8 +25,10 @@ impl<T> ScrollSelector<T> {
         self.selected_index = selected_temp as usize;
     }
 
-    pub fn get_selected(&self) -> Option<&T> {
-        self.data.get(self.selected_index)
+    pub fn get_selected(&self) -> anyhow::Result<&T> {
+        self.data
+            .get(self.selected_index)
+            .context("nothing selected")
     }
 
     pub fn has_data(&self) -> bool {

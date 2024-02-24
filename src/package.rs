@@ -4,6 +4,7 @@ use crate::dependencies::dependency::{
 
 use cargo_metadata::{CargoOpt, PackageId};
 
+use anyhow::Context;
 use itertools::Itertools;
 use semver::VersionReq;
 use std::collections::HashMap;
@@ -25,24 +26,18 @@ pub fn get_packages() -> anyhow::Result<Vec<Package>> {
         .map(|package| (package.id.clone(), package))
         .collect();
 
-    let resolve = metadata.resolve.expect("no resolver found");
-
-    if let Some(root) = resolve.root {
-        Ok(vec![parse_package(&root, &packages)?])
-    } else {
-        metadata
-            .workspace_members
-            .iter()
-            .map(|package| parse_package(package, &packages))
-            .collect()
-    }
+    metadata
+        .workspace_members
+        .iter()
+        .map(|package| parse_package(package, &packages))
+        .collect()
 }
 
 pub fn parse_package(
     package: &PackageId,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
 ) -> anyhow::Result<Package> {
-    let package = packages.get(package).unwrap();
+    let package = packages.get(package).context("package not found")?;
 
     let dependencies: anyhow::Result<Vec<Dependency>> = package
         .dependencies

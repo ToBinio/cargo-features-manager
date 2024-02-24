@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
@@ -27,7 +27,13 @@ impl Document {
     pub fn new() -> anyhow::Result<Document> {
         let packages = get_packages()?;
 
-        if packages.len() == 1 && packages.first().unwrap().dependencies.is_empty() {
+        if packages.len() == 1
+            && packages
+                .first()
+                .expect("no package found")
+                .dependencies
+                .is_empty()
+        {
             bail!("no dependencies were found")
         }
 
@@ -45,22 +51,31 @@ impl Document {
         self.packages.get(package_id)
     }
 
-    pub fn get_deps(&self, package_id: usize) -> &Vec<Dependency> {
-        &self.packages.get(package_id).unwrap().dependencies
+    pub fn get_deps(&self, package_id: usize) -> anyhow::Result<&Vec<Dependency>> {
+        Ok(&self
+            .packages
+            .get(package_id)
+            .context("package not found")?
+            .dependencies)
     }
 
-    pub fn get_deps_mut(&mut self, package_id: usize) -> &mut Vec<Dependency> {
-        &mut self.packages.get_mut(package_id).unwrap().dependencies
+    pub fn get_deps_mut(&mut self, package_id: usize) -> anyhow::Result<&mut Vec<Dependency>> {
+        Ok(&mut self
+            .packages
+            .get_mut(package_id)
+            .context("package not found")?
+            .dependencies)
     }
 
     pub fn get_deps_filtered_view(
         &self,
         package_id: usize,
         filter: &str,
-    ) -> Vec<DependencySelectorItem> {
+    ) -> anyhow::Result<Vec<DependencySelectorItem>> {
         let matcher = SkimMatcherV2::default();
 
-        self.get_deps(package_id)
+        let deps = self
+            .get_deps(package_id)?
             .iter()
             .filter_map(|dependency| {
                 matcher
@@ -70,12 +85,14 @@ impl Document {
             .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
             .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
             .map(|(dependency, indexes)| DependencySelectorItem::new(dependency, indexes))
-            .collect()
+            .collect();
+
+        Ok(deps)
     }
 
     pub fn get_dep(&self, package_id: usize, name: &str) -> anyhow::Result<&Dependency> {
         let dep = self
-            .get_deps(package_id)
+            .get_deps(package_id)?
             .iter()
             .find(|dep| dep.name.eq(name));
 
@@ -87,7 +104,7 @@ impl Document {
 
     pub fn get_dep_index(&self, package_id: usize, name: &String) -> anyhow::Result<usize> {
         Ok(self
-            .get_deps(package_id)
+            .get_deps(package_id)?
             .iter()
             .enumerate()
             .find(|(_, dep)| dep.get_name() == *name)
@@ -101,7 +118,7 @@ impl Document {
         name: &str,
     ) -> anyhow::Result<&mut Dependency> {
         let dep = self
-            .get_deps_mut(package_id)
+            .get_deps_mut(package_id)?
             .iter_mut()
             .find(|dep| dep.name.eq(name));
 
@@ -113,7 +130,7 @@ impl Document {
 
     pub fn write_dep(&mut self, package_id: usize, name: &str) -> anyhow::Result<()> {
         let (index, _) = self
-            .get_deps(package_id)
+            .get_deps(package_id)?
             .iter()
             .enumerate()
             .find(|(_index, dep)| dep.get_name().eq(name))
@@ -123,9 +140,15 @@ impl Document {
     }
 
     fn write_dep_raw(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
-        let package = self.packages.get_mut(package_id).unwrap();
+        let package = self
+            .packages
+            .get_mut(package_id)
+            .context("package not found")?;
 
-        let dependency = package.dependencies.get(dep_index).unwrap();
+        let dependency = package
+            .dependencies
+            .get(dep_index)
+            .context("dependency not found")?;
         let mut features_to_enable = dependency.get_features_to_enable();
 
         let key = get_path_from_dependency_kind(dependency.kind);
@@ -139,11 +162,13 @@ impl Document {
                 .ok_or(anyhow!("could not find dependency - {}", package.name))?;
         }
 
-        let deps = deps.as_table_mut().unwrap();
+        let deps = deps
+            .as_table_mut()
+            .context(format!("could not parse {} as a table", dependency.name))?;
 
         let table = match deps
             .get_mut(&dependency.get_name())
-            .unwrap()
+            .context("dependency not found")?
             .as_table_like_mut()
         {
             None => {
@@ -153,9 +178,12 @@ impl Document {
                 );
 
                 deps.get_mut(&dependency.get_name())
-                    .unwrap()
+                    .context(format!(
+                        "could not find {} in dependencies",
+                        dependency.name
+                    ))?
                     .as_table_like_mut()
-                    .unwrap()
+                    .context(format!("could not parse {} as a table", dependency.name))?
             }
             Some(table) => table,
         };
@@ -206,11 +234,9 @@ impl Document {
             }
         }
 
-        let package = self.packages.get(package_id).unwrap();
+        let package = self.packages.get(package_id).context("package not found")?;
 
-        fs::write(&package.manifest_path, doc.to_string()).unwrap();
-
-        Ok(())
+        fs::write(&package.manifest_path, doc.to_string()).map_err(anyhow::Error::from)
     }
     pub fn is_workspace(&self) -> bool {
         self.packages.len() > 1

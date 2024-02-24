@@ -1,3 +1,4 @@
+use anyhow::Context;
 use cargo_metadata::DependencyKind;
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
@@ -35,7 +36,7 @@ impl Display {
 
             dep_selector: ScrollSelector {
                 selected_index: 0,
-                data: document.get_deps_filtered_view(0, ""),
+                data: document.get_deps_filtered_view(0, "")?,
             },
 
             feature_selector: ScrollSelector {
@@ -54,13 +55,15 @@ impl Display {
         })
     }
 
-    fn select_selected_package(&mut self) {
+    fn select_selected_package(&mut self) -> anyhow::Result<()> {
         self.state = DisplayState::Dep;
 
         // update selector
         self.dep_selector.data = self
             .document
-            .get_deps_filtered_view(self.package_selector.selected_index, "");
+            .get_deps_filtered_view(self.package_selector.selected_index, "")?;
+
+        Ok(())
     }
 
     pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
@@ -71,26 +74,25 @@ impl Display {
             Ok(index) => {
                 self.dep_selector.selected_index = index;
 
-                self.select_selected_dep();
+                self.select_selected_dep()?;
                 Ok(())
             }
             Err(err) => Err(err),
         }
     }
 
-    fn select_selected_dep(&mut self) {
+    fn select_selected_dep(&mut self) -> anyhow::Result<()> {
         self.state = DisplayState::Feature;
 
-        let dep = self
-            .document
-            .get_dep(
-                self.package_selector.selected_index,
-                self.dep_selector.get_selected().unwrap().name(),
-            )
-            .unwrap();
+        let dep = self.document.get_dep(
+            self.package_selector.selected_index,
+            self.dep_selector.get_selected()?.name(),
+        )?;
 
         // update selector
         self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
+
+        Ok(())
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -130,7 +132,7 @@ impl Display {
         write!(self.term, "Packages")?;
         // self.display_search_header()?;
 
-        let dep_range = self.get_max_range();
+        let dep_range = self.get_max_range()?;
 
         let mut line_index = 1;
         let mut index = dep_range.start;
@@ -155,7 +157,7 @@ impl Display {
         write!(self.term, "Dependencies")?;
         self.display_search_header()?;
 
-        let dep_range = self.get_max_range();
+        let dep_range = self.get_max_range()?;
 
         let mut line_index = 1;
         let mut index = dep_range.start;
@@ -163,8 +165,7 @@ impl Display {
         for selector in &self.dep_selector.data[dep_range] {
             let dep = self
                 .document
-                .get_dep(self.package_selector.selected_index, selector.name())
-                .unwrap();
+                .get_dep(self.package_selector.selected_index, selector.name())?;
 
             if index == self.dep_selector.selected_index {
                 self.term.move_cursor_to(0, line_index)?;
@@ -207,11 +208,14 @@ impl Display {
             .document
             .get_dep(
                 self.package_selector.selected_index,
-                self.dep_selector.get_selected().unwrap().name(),
+                self.dep_selector.get_selected()?.name(),
             )
-            .unwrap();
+            .context(format!(
+                "couldn't find {}",
+                self.dep_selector.get_selected()?.name()
+            ))?;
 
-        let feature_range = self.get_max_range();
+        let feature_range = self.get_max_range()?;
 
         let mut line_index = 1;
         let mut index = feature_range.start;
@@ -224,12 +228,17 @@ impl Display {
             .document
             .get_dep(
                 self.package_selector.selected_index,
-                self.dep_selector.get_selected().unwrap().name(),
+                self.dep_selector.get_selected()?.name(),
             )
-            .unwrap();
+            .context(format!(
+                "could not find {}",
+                self.dep_selector.get_selected()?.name()
+            ))?;
 
-        for feature in &self.feature_selector.data[self.get_max_range()] {
-            let data = dep.get_feature(feature.name());
+        for feature in &self.feature_selector.data[self.get_max_range()?] {
+            let data = dep
+                .get_feature(feature.name())
+                .context(format!("couldn't find {}", feature.name()))?;
 
             self.term.move_cursor_to(2, line_index)?;
 
@@ -321,7 +330,7 @@ impl Display {
             (Key::Enter, DisplayState::Package)
             | (Key::ArrowRight, DisplayState::Package)
             | (Key::Char(' '), DisplayState::Package) => {
-                self.select_selected_package();
+                self.select_selected_package()?;
 
                 //needed to wrap
                 self.dep_selector.shift(0);
@@ -336,11 +345,11 @@ impl Display {
                         .document
                         .get_dep(
                             self.package_selector.selected_index,
-                            self.dep_selector.get_selected().unwrap().name(),
+                            self.dep_selector.get_selected()?.name(),
                         )?
                         .has_features()
                     {
-                        self.select_selected_dep();
+                        self.select_selected_dep()?;
 
                         //needed to wrap
                         self.feature_selector.shift(0);
@@ -351,13 +360,13 @@ impl Display {
             | (Key::ArrowRight, DisplayState::Feature)
             | (Key::Char(' '), DisplayState::Feature) => {
                 if self.feature_selector.has_data() {
-                    let dep_name = self.dep_selector.get_selected().unwrap().name();
+                    let dep_name = self.dep_selector.get_selected()?.name();
 
                     let dep = self
                         .document
                         .get_dep_mut(self.package_selector.selected_index, dep_name)?;
 
-                    dep.toggle_feature(self.feature_selector.get_selected().unwrap().name());
+                    dep.toggle_feature(self.feature_selector.get_selected()?.name())?;
 
                     self.document
                         .write_dep(self.package_selector.selected_index, dep_name)?;
@@ -372,7 +381,7 @@ impl Display {
 
                 self.search_text += char.to_string().as_str();
 
-                self.update_selected_data();
+                self.update_selected_data()?;
 
                 match self.state {
                     DisplayState::Dep => self.dep_selector.shift(0),
@@ -383,12 +392,12 @@ impl Display {
             (Key::Backspace, DisplayState::Dep | DisplayState::Feature) => {
                 let _ = self.search_text.pop();
 
-                self.update_selected_data();
+                self.update_selected_data()?;
             }
 
             //back
             (Key::Escape, _) | (Key::ArrowLeft, _) => {
-                return Ok(self.move_back());
+                return self.move_back();
             }
 
             _ => {}
@@ -397,7 +406,7 @@ impl Display {
         Ok(RunningState::Running)
     }
 
-    fn get_max_range(&self) -> Range<usize> {
+    fn get_max_range(&self) -> anyhow::Result<Range<usize>> {
         let current_selected = match self.state {
             DisplayState::Dep => self.dep_selector.selected_index,
             DisplayState::Feature => self.feature_selector.selected_index,
@@ -414,16 +423,15 @@ impl Display {
 
         if let DisplayState::Feature = self.state {
             if self.feature_selector.has_data() {
-                let dep = self
-                    .document
-                    .get_dep(
-                        self.package_selector.selected_index,
-                        self.dep_selector.get_selected().unwrap().name(),
-                    )
-                    .unwrap();
+                let dep = self.document.get_dep(
+                    self.package_selector.selected_index,
+                    self.dep_selector.get_selected()?.name(),
+                )?;
 
-                let feature_name = self.feature_selector.get_selected().unwrap();
-                let data = dep.get_feature(feature_name.name());
+                let feature = self.feature_selector.get_selected()?;
+                let data = dep
+                    .get_feature(feature.name())
+                    .context(format!("coundt find {}", feature.name()))?;
 
                 if !data.sub_features.is_empty() {
                     offset = 1;
@@ -437,54 +445,53 @@ impl Display {
             .min(max_range as isize - height as isize + 1 + offset as isize)
             .max(0) as usize;
 
-        start..max_range.min(start + height - 1 - offset)
+        Ok(start..max_range.min(start + height - 1 - offset))
     }
 
-    fn update_selected_data(&mut self) {
+    fn update_selected_data(&mut self) -> anyhow::Result<()> {
         match self.state {
             DisplayState::Package => {}
             DisplayState::Dep => {
                 self.dep_selector.data = self.document.get_deps_filtered_view(
                     self.package_selector.selected_index,
                     &self.search_text,
-                );
+                )?;
             }
             DisplayState::Feature => {
-                let dep = self
-                    .document
-                    .get_dep(
-                        self.package_selector.selected_index,
-                        self.dep_selector.get_selected().unwrap().name(),
-                    )
-                    .unwrap();
+                let dep = self.document.get_dep(
+                    self.package_selector.selected_index,
+                    self.dep_selector.get_selected()?.name(),
+                )?;
 
                 self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
             }
         }
+
+        Ok(())
     }
 
-    fn move_back(&mut self) -> RunningState {
+    fn move_back(&mut self) -> anyhow::Result<RunningState> {
         match self.state {
-            DisplayState::Package => RunningState::Finished,
+            DisplayState::Package => Ok(RunningState::Finished),
             DisplayState::Dep => {
                 if !self.document.is_workspace() {
-                    return RunningState::Finished;
+                    return Ok(RunningState::Finished);
                 }
 
                 self.search_text = "".to_string();
 
                 self.state = DisplayState::Package;
 
-                self.update_selected_data();
-                RunningState::Running
+                self.update_selected_data()?;
+                Ok(RunningState::Running)
             }
             DisplayState::Feature => {
                 self.search_text = "".to_string();
 
                 self.state = DisplayState::Dep;
 
-                self.update_selected_data();
-                RunningState::Running
+                self.update_selected_data()?;
+                Ok(RunningState::Running)
             }
         }
     }

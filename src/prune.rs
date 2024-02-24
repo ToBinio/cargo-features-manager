@@ -1,5 +1,5 @@
 use crate::document::Document;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use std::collections::HashMap;
 use std::fs;
 
@@ -51,7 +51,7 @@ fn prune_package(
     base_ignored: &HashMap<String, Vec<String>>,
 ) -> anyhow::Result<()> {
     let deps = document
-        .get_deps(package_id)
+        .get_deps(package_id)?
         .iter()
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
@@ -59,7 +59,7 @@ fn prune_package(
     let ignored_features = get_ignored_features(
         document
             .get_package(package_id)
-            .unwrap()
+            .context("package not found")?
             .manifest_path
             .trim_end_matches("/Cargo.toml"),
     )?;
@@ -102,7 +102,7 @@ fn prune_package(
 
             document
                 .get_dep_mut(package_id, name)?
-                .disable_feature(feature);
+                .disable_feature(feature)?;
             document.write_dep(package_id, name)?;
 
             if check()? {
@@ -154,7 +154,7 @@ fn prune_package(
             for feature in to_be_disabled {
                 document
                     .get_dep_mut(package_id, name)?
-                    .disable_feature(&feature);
+                    .disable_feature(&feature)?;
             }
 
             document.write_dep(package_id, name)?;

@@ -1,3 +1,5 @@
+#![warn(clippy::unwrap_used)]
+
 use std::io;
 use std::process::exit;
 
@@ -83,7 +85,7 @@ fn run(args: FeaturesArgs) -> anyhow::Result<()> {
 
         let _ = ctrlc::set_handler(|| {
             let term = Term::stdout();
-            term.show_cursor().unwrap();
+            term.show_cursor().expect("could not enable cursor");
 
             exit(0);
         });
