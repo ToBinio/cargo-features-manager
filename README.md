@@ -39,9 +39,12 @@ When using `cargo features -d <dependency name>` it will directly open the corre
 
 #### dependency selector
 
-Dependency which do not have any features are marked grey.
+Dependency which do not have any features are marked grey. <br>
+Dev-Dependency are marked with 🧪. <br>
+build-Dependency are marked with 🛠️.
 
-![greyDependency](resources/greyDependency.png)
+![dependencySelector](resources/dependencySelector.png)
+
 
 #### feature selector
 
@@ -52,6 +55,10 @@ All default features are marked Green.
 When hovering above a feature it shows other features which the selected feature requires.
 
 ![featureDependency](resources/featureDependency.png)
+
+Features marked with 📦 mean that they require an optional dependency.
+
+![featurePackageDependency](resources/featurePackageDependency.png)
 
 Features which an active feature requires are marked grey.
 
