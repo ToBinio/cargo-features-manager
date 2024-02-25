@@ -164,13 +164,38 @@ fn prune_package(
 }
 
 fn check() -> anyhow::Result<bool> {
+    if !build()? {
+        return Ok(false);
+    }
+
+    if !test()? {
+        return Ok(false);
+    }
+
+    Ok(true)
+}
+
+fn build() -> anyhow::Result<bool> {
     let mut child = Command::new("cargo")
-        .arg("check")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .arg("build")
+        .arg("--all-targets")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()?;
 
-    let code = child.wait()?.code().ok_or(anyhow!("Could not check"))?;
+    let code = child.wait()?.code().ok_or(anyhow!("Could not build"))?;
+
+    Ok(code == 0)
+}
+
+fn test() -> anyhow::Result<bool> {
+    let mut child = Command::new("cargo")
+        .arg("test")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    let code = child.wait()?.code().ok_or(anyhow!("Could not test"))?;
 
     Ok(code == 0)
 }
