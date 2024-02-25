@@ -14,17 +14,17 @@ rust-version = "1.64.0"
 include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
-anyhow = "1.0.79"
+anyhow = "1.0.80"
 cargo_metadata = "0.18.1"
-clap = { version = "4.5.0", features = ["color", "derive", "error-context", "help", "suggestions", "usage"], default-features = false }
-clap_complete = "4.5.0"
+clap = { version = "4.5.1", features = ["color", "derive", "error-context", "help", "suggestions", "usage"], default-features = false }
+clap_complete = "4.5.1"
 console = { version = "0.15.8", default-features = false }
 ctrlc = "3.4.2"
 fuzzy-matcher = "0.3.7"
 itertools = { version = "0.12.1", default-features = false, features = ["use_alloc"] }
-semver = { version = "1.0.21", default-features = false }
+semver = { version = "1.0.22", default-features = false }
 toml = { version = "0.8.10", default-features = false, features = ["parse"] }
-toml_edit = { version = "0.22.4", default-features = false, features = ["display"] }
+toml_edit = { version = "0.22.6", default-features = false, features = ["display"] }
 
 [[bin]]
 name = "cargo-features"
