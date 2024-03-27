@@ -1,5 +1,6 @@
+use crate::document::Document;
 use crate::rendering::scroll_selector::FeatureSelectorItem;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use cargo_metadata::DependencyKind;
 use console::Emoji;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -12,6 +13,7 @@ pub struct Dependency {
     pub name: String,
     pub version: String,
 
+    pub workspace: bool,
     pub kind: DependencyType,
 
     pub features: HashMap<String, FeatureData>,
@@ -183,6 +185,7 @@ pub enum DependencySource {
     Remote,
 }
 
+#[derive(Debug)]
 pub enum DependencyType {
     Normal,
     Development,
@@ -210,6 +213,38 @@ impl DependencyType {
             DependencyType::Workspace => "workspace.dependencies",
             DependencyType::Unknown => "dependencies",
         }
+    }
+
+    pub fn get_mut_item_from_doc<'a>(
+        &self,
+        document: &'a mut toml_edit::Document,
+    ) -> anyhow::Result<&'a mut toml_edit::Item> {
+        let mut item = document.as_item_mut();
+
+        let path = self.to_path();
+
+        for key in path.split('.') {
+            item = item
+                .get_mut(key)
+                .ok_or(anyhow!("could not find - {}", path))?;
+        }
+
+        Ok(item)
+    }
+
+    pub fn get_item_from_doc<'a>(
+        &self,
+        document: &'a toml_edit::Document,
+    ) -> anyhow::Result<&'a toml_edit::Item> {
+        let mut item = document.as_item();
+
+        let path = self.to_path();
+
+        for key in path.split('.') {
+            item = item.get(key).ok_or(anyhow!("could not find - {}", path))?;
+        }
+
+        Ok(item)
     }
 }
 

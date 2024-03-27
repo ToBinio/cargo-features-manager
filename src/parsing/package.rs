@@ -1,12 +1,12 @@
 use crate::dependencies::dependency::{
-    Dependency, DependencySource, FeatureData, FeatureType, SubFeature,
+    Dependency, DependencySource, DependencyType, FeatureData, FeatureType, SubFeature,
 };
 
 use cargo_metadata::{CargoOpt, PackageId};
 
 use crate::parsing::workspace::parse_workspace;
-use crate::parsing::{get_package_from_version, set_features};
-use anyhow::{bail, Context};
+use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
+use anyhow::{anyhow, bail, Context};
 use clap::builder::Str;
 use itertools::Itertools;
 use semver::VersionReq;
@@ -51,10 +51,12 @@ pub fn parse_package(
 ) -> anyhow::Result<Package> {
     let package = packages.get(package).context("package not found")?;
 
+    let toml_doc = toml_document_from_path(package.manifest_path.as_str())?;
+
     let dependencies: anyhow::Result<Vec<Dependency>> = package
         .dependencies
         .iter()
-        .map(|dep| parse_dependency(dep, packages))
+        .map(|dep| parse_dependency(dep, packages, &toml_doc))
         .collect();
 
     Ok(Package {
@@ -67,8 +69,35 @@ pub fn parse_package(
 pub fn parse_dependency(
     dependency: &cargo_metadata::Dependency,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
+    document: &toml_edit::Document,
 ) -> anyhow::Result<Dependency> {
     let package = get_package_from_version(&dependency.name, &dependency.req, packages)?;
+
+    let kind: DependencyType = dependency.kind.into();
+    let mut workspace = false;
+
+    //todo remove workaround when targets are handheld...
+    if dependency.target.is_none() {
+        let deps = kind.get_item_from_doc(document)?;
+
+        let deps = deps.as_table().context(format!(
+            "could not parse dependencies as a table - {}",
+            package.name
+        ))?;
+
+        let dep = deps.get(&dependency.name).ok_or(anyhow!(
+            "could not find - dep:{} - {} - {:?}",
+            dependency.name,
+            deps,
+            kind
+        ))?;
+
+        if let Some(dep) = dep.as_table_like() {
+            if let Some(workspace_item) = dep.get("workspace") {
+                workspace = workspace_item.as_bool().unwrap_or(false);
+            }
+        }
+    }
 
     let mut new_dependency = Dependency {
         name: dependency.name.to_string(),
@@ -77,7 +106,8 @@ pub fn parse_dependency(
             .to_string()
             .trim_start_matches('^')
             .to_owned(),
-        kind: dependency.kind.into(),
+        kind,
+        workspace,
         features: HashMap::new(),
     };
 

@@ -175,29 +175,7 @@ impl Display {
 
             self.term.move_cursor_to(2, line_index)?;
 
-            match dep.kind {
-                DependencyType::Normal | DependencyType::Workspace => {
-                    write!(self.term, "{}", selector.display_name())?
-                }
-                DependencyType::Development => write!(
-                    self.term,
-                    "{} {}",
-                    Emoji(" 🧪", &style("dev").color256(8).to_string()),
-                    selector.display_name()
-                )?,
-                DependencyType::Build => write!(
-                    self.term,
-                    "{} {}",
-                    Emoji("🛠️", &style("build").color256(8).to_string()),
-                    selector.display_name()
-                )?,
-                DependencyType::Unknown => write!(
-                    self.term,
-                    "{} {}",
-                    Emoji("❔", &style("unknown").color256(8).to_string()),
-                    selector.display_name()
-                )?,
-            };
+            write!(self.term, "{}", selector.display_name())?;
 
             index += 1;
             line_index += 1;

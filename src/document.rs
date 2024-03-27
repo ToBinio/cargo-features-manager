@@ -145,16 +145,8 @@ impl Document {
             .context("dependency not found")?;
         let mut features_to_enable = dependency.get_features_to_enable();
 
-        let key = dependency.kind.to_path();
-
         let mut doc = toml_document_from_path(&package.manifest_path)?;
-        let mut deps = doc.as_item_mut();
-
-        for key in key.split('.') {
-            deps = deps
-                .get_mut(key)
-                .ok_or(anyhow!("could not find dependency - {}", package.name))?;
-        }
+        let deps = dependency.kind.get_mut_item_from_doc(&mut doc)?;
 
         let deps = deps.as_table_mut().context(format!(
             "could not parse dependencies as a table - {}",

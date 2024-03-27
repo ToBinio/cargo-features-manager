@@ -28,6 +28,7 @@ pub fn parse_workspace(
 
     let mut dependencies = vec![];
 
+    //todo iter & extra function for parsing
     for (name, data) in dependencies_table.iter() {
         println!("{}", name);
 
@@ -71,6 +72,7 @@ pub fn parse_workspace(
         let mut dependency = Dependency {
             name: name.to_string(),
             version: version.to_string(),
+            workspace: false,
             kind: DependencyType::Workspace,
             features: Default::default(),
         };
@@ -90,7 +92,7 @@ pub fn parse_workspace(
     let package = Package {
         dependencies,
         //todo: maybe not icon here instead only for rendering since this will be included in search
-        name: format!("{} Workspace", Emoji("📦", "")).to_string(),
+        name: format!("{} Workspace", Emoji("🗃️", "")).to_string(),
         manifest_path: path,
     };
 
