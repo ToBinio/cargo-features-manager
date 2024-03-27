@@ -113,7 +113,7 @@ fn prune_package(
             for feature in &enabled_features {
                 document
                     .get_dep_mut(package_id, name)?
-                    .enable_feature(feature);
+                    .enable_feature(feature)?;
             }
             document.write_dep(package_id, name)?;
 

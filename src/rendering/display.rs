@@ -1,6 +1,6 @@
-use crate::dependencies::dependency::{DependencyType, EnabledState};
+use crate::dependencies::dependency::EnabledState;
 use anyhow::Context;
-use cargo_metadata::DependencyKind;
+
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
 use std::ops::{Not, Range};

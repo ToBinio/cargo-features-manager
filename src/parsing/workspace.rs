@@ -1,8 +1,8 @@
-use crate::dependencies::dependency::{Dependency, DependencySource, DependencyType};
+use crate::dependencies::dependency::{Dependency, DependencyType};
 use crate::parsing::package::Package;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
 use anyhow::anyhow;
-use cargo_metadata::{DependencyKind, PackageId};
+use cargo_metadata::PackageId;
 use console::Emoji;
 use semver::VersionReq;
 use std::collections::HashMap;
@@ -98,7 +98,7 @@ fn parse_dependency_from_item(
         package,
         uses_default_features,
         &enabled_features,
-    );
+    )?;
 
     Ok(dependency)
 }

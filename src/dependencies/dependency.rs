@@ -1,6 +1,5 @@
-use crate::document::Document;
 use crate::rendering::scroll_selector::FeatureSelectorItem;
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, Context};
 use cargo_metadata::DependencyKind;
 use console::Emoji;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -200,12 +199,6 @@ impl Dependency {
     }
 }
 
-#[derive(PartialEq, Clone)]
-pub enum DependencySource {
-    Local(String),
-    Remote,
-}
-
 #[derive(Debug)]
 pub enum DependencyType {
     Normal,
@@ -213,16 +206,6 @@ pub enum DependencyType {
     Build,
     Workspace,
     Unknown,
-}
-
-pub fn get_path_from_dependency_kind(kind: DependencyType) -> &'static str {
-    match kind {
-        DependencyType::Normal => "dependencies",
-        DependencyType::Development => "dev-dependencies",
-        DependencyType::Build => "build-dependencies",
-        DependencyType::Workspace => "build-dependencies",
-        DependencyType::Unknown => "dependencies",
-    }
 }
 
 impl DependencyType {
@@ -289,17 +272,17 @@ pub struct FeatureData {
 
 impl FeatureData {
     pub fn is_enabled(&self) -> bool {
-        return match self.enabled_state {
+        match self.enabled_state {
             EnabledState::Normal(is_enabled) => is_enabled,
             EnabledState::Workspace => true,
-        };
+        }
     }
 
     pub fn is_toggleable(&self) -> bool {
-        return match self.enabled_state {
+        match self.enabled_state {
             EnabledState::Normal(_) => true,
             EnabledState::Workspace => false,
-        };
+        }
     }
 }
 

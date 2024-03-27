@@ -24,7 +24,7 @@ pub fn set_features(
     package: &cargo_metadata::Package,
     uses_default_features: bool,
     enabled_features: &Vec<String>,
-) {
+) -> anyhow::Result<()> {
     let default_features = package.features.get("default").cloned().unwrap_or(vec![]);
 
     let features = package
@@ -54,17 +54,19 @@ pub fn set_features(
 
     for feature in enabled_features {
         if Into::<FeatureType>::into(feature.as_str()) == FeatureType::Normal {
-            dependency.enable_feature(feature);
+            dependency.enable_feature(feature)?;
         }
     }
 
     if uses_default_features {
         for feature in &default_features {
             if Into::<FeatureType>::into(feature.as_str()) == FeatureType::Normal {
-                dependency.enable_feature(feature);
+                dependency.enable_feature(feature)?;
             }
         }
     }
+
+    Ok(())
 }
 
 pub fn get_package_from_version<'a>(

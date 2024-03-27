@@ -2,7 +2,6 @@ use crate::dependencies::dependency::{Dependency, DependencyType};
 use anyhow::Context;
 
 use console::{style, Emoji};
-use itertools::Format;
 
 pub struct ScrollSelector<T> {
     pub selected_index: usize,

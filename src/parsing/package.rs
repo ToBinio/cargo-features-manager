@@ -1,15 +1,11 @@
-use crate::dependencies::dependency::{
-    Dependency, DependencySource, DependencyType, FeatureData, FeatureType, SubFeature,
-};
+use crate::dependencies::dependency::{Dependency, DependencyType};
 
 use cargo_metadata::{CargoOpt, PackageId};
 
 use crate::parsing::workspace::parse_workspace;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
-use anyhow::{anyhow, bail, Context};
-use clap::builder::Str;
-use itertools::Itertools;
-use semver::VersionReq;
+use anyhow::{anyhow, Context};
+
 use std::collections::HashMap;
 
 pub struct Package {
@@ -30,7 +26,7 @@ pub fn get_packages() -> anyhow::Result<(Vec<Package>, Option<Package>)> {
         .map(|package| (package.id.clone(), package))
         .collect();
 
-    let mut packages = metadata
+    let packages = metadata
         .workspace_members
         .iter()
         .map(|package| parse_package(package, &metadata_packages))
@@ -113,7 +109,7 @@ pub fn parse_dependency(
         package,
         dependency.uses_default_features,
         &dependency.features,
-    );
+    )?;
 
     Ok(new_dependency)
 }

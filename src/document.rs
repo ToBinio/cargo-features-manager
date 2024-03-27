@@ -1,18 +1,14 @@
-use std::arch::x86_64::_mm_undefined_si128;
 use std::cmp::PartialEq;
 use std::fs;
-use std::ops::Index;
-use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
-use console::user_attended;
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
-use semver::Op;
+
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{get_path_from_dependency_kind, Dependency, EnabledState};
+use crate::dependencies::dependency::{Dependency, EnabledState};
 use crate::parsing::package::{get_packages, Package};
 use crate::parsing::toml_document_from_path;
 
