@@ -294,6 +294,14 @@ impl Document {
             }
         }
 
+        // update workspace deps
+        if let Some(workspace_index) = self.workspace_index {
+            if workspace_index == package_id {
+                self.update_workspace_deps()?;
+            }
+        }
+
+        //write updates
         let package = self.packages.get(package_id).context("package not found")?;
 
         fs::write(&package.manifest_path, doc.to_string()).map_err(anyhow::Error::from)
