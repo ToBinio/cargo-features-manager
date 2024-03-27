@@ -8,16 +8,10 @@ use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{get_path_from_dependency_kind, Dependency};
-use crate::package::{get_packages, Package};
+use crate::parsing::package::{get_packages, Package};
+use crate::parsing::toml_document_from_path;
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
-
-pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> anyhow::Result<toml_edit::Document> {
-    let file_content = fs::read_to_string(&dir_path)
-        .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", dir_path.as_ref()))?;
-
-    Ok(file_content.parse()?)
-}
 
 pub struct Document {
     packages: Vec<Package>,
@@ -151,7 +145,7 @@ impl Document {
             .context("dependency not found")?;
         let mut features_to_enable = dependency.get_features_to_enable();
 
-        let key = get_path_from_dependency_kind(dependency.kind);
+        let key = dependency.kind.to_path();
 
         let mut doc = toml_document_from_path(&package.manifest_path)?;
         let mut deps = doc.as_item_mut();
@@ -162,9 +156,10 @@ impl Document {
                 .ok_or(anyhow!("could not find dependency - {}", package.name))?;
         }
 
-        let deps = deps
-            .as_table_mut()
-            .context(format!("could not parse {} as a table", dependency.name))?;
+        let deps = deps.as_table_mut().context(format!(
+            "could not parse dependencies as a table - {}",
+            package.name
+        ))?;
 
         let table = match deps
             .get_mut(&dependency.get_name())
@@ -178,10 +173,7 @@ impl Document {
                 );
 
                 deps.get_mut(&dependency.get_name())
-                    .context(format!(
-                        "could not find {} in dependencies",
-                        dependency.name
-                    ))?
+                    .context(format!("could not find {} in dependency", dependency.name))?
                     .as_table_like_mut()
                     .context(format!("could not parse {} as a table", dependency.name))?
             }
@@ -194,6 +186,7 @@ impl Document {
             .map(|(name, _)| name.first().map(|key| key.to_string()).unwrap_or_default())
             .any(|name| !["features", "default-features", "version"].contains(&&*name));
 
+        //check if entry has to be table or can just be string with version
         if dependency.can_use_default() && features_to_enable.is_empty() && !has_custom_attributes {
             deps.insert(
                 &dependency.get_name(),

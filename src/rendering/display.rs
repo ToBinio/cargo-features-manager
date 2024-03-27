@@ -1,3 +1,4 @@
+use crate::dependencies::dependency::DependencyType;
 use anyhow::Context;
 use cargo_metadata::DependencyKind;
 use console::{style, Emoji, Key, Term};
@@ -175,20 +176,22 @@ impl Display {
             self.term.move_cursor_to(2, line_index)?;
 
             match dep.kind {
-                DependencyKind::Normal => write!(self.term, "{}", selector.display_name())?,
-                DependencyKind::Development => write!(
+                DependencyType::Normal | DependencyType::Workspace => {
+                    write!(self.term, "{}", selector.display_name())?
+                }
+                DependencyType::Development => write!(
                     self.term,
                     "{} {}",
                     Emoji(" 🧪", &style("dev").color256(8).to_string()),
                     selector.display_name()
                 )?,
-                DependencyKind::Build => write!(
+                DependencyType::Build => write!(
                     self.term,
                     "{} {}",
                     Emoji("🛠️", &style("build").color256(8).to_string()),
                     selector.display_name()
                 )?,
-                DependencyKind::Unknown => write!(
+                DependencyType::Unknown => write!(
                     self.term,
                     "{} {}",
                     Emoji("❔", &style("unknown").color256(8).to_string()),

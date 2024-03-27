@@ -17,7 +17,7 @@ mod document;
 mod prune;
 mod rendering;
 
-mod package;
+mod parsing;
 
 #[derive(Parser)]
 #[command(name = "cargo")]

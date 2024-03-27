@@ -12,8 +12,7 @@ pub struct Dependency {
     pub name: String,
     pub version: String,
 
-    pub source: DependencySource,
-    pub kind: DependencyKind,
+    pub kind: DependencyType,
 
     pub features: HashMap<String, FeatureData>,
 }
@@ -184,12 +183,44 @@ pub enum DependencySource {
     Remote,
 }
 
-pub fn get_path_from_dependency_kind(kind: DependencyKind) -> &'static str {
+pub enum DependencyType {
+    Normal,
+    Development,
+    Build,
+    Workspace,
+    Unknown,
+}
+
+pub fn get_path_from_dependency_kind(kind: DependencyType) -> &'static str {
     match kind {
-        DependencyKind::Normal => "dependencies",
-        DependencyKind::Development => "dev-dependencies",
-        DependencyKind::Build => "build-dependencies",
-        DependencyKind::Unknown => "dependencies",
+        DependencyType::Normal => "dependencies",
+        DependencyType::Development => "dev-dependencies",
+        DependencyType::Build => "build-dependencies",
+        DependencyType::Workspace => "build-dependencies",
+        DependencyType::Unknown => "dependencies",
+    }
+}
+
+impl DependencyType {
+    pub fn to_path(&self) -> &'static str {
+        match self {
+            DependencyType::Normal => "dependencies",
+            DependencyType::Development => "dev-dependencies",
+            DependencyType::Build => "build-dependencies",
+            DependencyType::Workspace => "workspace.dependencies",
+            DependencyType::Unknown => "dependencies",
+        }
+    }
+}
+
+impl From<DependencyKind> for DependencyType {
+    fn from(value: DependencyKind) -> Self {
+        match value {
+            DependencyKind::Normal => DependencyType::Normal,
+            DependencyKind::Development => DependencyType::Development,
+            DependencyKind::Build => DependencyType::Build,
+            DependencyKind::Unknown => DependencyType::Unknown,
+        }
     }
 }
 
