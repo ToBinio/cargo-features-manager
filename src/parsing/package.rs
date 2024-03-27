@@ -73,7 +73,7 @@ pub fn parse_dependency(
     let kind: DependencyType = dependency.kind.into();
     let mut workspace = false;
 
-    //todo remove workaround when targets are handheld...
+    //todo remove workaround when targets are handled...
     if dependency.target.is_none() {
         let deps = kind.get_item_from_doc(document)?;
 
