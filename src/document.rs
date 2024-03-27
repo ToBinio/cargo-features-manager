@@ -218,7 +218,8 @@ impl Document {
             .dependencies
             .get(dep_index)
             .context("dependency not found")?;
-        let mut features_to_enable = dependency.get_features_to_enable();
+
+        let features_to_enable = dependency.get_features_to_enable();
 
         let mut doc = toml_document_from_path(&package.manifest_path)?;
         let deps = dependency.kind.get_mut_item_from_doc(&mut doc)?;
@@ -261,7 +262,8 @@ impl Document {
             );
         } else {
             //version
-            if !dependency.version.is_empty() && !table.contains_key("git") {
+            if !dependency.version.is_empty() && !table.contains_key("git") && !dependency.workspace
+            {
                 table.insert(
                     "version",
                     Item::Value(Value::String(Formatted::new(dependency.get_version()))),
@@ -270,8 +272,6 @@ impl Document {
 
             //features
             let mut features = Array::new();
-
-            features_to_enable.sort();
 
             for name in features_to_enable {
                 features.push(Value::String(Formatted::new(name)));
@@ -284,7 +284,7 @@ impl Document {
             }
 
             //default-feature
-            if dependency.can_use_default() {
+            if dependency.can_use_default() || dependency.workspace {
                 table.remove("default-features");
             } else {
                 table.insert(

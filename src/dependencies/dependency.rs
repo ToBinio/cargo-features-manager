@@ -89,8 +89,10 @@ impl Dependency {
             .iter()
             .filter(|(_, data)| data.is_enabled())
             .filter(|(_, data)| !can_use_default || !data.is_default)
+            .filter(|(_, data)| data.enabled_state != EnabledState::Workspace)
             .map(|(name, _)| name.clone())
             .filter(|name| self.get_currently_dependent_features(name).is_empty())
+            .sorted()
             .collect()
     }
 
