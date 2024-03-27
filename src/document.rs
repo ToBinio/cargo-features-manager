@@ -1,13 +1,18 @@
+use std::arch::x86_64::_mm_undefined_si128;
+use std::cmp::PartialEq;
 use std::fs;
+use std::ops::Index;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
+use console::user_attended;
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
+use semver::Op;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{get_path_from_dependency_kind, Dependency};
+use crate::dependencies::dependency::{get_path_from_dependency_kind, Dependency, EnabledState};
 use crate::parsing::package::{get_packages, Package};
 use crate::parsing::toml_document_from_path;
 
@@ -15,11 +20,12 @@ use crate::rendering::scroll_selector::DependencySelectorItem;
 
 pub struct Document {
     packages: Vec<Package>,
+    workspace_index: Option<usize>,
 }
 
 impl Document {
     pub fn new() -> anyhow::Result<Document> {
-        let packages = get_packages()?;
+        let (mut packages, workspace) = get_packages()?;
 
         if packages.len() == 1
             && packages
@@ -31,7 +37,76 @@ impl Document {
             bail!("no dependencies were found")
         }
 
-        Ok(Document { packages })
+        let mut workspace_index = None;
+
+        if let Some(workspace) = workspace {
+            packages.push(workspace);
+
+            workspace_index = Some(packages.len() - 1);
+        }
+
+        let mut document = Document {
+            packages,
+            workspace_index,
+        };
+
+        document.update_workspace_deps()?;
+
+        Ok(document)
+    }
+
+    fn update_workspace_deps(&mut self) -> anyhow::Result<()> {
+        let Some(workspace_index) = self.workspace_index else {
+            return Ok(());
+        };
+
+        for index in 0..self.packages.len() {
+            if index == workspace_index {
+                continue;
+            };
+
+            for dep_index in 0..self.packages[index].dependencies.len() {
+                let dep = &self.packages[index].dependencies[dep_index];
+
+                if !dep.workspace {
+                    continue;
+                }
+
+                let workspace = &self.packages[workspace_index];
+                let workspace_dep = workspace
+                    .dependencies
+                    .iter()
+                    .find(|workspace_dep| workspace_dep.name == dep.name)
+                    .ok_or(anyhow!("could not find workspace dep - {}", dep.name))?;
+
+                let enabled_workspace_features = workspace_dep
+                    .features
+                    .iter()
+                    .filter(|(_, data)| data.is_enabled())
+                    .map(|(name, _)| name.to_string())
+                    .collect_vec();
+
+                let dep = &mut self.packages[index].dependencies[dep_index];
+
+                let workspace_deps = dep
+                    .features
+                    .iter()
+                    .filter(|(_, data)| data.enabled_state == EnabledState::Workspace)
+                    .map(|(name, _)| name.to_string())
+                    .collect_vec();
+
+                for feature in workspace_deps {
+                    dep.disable_feature(feature.as_str())?;
+                }
+
+                for name in enabled_workspace_features {
+                    dep.enable_feature(&name)?;
+                    dep.set_feature_to_workspace(&name)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn get_packages_names(&self) -> Vec<String> {

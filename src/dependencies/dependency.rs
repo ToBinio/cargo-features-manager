@@ -1,6 +1,6 @@
 use crate::document::Document;
 use crate::rendering::scroll_selector::FeatureSelectorItem;
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use cargo_metadata::DependencyKind;
 use console::Emoji;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -69,8 +69,12 @@ impl Dependency {
     }
 
     pub fn can_use_default(&self) -> bool {
+        if self.workspace {
+            return false;
+        }
+
         for data in self.features.values() {
-            if data.is_default && !data.is_enabled {
+            if data.is_default && !data.is_enabled() {
                 return false;
             }
         }
@@ -83,7 +87,7 @@ impl Dependency {
 
         self.features
             .iter()
-            .filter(|(_, data)| data.is_enabled)
+            .filter(|(_, data)| data.is_enabled())
             .filter(|(_, data)| !can_use_default || !data.is_default)
             .map(|(name, _)| name.clone())
             .filter(|name| self.get_currently_dependent_features(name).is_empty())
@@ -96,27 +100,49 @@ impl Dependency {
             .get(feature_name)
             .context(format!("could not find {}", feature_name))?;
 
-        if data.is_enabled {
-            self.disable_feature(feature_name)?;
-        } else {
-            self.enable_feature(feature_name);
+        match data.enabled_state {
+            EnabledState::Normal(is_enabled) => {
+                if is_enabled {
+                    self.disable_feature(feature_name)?;
+                } else {
+                    self.enable_feature(feature_name)?;
+                }
+            }
+            EnabledState::Workspace => {
+                bail!(
+                    "can not toggle feature enabled by workspace - {} - {}",
+                    self.name,
+                    feature_name
+                );
+            }
         }
 
         Ok(())
     }
 
-    pub fn enable_feature(&mut self, feature_name: &str) {
+    pub fn set_feature_to_workspace(&mut self, feature_name: &str) -> anyhow::Result<()> {
         let data = self
             .features
             .get_mut(feature_name)
-            .unwrap_or_else(|| panic!("couldnt find package {}", feature_name));
+            .ok_or(anyhow!("couldnt find package {}", feature_name))?;
 
-        if data.is_enabled {
+        data.enabled_state = EnabledState::Workspace;
+
+        Ok(())
+    }
+
+    pub fn enable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
+        let data = self
+            .features
+            .get_mut(feature_name)
+            .ok_or(anyhow!("couldnt find package {}", feature_name))?;
+
+        if data.is_enabled() {
             //early return to prevent loop
-            return;
+            return Ok(());
         }
 
-        data.is_enabled = true;
+        data.enabled_state = EnabledState::Normal(true);
 
         //enable sub features
         let sub_features = data
@@ -127,8 +153,10 @@ impl Dependency {
             .collect_vec();
 
         for sub_feature_name in sub_features {
-            self.enable_feature(&sub_feature_name);
+            self.enable_feature(&sub_feature_name)?;
         }
+
+        Ok(())
     }
 
     pub fn disable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
@@ -137,12 +165,12 @@ impl Dependency {
             .get_mut(feature_name)
             .context(format!("could not find {}", feature_name))?;
 
-        if !data.is_enabled {
+        if !data.is_enabled() {
             //early return to prevent loop
             return Ok(());
         }
 
-        data.is_enabled = false;
+        data.enabled_state = EnabledState::Normal(false);
 
         for name in self.get_dependent_features(feature_name) {
             self.disable_feature(&name)?
@@ -173,7 +201,7 @@ impl Dependency {
         self.get_dependent_features(feature_name)
             .iter()
             .filter_map(|name| self.features.get(name).map(|feature| (name, feature)))
-            .filter(|(_, feature)| feature.is_enabled)
+            .filter(|(_, feature)| feature.is_enabled())
             .map(|(name, _)| name.to_string())
             .collect()
     }
@@ -263,7 +291,29 @@ impl From<DependencyKind> for DependencyType {
 pub struct FeatureData {
     pub sub_features: Vec<SubFeature>,
     pub is_default: bool,
-    pub is_enabled: bool,
+    pub enabled_state: EnabledState,
+}
+
+impl FeatureData {
+    pub fn is_enabled(&self) -> bool {
+        return match self.enabled_state {
+            EnabledState::Normal(is_enabled) => is_enabled,
+            EnabledState::Workspace => true,
+        };
+    }
+
+    pub fn is_toggleable(&self) -> bool {
+        return match self.enabled_state {
+            EnabledState::Normal(_) => true,
+            EnabledState::Workspace => false,
+        };
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum EnabledState {
+    Normal(bool),
+    Workspace,
 }
 
 #[derive(Clone, Debug)]

@@ -1,4 +1,4 @@
-use crate::dependencies::dependency::DependencyType;
+use crate::dependencies::dependency::{DependencyType, EnabledState};
 use anyhow::Context;
 use cargo_metadata::DependencyKind;
 use console::{style, Emoji, Key, Term};
@@ -223,7 +223,16 @@ impl Display {
 
             self.term.move_cursor_to(2, line_index)?;
 
-            let marker = if data.is_enabled { "[X]" } else { "[ ]" };
+            let marker = match data.enabled_state {
+                EnabledState::Normal(is_enabled) => {
+                    if is_enabled {
+                        "[X]".to_string()
+                    } else {
+                        "[ ]".to_string()
+                    }
+                }
+                EnabledState::Workspace => format!("[{}]", Emoji("🗃️", "W")),
+            };
 
             if data.is_default {
                 write!(self.term, "{}", style(marker).green())?;

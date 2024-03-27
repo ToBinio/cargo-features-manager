@@ -19,7 +19,7 @@ pub struct Package {
     pub manifest_path: String,
 }
 
-pub fn get_packages() -> anyhow::Result<Vec<Package>> {
+pub fn get_packages() -> anyhow::Result<(Vec<Package>, Option<Package>)> {
     let metadata = cargo_metadata::MetadataCommand::new()
         .features(CargoOpt::AllFeatures)
         .exec()?;
@@ -36,13 +36,10 @@ pub fn get_packages() -> anyhow::Result<Vec<Package>> {
         .map(|package| parse_package(package, &metadata_packages))
         .collect::<anyhow::Result<Vec<Package>>>()?;
 
-    if let Some(workspace_package) =
-        parse_workspace(metadata.workspace_root.as_str(), &metadata_packages)?
-    {
-        packages.push(workspace_package);
-    }
-
-    Ok(packages)
+    Ok((
+        packages,
+        parse_workspace(metadata.workspace_root.as_str(), &metadata_packages)?,
+    ))
 }
 
 pub fn parse_package(

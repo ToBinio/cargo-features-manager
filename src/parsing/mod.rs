@@ -1,4 +1,6 @@
-use crate::dependencies::dependency::{Dependency, FeatureData, FeatureType, SubFeature};
+use crate::dependencies::dependency::{
+    Dependency, EnabledState, FeatureData, FeatureType, SubFeature,
+};
 use anyhow::anyhow;
 use cargo_metadata::PackageId;
 use itertools::Itertools;
@@ -42,7 +44,7 @@ pub fn set_features(
                         .filter(|sub_feature| sub_feature.kind != FeatureType::DependencyFeature)
                         .collect_vec(),
                     is_default: default_features.contains(feature),
-                    is_enabled: false,
+                    enabled_state: EnabledState::Normal(false),
                 },
             )
         })
