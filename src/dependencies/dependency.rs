@@ -1,5 +1,5 @@
 use crate::rendering::scroll_selector::FeatureSelectorItem;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use cargo_metadata::DependencyKind;
 use console::Emoji;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -12,8 +12,8 @@ pub struct Dependency {
     pub name: String,
     pub version: String,
 
-    pub source: DependencySource,
-    pub kind: DependencyKind,
+    pub workspace: bool,
+    pub kind: DependencyType,
 
     pub features: HashMap<String, FeatureData>,
 }
@@ -68,8 +68,12 @@ impl Dependency {
     }
 
     pub fn can_use_default(&self) -> bool {
+        if self.workspace {
+            return false;
+        }
+
         for data in self.features.values() {
-            if data.is_default && !data.is_enabled {
+            if data.is_default && !data.is_enabled() {
                 return false;
             }
         }
@@ -82,10 +86,12 @@ impl Dependency {
 
         self.features
             .iter()
-            .filter(|(_, data)| data.is_enabled)
+            .filter(|(_, data)| data.is_enabled())
             .filter(|(_, data)| !can_use_default || !data.is_default)
+            .filter(|(_, data)| data.enabled_state != EnabledState::Workspace)
             .map(|(name, _)| name.clone())
             .filter(|name| self.get_currently_dependent_features(name).is_empty())
+            .sorted()
             .collect()
     }
 
@@ -95,27 +101,40 @@ impl Dependency {
             .get(feature_name)
             .context(format!("could not find {}", feature_name))?;
 
-        if data.is_enabled {
-            self.disable_feature(feature_name)?;
-        } else {
-            self.enable_feature(feature_name);
+        if let EnabledState::Normal(is_enabled) = data.enabled_state {
+            if is_enabled {
+                self.disable_feature(feature_name)?;
+            } else {
+                self.enable_feature(feature_name)?;
+            }
         }
 
         Ok(())
     }
 
-    pub fn enable_feature(&mut self, feature_name: &str) {
+    pub fn set_feature_to_workspace(&mut self, feature_name: &str) -> anyhow::Result<()> {
         let data = self
             .features
             .get_mut(feature_name)
-            .unwrap_or_else(|| panic!("couldnt find package {}", feature_name));
+            .ok_or(anyhow!("couldnt find package {}", feature_name))?;
 
-        if data.is_enabled {
+        data.enabled_state = EnabledState::Workspace;
+
+        Ok(())
+    }
+
+    pub fn enable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
+        let data = self
+            .features
+            .get_mut(feature_name)
+            .ok_or(anyhow!("couldnt find package {}", feature_name))?;
+
+        if data.is_enabled() {
             //early return to prevent loop
-            return;
+            return Ok(());
         }
 
-        data.is_enabled = true;
+        data.enabled_state = EnabledState::Normal(true);
 
         //enable sub features
         let sub_features = data
@@ -126,8 +145,10 @@ impl Dependency {
             .collect_vec();
 
         for sub_feature_name in sub_features {
-            self.enable_feature(&sub_feature_name);
+            self.enable_feature(&sub_feature_name)?;
         }
+
+        Ok(())
     }
 
     pub fn disable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
@@ -136,12 +157,12 @@ impl Dependency {
             .get_mut(feature_name)
             .context(format!("could not find {}", feature_name))?;
 
-        if !data.is_enabled {
+        if !data.is_enabled() {
             //early return to prevent loop
             return Ok(());
         }
 
-        data.is_enabled = false;
+        data.enabled_state = EnabledState::Normal(false);
 
         for name in self.get_dependent_features(feature_name) {
             self.disable_feature(&name)?
@@ -172,24 +193,73 @@ impl Dependency {
         self.get_dependent_features(feature_name)
             .iter()
             .filter_map(|name| self.features.get(name).map(|feature| (name, feature)))
-            .filter(|(_, feature)| feature.is_enabled)
+            .filter(|(_, feature)| feature.is_enabled())
             .map(|(name, _)| name.to_string())
             .collect()
     }
 }
 
-#[derive(PartialEq, Clone)]
-pub enum DependencySource {
-    Local(String),
-    Remote,
+#[derive(Debug)]
+pub enum DependencyType {
+    Normal,
+    Development,
+    Build,
+    Workspace,
+    Unknown,
 }
 
-pub fn get_path_from_dependency_kind(kind: DependencyKind) -> &'static str {
-    match kind {
-        DependencyKind::Normal => "dependencies",
-        DependencyKind::Development => "dev-dependencies",
-        DependencyKind::Build => "build-dependencies",
-        DependencyKind::Unknown => "dependencies",
+impl DependencyType {
+    pub fn to_path(&self) -> &'static str {
+        match self {
+            DependencyType::Normal => "dependencies",
+            DependencyType::Development => "dev-dependencies",
+            DependencyType::Build => "build-dependencies",
+            DependencyType::Workspace => "workspace.dependencies",
+            DependencyType::Unknown => "dependencies",
+        }
+    }
+
+    pub fn get_mut_item_from_doc<'a>(
+        &self,
+        document: &'a mut toml_edit::Document,
+    ) -> anyhow::Result<&'a mut toml_edit::Item> {
+        let mut item = document.as_item_mut();
+
+        let path = self.to_path();
+
+        for key in path.split('.') {
+            item = item
+                .get_mut(key)
+                .ok_or(anyhow!("could not find - {}", path))?;
+        }
+
+        Ok(item)
+    }
+
+    pub fn get_item_from_doc<'a>(
+        &self,
+        document: &'a toml_edit::Document,
+    ) -> anyhow::Result<&'a toml_edit::Item> {
+        let mut item = document.as_item();
+
+        let path = self.to_path();
+
+        for key in path.split('.') {
+            item = item.get(key).ok_or(anyhow!("could not find - {}", path))?;
+        }
+
+        Ok(item)
+    }
+}
+
+impl From<DependencyKind> for DependencyType {
+    fn from(value: DependencyKind) -> Self {
+        match value {
+            DependencyKind::Normal => DependencyType::Normal,
+            DependencyKind::Development => DependencyType::Development,
+            DependencyKind::Build => DependencyType::Build,
+            DependencyKind::Unknown => DependencyType::Unknown,
+        }
     }
 }
 
@@ -197,7 +267,29 @@ pub fn get_path_from_dependency_kind(kind: DependencyKind) -> &'static str {
 pub struct FeatureData {
     pub sub_features: Vec<SubFeature>,
     pub is_default: bool,
-    pub is_enabled: bool,
+    pub enabled_state: EnabledState,
+}
+
+impl FeatureData {
+    pub fn is_enabled(&self) -> bool {
+        match self.enabled_state {
+            EnabledState::Normal(is_enabled) => is_enabled,
+            EnabledState::Workspace => true,
+        }
+    }
+
+    pub fn is_toggleable(&self) -> bool {
+        match self.enabled_state {
+            EnabledState::Normal(_) => true,
+            EnabledState::Workspace => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum EnabledState {
+    Normal(bool),
+    Workspace,
 }
 
 #[derive(Clone, Debug)]

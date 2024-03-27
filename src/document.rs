@@ -1,31 +1,27 @@
+use std::cmp::PartialEq;
 use std::fs;
-use std::path::Path;
 
 use anyhow::{anyhow, bail, Context};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
+
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{get_path_from_dependency_kind, Dependency};
-use crate::package::{get_packages, Package};
+use crate::dependencies::dependency::{Dependency, EnabledState};
+use crate::parsing::package::{get_packages, Package};
+use crate::parsing::toml_document_from_path;
 
 use crate::rendering::scroll_selector::DependencySelectorItem;
 
-pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> anyhow::Result<toml_edit::Document> {
-    let file_content = fs::read_to_string(&dir_path)
-        .map_err(|_| anyhow!("could not find Cargo.toml at {:?}", dir_path.as_ref()))?;
-
-    Ok(file_content.parse()?)
-}
-
 pub struct Document {
     packages: Vec<Package>,
+    workspace_index: Option<usize>,
 }
 
 impl Document {
     pub fn new() -> anyhow::Result<Document> {
-        let packages = get_packages()?;
+        let (mut packages, workspace) = get_packages()?;
 
         if packages.len() == 1
             && packages
@@ -37,7 +33,76 @@ impl Document {
             bail!("no dependencies were found")
         }
 
-        Ok(Document { packages })
+        let mut workspace_index = None;
+
+        if let Some(workspace) = workspace {
+            packages.push(workspace);
+
+            workspace_index = Some(packages.len() - 1);
+        }
+
+        let mut document = Document {
+            packages,
+            workspace_index,
+        };
+
+        document.update_workspace_deps()?;
+
+        Ok(document)
+    }
+
+    fn update_workspace_deps(&mut self) -> anyhow::Result<()> {
+        let Some(workspace_index) = self.workspace_index else {
+            return Ok(());
+        };
+
+        for index in 0..self.packages.len() {
+            if index == workspace_index {
+                continue;
+            };
+
+            for dep_index in 0..self.packages[index].dependencies.len() {
+                let dep = &self.packages[index].dependencies[dep_index];
+
+                if !dep.workspace {
+                    continue;
+                }
+
+                let workspace = &self.packages[workspace_index];
+                let workspace_dep = workspace
+                    .dependencies
+                    .iter()
+                    .find(|workspace_dep| workspace_dep.name == dep.name)
+                    .ok_or(anyhow!("could not find workspace dep - {}", dep.name))?;
+
+                let enabled_workspace_features = workspace_dep
+                    .features
+                    .iter()
+                    .filter(|(_, data)| data.is_enabled())
+                    .map(|(name, _)| name.to_string())
+                    .collect_vec();
+
+                let dep = &mut self.packages[index].dependencies[dep_index];
+
+                let workspace_deps = dep
+                    .features
+                    .iter()
+                    .filter(|(_, data)| data.enabled_state == EnabledState::Workspace)
+                    .map(|(name, _)| name.to_string())
+                    .collect_vec();
+
+                for feature in workspace_deps {
+                    dep.disable_feature(feature.as_str())?;
+                }
+
+                for name in enabled_workspace_features {
+                    dep.enable_feature(&name)?;
+                    dep.set_feature_to_workspace(&name)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn get_packages_names(&self) -> Vec<String> {
@@ -149,22 +214,16 @@ impl Document {
             .dependencies
             .get(dep_index)
             .context("dependency not found")?;
-        let mut features_to_enable = dependency.get_features_to_enable();
 
-        let key = get_path_from_dependency_kind(dependency.kind);
+        let features_to_enable = dependency.get_features_to_enable();
 
         let mut doc = toml_document_from_path(&package.manifest_path)?;
-        let mut deps = doc.as_item_mut();
+        let deps = dependency.kind.get_mut_item_from_doc(&mut doc)?;
 
-        for key in key.split('.') {
-            deps = deps
-                .get_mut(key)
-                .ok_or(anyhow!("could not find dependency - {}", package.name))?;
-        }
-
-        let deps = deps
-            .as_table_mut()
-            .context(format!("could not parse {} as a table", dependency.name))?;
+        let deps = deps.as_table_mut().context(format!(
+            "could not parse dependencies as a table - {}",
+            package.name
+        ))?;
 
         let table = match deps
             .get_mut(&dependency.get_name())
@@ -178,10 +237,7 @@ impl Document {
                 );
 
                 deps.get_mut(&dependency.get_name())
-                    .context(format!(
-                        "could not find {} in dependencies",
-                        dependency.name
-                    ))?
+                    .context(format!("could not find {} in dependency", dependency.name))?
                     .as_table_like_mut()
                     .context(format!("could not parse {} as a table", dependency.name))?
             }
@@ -194,6 +250,7 @@ impl Document {
             .map(|(name, _)| name.first().map(|key| key.to_string()).unwrap_or_default())
             .any(|name| !["features", "default-features", "version"].contains(&&*name));
 
+        //check if entry has to be table or can just be string with version
         if dependency.can_use_default() && features_to_enable.is_empty() && !has_custom_attributes {
             deps.insert(
                 &dependency.get_name(),
@@ -201,7 +258,8 @@ impl Document {
             );
         } else {
             //version
-            if !dependency.version.is_empty() && !table.contains_key("git") {
+            if !dependency.version.is_empty() && !table.contains_key("git") && !dependency.workspace
+            {
                 table.insert(
                     "version",
                     Item::Value(Value::String(Formatted::new(dependency.get_version()))),
@@ -210,8 +268,6 @@ impl Document {
 
             //features
             let mut features = Array::new();
-
-            features_to_enable.sort();
 
             for name in features_to_enable {
                 features.push(Value::String(Formatted::new(name)));
@@ -224,7 +280,7 @@ impl Document {
             }
 
             //default-feature
-            if dependency.can_use_default() {
+            if dependency.can_use_default() || dependency.workspace {
                 table.remove("default-features");
             } else {
                 table.insert(
@@ -234,6 +290,14 @@ impl Document {
             }
         }
 
+        // update workspace deps
+        if let Some(workspace_index) = self.workspace_index {
+            if workspace_index == package_id {
+                self.update_workspace_deps()?;
+            }
+        }
+
+        //write updates
         let package = self.packages.get(package_id).context("package not found")?;
 
         fs::write(&package.manifest_path, doc.to_string()).map_err(anyhow::Error::from)

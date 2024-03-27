@@ -1,3 +1,7 @@
+## next
+
+* workspace dependency support
+
 ## 0.6.0
 
 * use `cargo metadata` instead of custom parsing. This helps a lot for edge cases e.g. git

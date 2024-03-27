@@ -1,5 +1,6 @@
+use crate::dependencies::dependency::EnabledState;
 use anyhow::Context;
-use cargo_metadata::DependencyKind;
+
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
 use std::ops::{Not, Range};
@@ -163,10 +164,6 @@ impl Display {
         let mut index = dep_range.start;
 
         for selector in &self.dep_selector.data[dep_range] {
-            let dep = self
-                .document
-                .get_dep(self.package_selector.selected_index, selector.name())?;
-
             if index == self.dep_selector.selected_index {
                 self.term.move_cursor_to(0, line_index)?;
                 write!(self.term, ">")?;
@@ -174,27 +171,7 @@ impl Display {
 
             self.term.move_cursor_to(2, line_index)?;
 
-            match dep.kind {
-                DependencyKind::Normal => write!(self.term, "{}", selector.display_name())?,
-                DependencyKind::Development => write!(
-                    self.term,
-                    "{} {}",
-                    Emoji(" 🧪", &style("dev").color256(8).to_string()),
-                    selector.display_name()
-                )?,
-                DependencyKind::Build => write!(
-                    self.term,
-                    "{} {}",
-                    Emoji("🛠️", &style("build").color256(8).to_string()),
-                    selector.display_name()
-                )?,
-                DependencyKind::Unknown => write!(
-                    self.term,
-                    "{} {}",
-                    Emoji("❔", &style("unknown").color256(8).to_string()),
-                    selector.display_name()
-                )?,
-            };
+            write!(self.term, "{}", selector.display_name())?;
 
             index += 1;
             line_index += 1;
@@ -242,7 +219,16 @@ impl Display {
 
             self.term.move_cursor_to(2, line_index)?;
 
-            let marker = if data.is_enabled { "[X]" } else { "[ ]" };
+            let marker = match data.enabled_state {
+                EnabledState::Normal(is_enabled) => {
+                    if is_enabled {
+                        "[X]".to_string()
+                    } else {
+                        "[ ]".to_string()
+                    }
+                }
+                EnabledState::Workspace => format!("{}", Emoji(" 🗃️", "W")),
+            };
 
             if data.is_default {
                 write!(self.term, "{}", style(marker).green())?;
@@ -255,6 +241,7 @@ impl Display {
             if !dep
                 .get_currently_dependent_features(feature.name())
                 .is_empty()
+                || data.enabled_state == EnabledState::Workspace
             {
                 //gray
                 feature_name = feature_name.color256(8);

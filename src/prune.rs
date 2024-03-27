@@ -70,7 +70,7 @@ fn prune_package(
         let enabled_features = dependency
             .features
             .iter()
-            .filter(|(_name, data)| data.is_enabled)
+            .filter(|(_name, data)| data.is_toggleable() && data.is_enabled())
             .filter(|(feature_name, _data)| {
                 !ignored_features
                     .get(name)
@@ -113,7 +113,7 @@ fn prune_package(
             for feature in &enabled_features {
                 document
                     .get_dep_mut(package_id, name)?
-                    .enable_feature(feature);
+                    .enable_feature(feature)?;
             }
             document.write_dep(package_id, name)?;
 
