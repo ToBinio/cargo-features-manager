@@ -100,20 +100,11 @@ impl Dependency {
             .get(feature_name)
             .context(format!("could not find {}", feature_name))?;
 
-        match data.enabled_state {
-            EnabledState::Normal(is_enabled) => {
-                if is_enabled {
-                    self.disable_feature(feature_name)?;
-                } else {
-                    self.enable_feature(feature_name)?;
-                }
-            }
-            EnabledState::Workspace => {
-                bail!(
-                    "can not toggle feature enabled by workspace - {} - {}",
-                    self.name,
-                    feature_name
-                );
+        if let EnabledState::Normal(is_enabled) = data.enabled_state {
+            if is_enabled {
+                self.disable_feature(feature_name)?;
+            } else {
+                self.enable_feature(feature_name)?;
             }
         }
 

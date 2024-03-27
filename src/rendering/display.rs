@@ -164,10 +164,6 @@ impl Display {
         let mut index = dep_range.start;
 
         for selector in &self.dep_selector.data[dep_range] {
-            let dep = self
-                .document
-                .get_dep(self.package_selector.selected_index, selector.name())?;
-
             if index == self.dep_selector.selected_index {
                 self.term.move_cursor_to(0, line_index)?;
                 write!(self.term, ">")?;
@@ -231,7 +227,7 @@ impl Display {
                         "[ ]".to_string()
                     }
                 }
-                EnabledState::Workspace => format!("[{}]", Emoji("🗃️", "W")),
+                EnabledState::Workspace => format!("{}", Emoji(" 🗃️", "W")),
             };
 
             if data.is_default {
@@ -245,6 +241,7 @@ impl Display {
             if !dep
                 .get_currently_dependent_features(feature.name())
                 .is_empty()
+                || data.enabled_state == EnabledState::Workspace
             {
                 //gray
                 feature_name = feature_name.color256(8);
