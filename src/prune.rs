@@ -16,14 +16,14 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
 
     let ignored_features = get_ignored_features("./")?;
 
-    for (index, name) in document.get_packages_names().iter().enumerate() {
+    for name in document.get_packages_names().iter() {
         if document.is_workspace() {
             writeln!(term, "{}", name)?;
             prune_package(
                 &mut document,
                 is_dry_run,
                 &mut term,
-                index,
+                name,
                 2,
                 &ignored_features,
             )?;
@@ -32,7 +32,7 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
                 &mut document,
                 is_dry_run,
                 &mut term,
-                index,
+                name,
                 0,
                 &ignored_features,
             )?;
@@ -46,26 +46,26 @@ fn prune_package(
     document: &mut Document,
     is_dry_run: bool,
     term: &mut Term,
-    package_id: usize,
+    package_name: &str,
     inset: usize,
     base_ignored: &HashMap<String, Vec<String>>,
 ) -> anyhow::Result<()> {
     let deps = document
-        .get_deps(package_id)?
+        .get_deps(package_name)?
         .iter()
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
     let ignored_features = get_ignored_features(
         document
-            .get_package(package_id)
+            .get_package(package_name)
             .context("package not found")?
             .manifest_path
             .trim_end_matches("/Cargo.toml"),
     )?;
 
     for name in deps.iter() {
-        let dependency = document.get_dep_mut(package_id, name)?;
+        let dependency = document.get_dep_mut(package_name, name)?;
 
         let enabled_features = dependency
             .features
@@ -101,9 +101,9 @@ fn prune_package(
             writeln!(term, "{:inset$} └ {}", "", feature)?;
 
             document
-                .get_dep_mut(package_id, name)?
+                .get_dep_mut(package_name, name)?
                 .disable_feature(feature)?;
-            document.write_dep(package_id, name)?;
+            document.write_dep(package_name, name)?;
 
             if check()? {
                 to_be_disabled.push(feature.to_string());
@@ -112,10 +112,10 @@ fn prune_package(
             //reset to start
             for feature in &enabled_features {
                 document
-                    .get_dep_mut(package_id, name)?
+                    .get_dep_mut(package_name, name)?
                     .enable_feature(feature)?;
             }
-            document.write_dep(package_id, name)?;
+            document.write_dep(package_name, name)?;
 
             term.move_cursor_up(2)?;
             term.clear_line()?;
@@ -153,11 +153,11 @@ fn prune_package(
         if to_be_disabled.is_empty().not() {
             for feature in to_be_disabled {
                 document
-                    .get_dep_mut(package_id, name)?
+                    .get_dep_mut(package_name, name)?
                     .disable_feature(&feature)?;
             }
 
-            document.write_dep(package_id, name)?;
+            document.write_dep(package_name, name)?;
         }
     }
     Ok(())

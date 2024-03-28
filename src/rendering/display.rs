@@ -7,18 +7,16 @@ use std::ops::{Not, Range};
 
 use crate::document::Document;
 
-use crate::rendering::scroll_selector::{
-    DependencySelectorItem, FeatureSelectorItem, ScrollSelector,
-};
+use crate::rendering::scroll_selector::ScrollSelector;
 
 pub struct Display {
     term: Term,
 
     document: Document,
 
-    package_selector: ScrollSelector<String>,
-    dep_selector: ScrollSelector<DependencySelectorItem>,
-    feature_selector: ScrollSelector<FeatureSelectorItem>,
+    package_selector: ScrollSelector,
+    dep_selector: ScrollSelector,
+    feature_selector: ScrollSelector,
 
     state: DisplayState,
 
@@ -29,29 +27,27 @@ impl Display {
     pub fn new(document: Document) -> anyhow::Result<Display> {
         Ok(Display {
             term: Term::buffered_stdout(),
-
             package_selector: ScrollSelector {
                 selected_index: 0,
-                data: document.get_packages_names(),
+                data: document.get_package_names_filtered_view("")?,
             },
-
             dep_selector: ScrollSelector {
                 selected_index: 0,
-                data: document.get_deps_filtered_view(0, "")?,
+                data: document.get_deps_filtered_view(
+                    &document.get_package_id(0).context("no package found")?.name,
+                    "",
+                )?,
             },
-
             feature_selector: ScrollSelector {
                 selected_index: 0,
                 data: vec![],
             },
-
             state: if document.is_workspace() {
                 DisplayState::Package
             } else {
                 DisplayState::Dep
             },
             search_text: "".to_string(),
-
             document,
         })
     }
@@ -62,7 +58,7 @@ impl Display {
         // update selector
         self.dep_selector.data = self
             .document
-            .get_deps_filtered_view(self.package_selector.selected_index, "")?;
+            .get_deps_filtered_view(self.package_selector.get_selected()?.name(), "")?;
 
         Ok(())
     }
@@ -70,7 +66,7 @@ impl Display {
     pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
         match self
             .document
-            .get_dep_index(self.package_selector.selected_index, &dep_name)
+            .get_dep_index(self.package_selector.get_selected()?.name(), &dep_name)
         {
             Ok(index) => {
                 self.dep_selector.selected_index = index;
@@ -86,7 +82,7 @@ impl Display {
         self.state = DisplayState::Feature;
 
         let dep = self.document.get_dep(
-            self.package_selector.selected_index,
+            self.package_selector.get_selected()?.name(),
             self.dep_selector.get_selected()?.name(),
         )?;
 
@@ -131,7 +127,7 @@ impl Display {
 
     fn display_packages(&mut self) -> anyhow::Result<()> {
         write!(self.term, "Packages")?;
-        // self.display_search_header()?;
+        self.display_search_header()?;
 
         let dep_range = self.get_max_range()?;
 
@@ -145,7 +141,7 @@ impl Display {
             }
 
             self.term.move_cursor_to(2, line_index)?;
-            write!(self.term, "{}", selected)?;
+            write!(self.term, "{}", selected.display_name())?;
 
             index += 1;
             line_index += 1;
@@ -184,7 +180,7 @@ impl Display {
         let dep = self
             .document
             .get_dep(
-                self.package_selector.selected_index,
+                self.package_selector.get_selected()?.name(),
                 self.dep_selector.get_selected()?.name(),
             )
             .context(format!(
@@ -204,7 +200,7 @@ impl Display {
         let dep = self
             .document
             .get_dep(
-                self.package_selector.selected_index,
+                self.package_selector.get_selected()?.name(),
                 self.dep_selector.get_selected()?.name(),
             )
             .context(format!(
@@ -317,30 +313,43 @@ impl Display {
             (Key::Enter, DisplayState::Package)
             | (Key::ArrowRight, DisplayState::Package)
             | (Key::Char(' '), DisplayState::Package) => {
-                self.select_selected_package()?;
+                if self.package_selector.has_data() {
+                    let name = self.package_selector.get_selected()?.name();
 
-                //needed to wrap
-                self.dep_selector.shift(0);
+                    if !self
+                        .document
+                        .get_package(name)
+                        .context(format!("package not found - {}", name))?
+                        .dependencies
+                        .is_empty()
+                    {
+                        self.search_text = "".to_string();
+
+                        self.select_selected_package()?;
+
+                        //needed to wrap
+                        self.dep_selector.shift(0);
+                    }
+                }
             }
             (Key::Enter, DisplayState::Dep)
             | (Key::ArrowRight, DisplayState::Dep)
             | (Key::Char(' '), DisplayState::Dep) => {
-                if self.dep_selector.has_data() {
-                    self.search_text = "".to_string();
-
-                    if self
+                if self.dep_selector.has_data()
+                    && self
                         .document
                         .get_dep(
-                            self.package_selector.selected_index,
+                            self.package_selector.get_selected()?.name(),
                             self.dep_selector.get_selected()?.name(),
                         )?
                         .has_features()
-                    {
-                        self.select_selected_dep()?;
+                {
+                    self.search_text = "".to_string();
 
-                        //needed to wrap
-                        self.feature_selector.shift(0);
-                    }
+                    self.select_selected_dep()?;
+
+                    //needed to wrap
+                    self.feature_selector.shift(0);
                 }
             }
             (Key::Enter, DisplayState::Feature)
@@ -351,17 +360,17 @@ impl Display {
 
                     let dep = self
                         .document
-                        .get_dep_mut(self.package_selector.selected_index, dep_name)?;
+                        .get_dep_mut(self.package_selector.get_selected()?.name(), dep_name)?;
 
                     dep.toggle_feature(self.feature_selector.get_selected()?.name())?;
 
                     self.document
-                        .write_dep(self.package_selector.selected_index, dep_name)?;
+                        .write_dep(self.package_selector.get_selected()?.name(), dep_name)?;
                 }
             }
 
             //search
-            (Key::Char(char), DisplayState::Dep | DisplayState::Feature) => {
+            (Key::Char(char), _) => {
                 if char == ' ' {
                     return Ok(RunningState::Running);
                 }
@@ -376,7 +385,7 @@ impl Display {
                     DisplayState::Package => self.package_selector.shift(0),
                 }
             }
-            (Key::Backspace, DisplayState::Dep | DisplayState::Feature) => {
+            (Key::Backspace, _) => {
                 let _ = self.search_text.pop();
 
                 self.update_selected_data()?;
@@ -411,7 +420,7 @@ impl Display {
         if let DisplayState::Feature = self.state {
             if self.feature_selector.has_data() {
                 let dep = self.document.get_dep(
-                    self.package_selector.selected_index,
+                    self.package_selector.get_selected()?.name(),
                     self.dep_selector.get_selected()?.name(),
                 )?;
 
@@ -437,16 +446,20 @@ impl Display {
 
     fn update_selected_data(&mut self) -> anyhow::Result<()> {
         match self.state {
-            DisplayState::Package => {}
+            DisplayState::Package => {
+                self.package_selector.data = self
+                    .document
+                    .get_package_names_filtered_view(&self.search_text)?;
+            }
             DisplayState::Dep => {
                 self.dep_selector.data = self.document.get_deps_filtered_view(
-                    self.package_selector.selected_index,
+                    self.package_selector.get_selected()?.name(),
                     &self.search_text,
                 )?;
             }
             DisplayState::Feature => {
                 let dep = self.document.get_dep(
-                    self.package_selector.selected_index,
+                    self.package_selector.get_selected()?.name(),
                     self.dep_selector.get_selected()?.name(),
                 )?;
 

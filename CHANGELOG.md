@@ -1,6 +1,8 @@
 ## next
 
 * workspace dependency support
+* highlight empty packages
+* search for packages
 
 ## 0.6.0
 
