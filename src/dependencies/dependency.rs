@@ -1,4 +1,4 @@
-use crate::rendering::scroll_selector::FeatureSelectorItem;
+use crate::rendering::scroll_selector::SelectorItem;
 use anyhow::{anyhow, Context};
 use cargo_metadata::DependencyKind;
 use console::Emoji;
@@ -27,7 +27,7 @@ impl Dependency {
         self.version.to_string()
     }
 
-    pub fn get_features_filtered_view(&self, filter: &str) -> Vec<FeatureSelectorItem> {
+    pub fn get_features_filtered_view(&self, filter: &str) -> Vec<SelectorItem> {
         let features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
 
         if filter.is_empty() {
@@ -44,7 +44,7 @@ impl Dependency {
 
                     name_a.cmp(name_b)
                 })
-                .map(|(name, _)| FeatureSelectorItem::new(name, vec![]))
+                .map(|(name, _)| SelectorItem::from_feature(name, vec![]))
                 .collect()
         } else {
             let matcher = SkimMatcherV2::default();
@@ -54,7 +54,7 @@ impl Dependency {
                 .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
                 .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
                 .map(|(name, fuzzy)| (name, fuzzy.1))
-                .map(|(name, indexes)| FeatureSelectorItem::new(name, indexes))
+                .map(|(name, indexes)| SelectorItem::from_feature(name, indexes))
                 .collect()
         }
     }

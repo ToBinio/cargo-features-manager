@@ -8,18 +8,16 @@ use std::ops::{Not, Range};
 
 use crate::document::Document;
 
-use crate::rendering::scroll_selector::{
-    DependencySelectorItem, FeatureSelectorItem, PackageSelectorItem, ScrollSelector,
-};
+use crate::rendering::scroll_selector::{ScrollSelector, SelectorItem};
 
 pub struct Display {
     term: Term,
 
     document: Document,
 
-    package_selector: ScrollSelector<PackageSelectorItem>,
-    dep_selector: ScrollSelector<DependencySelectorItem>,
-    feature_selector: ScrollSelector<FeatureSelectorItem>,
+    package_selector: ScrollSelector,
+    dep_selector: ScrollSelector,
+    feature_selector: ScrollSelector,
 
     state: DisplayState,
 
@@ -326,6 +324,8 @@ impl Display {
                         .dependencies
                         .is_empty()
                     {
+                        self.search_text = "".to_string();
+
                         self.select_selected_package()?;
 
                         //needed to wrap
@@ -337,8 +337,6 @@ impl Display {
             | (Key::ArrowRight, DisplayState::Dep)
             | (Key::Char(' '), DisplayState::Dep) => {
                 if self.dep_selector.has_data() {
-                    self.search_text = "".to_string();
-
                     if self
                         .document
                         .get_dep(
@@ -347,6 +345,8 @@ impl Display {
                         )?
                         .has_features()
                     {
+                        self.search_text = "".to_string();
+
                         self.select_selected_dep()?;
 
                         //needed to wrap

@@ -2,14 +2,15 @@ use crate::dependencies::dependency::{Dependency, DependencyType};
 use anyhow::Context;
 
 use crate::parsing::package::Package;
+use crate::rendering::search::highlight_search;
 use console::{style, Emoji};
 
-pub struct ScrollSelector<T> {
+pub struct ScrollSelector {
     pub selected_index: usize,
-    pub data: Vec<T>,
+    pub data: Vec<SelectorItem>,
 }
 
-impl<T> ScrollSelector<T> {
+impl ScrollSelector {
     pub fn shift(&mut self, shift: isize) {
         if !self.has_data() {
             self.selected_index = 0;
@@ -26,7 +27,7 @@ impl<T> ScrollSelector<T> {
         self.selected_index = selected_temp as usize;
     }
 
-    pub fn get_selected(&self) -> anyhow::Result<&T> {
+    pub fn get_selected(&self) -> anyhow::Result<&SelectorItem> {
         self.data
             .get(self.selected_index)
             .context("nothing selected")
@@ -37,70 +38,26 @@ impl<T> ScrollSelector<T> {
     }
 }
 
-pub struct PackageSelectorItem {
+pub struct SelectorItem {
     name: String,
     display_name: String,
 }
 
-impl PackageSelectorItem {
-    pub fn new(dep: &Package, highlighted_letters: Vec<usize>) -> Self {
-        //todo extract to util function
-        let mut display_name: String = dep
-            .name
-            .chars()
-            .enumerate()
-            .map(|(index, c)| {
-                match (
-                    !dep.dependencies.is_empty(),
-                    highlighted_letters.contains(&index),
-                ) {
-                    (true, true) => style(c).red().to_string(),
-                    (true, false) => c.to_string(),
-                    //dark red
-                    (false, true) => style(c).color256(1).to_string(),
-                    //light gray
-                    (false, false) => style(c).color256(8).to_string(),
-                }
-            })
-            .collect();
-
+impl SelectorItem {
+    pub fn from_package(dep: &Package, highlighted_letters: Vec<usize>) -> Self {
         Self {
             name: dep.name.to_string(),
-            display_name,
+            display_name: highlight_search(
+                &dep.name,
+                &highlighted_letters,
+                dep.dependencies.is_empty(),
+            ),
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn display_name(&self) -> &str {
-        &self.display_name
-    }
-}
-
-pub struct DependencySelectorItem {
-    name: String,
-    display_name: String,
-}
-
-impl DependencySelectorItem {
-    pub fn new(dep: &Dependency, highlighted_letters: Vec<usize>) -> Self {
-        let mut display_name: String = dep
-            .get_name()
-            .chars()
-            .enumerate()
-            .map(
-                |(index, c)| match (dep.has_features(), highlighted_letters.contains(&index)) {
-                    (true, true) => style(c).red().to_string(),
-                    (true, false) => c.to_string(),
-                    //dark red
-                    (false, true) => style(c).color256(1).to_string(),
-                    //light gray
-                    (false, false) => style(c).color256(8).to_string(),
-                },
-            )
-            .collect();
+    pub fn from_dependency(dep: &Dependency, highlighted_letters: Vec<usize>) -> Self {
+        let mut display_name =
+            highlight_search(&dep.get_name(), &highlighted_letters, !dep.has_features());
 
         display_name = match dep.kind {
             DependencyType::Normal | DependencyType::Workspace => display_name,
@@ -112,20 +69,20 @@ impl DependencySelectorItem {
             .to_string(),
             DependencyType::Build => format!(
                 "{} {}",
-                Emoji("🛠️", &style("dev").color256(8).to_string()),
+                Emoji("🛠️", &style("build").color256(8).to_string()),
                 display_name
             )
             .to_string(),
             DependencyType::Unknown => format!(
                 "{} {}",
-                Emoji("❔", &style("dev").color256(8).to_string()),
+                Emoji("❔", &style("unknown").color256(8).to_string()),
                 display_name
             )
             .to_string(),
         };
 
         if dep.workspace {
-            display_name = format!("{} {}", Emoji("🗃️", ""), display_name).to_string();
+            display_name = format!("{} {}", Emoji("🗃️", "W"), display_name).to_string();
         }
 
         Self {
@@ -134,34 +91,10 @@ impl DependencySelectorItem {
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn display_name(&self) -> &str {
-        &self.display_name
-    }
-}
-
-pub struct FeatureSelectorItem {
-    name: String,
-    display_name: String,
-}
-
-impl FeatureSelectorItem {
-    pub fn new(name: &str, highlighted_letters: Vec<usize>) -> Self {
-        let display_name: String = name
-            .chars()
-            .enumerate()
-            .map(|(index, c)| match highlighted_letters.contains(&index) {
-                true => style(c).red().to_string(),
-                false => c.to_string(),
-            })
-            .collect();
-
+    pub fn from_feature(name: &str, highlighted_letters: Vec<usize>) -> Self {
         Self {
             name: name.to_string(),
-            display_name,
+            display_name: highlight_search(name, &highlighted_letters, false),
         }
     }
 

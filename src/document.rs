@@ -12,7 +12,7 @@ use crate::dependencies::dependency::{Dependency, EnabledState};
 use crate::parsing::package::{get_packages, Package};
 use crate::parsing::toml_document_from_path;
 
-use crate::rendering::scroll_selector::{DependencySelectorItem, PackageSelectorItem};
+use crate::rendering::scroll_selector::SelectorItem;
 
 pub struct Document {
     packages: Vec<Package>,
@@ -108,7 +108,7 @@ impl Document {
     pub fn get_package_names_filtered_view(
         &self,
         filter: &str,
-    ) -> anyhow::Result<Vec<PackageSelectorItem>> {
+    ) -> anyhow::Result<Vec<SelectorItem>> {
         let matcher = SkimMatcherV2::default();
 
         let deps = self
@@ -121,7 +121,7 @@ impl Document {
             })
             .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
             .map(|(package, fuzzy)| (package, fuzzy.1))
-            .map(|(package, indexes)| PackageSelectorItem::new(package, indexes))
+            .map(|(package, indexes)| SelectorItem::from_package(package, indexes))
             .collect();
 
         Ok(deps)
@@ -162,7 +162,7 @@ impl Document {
         &self,
         package: &str,
         filter: &str,
-    ) -> anyhow::Result<Vec<DependencySelectorItem>> {
+    ) -> anyhow::Result<Vec<SelectorItem>> {
         let matcher = SkimMatcherV2::default();
 
         let deps = self
@@ -175,7 +175,7 @@ impl Document {
             })
             .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
             .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
-            .map(|(dependency, indexes)| DependencySelectorItem::new(dependency, indexes))
+            .map(|(dependency, indexes)| SelectorItem::from_dependency(dependency, indexes))
             .collect();
 
         Ok(deps)
