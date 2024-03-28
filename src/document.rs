@@ -12,7 +12,7 @@ use crate::dependencies::dependency::{Dependency, EnabledState};
 use crate::parsing::package::{get_packages, Package};
 use crate::parsing::toml_document_from_path;
 
-use crate::rendering::scroll_selector::DependencySelectorItem;
+use crate::rendering::scroll_selector::{DependencySelectorItem, PackageSelectorItem};
 
 pub struct Document {
     packages: Vec<Package>,
@@ -105,6 +105,28 @@ impl Document {
         Ok(())
     }
 
+    pub fn get_package_names_filtered_view(
+        &self,
+        filter: &str,
+    ) -> anyhow::Result<Vec<PackageSelectorItem>> {
+        let matcher = SkimMatcherV2::default();
+
+        let deps = self
+            .packages
+            .iter()
+            .filter_map(|package| {
+                matcher
+                    .fuzzy(&package.name, filter, true)
+                    .map(|fuzzy_result| (package, fuzzy_result))
+            })
+            .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
+            .map(|(package, fuzzy)| (package, fuzzy.1))
+            .map(|(package, indexes)| PackageSelectorItem::new(package, indexes))
+            .collect();
+
+        Ok(deps)
+    }
+
     pub fn get_packages_names(&self) -> Vec<String> {
         self.packages
             .iter()
@@ -112,35 +134,39 @@ impl Document {
             .collect()
     }
 
-    pub fn get_package(&self, package_id: usize) -> Option<&Package> {
+    pub fn get_package_id(&self, package_id: usize) -> Option<&Package> {
         self.packages.get(package_id)
     }
 
-    pub fn get_deps(&self, package_id: usize) -> anyhow::Result<&Vec<Dependency>> {
+    pub fn get_package(&self, package: &str) -> Option<&Package> {
+        self.packages.iter().find(|pkg| pkg.name == package)
+    }
+
+    pub fn get_deps(&self, package: &str) -> anyhow::Result<&Vec<Dependency>> {
         Ok(&self
-            .packages
-            .get(package_id)
+            .get_package(package)
             .context("package not found")?
             .dependencies)
     }
 
-    pub fn get_deps_mut(&mut self, package_id: usize) -> anyhow::Result<&mut Vec<Dependency>> {
+    pub fn get_deps_mut(&mut self, package: &str) -> anyhow::Result<&mut Vec<Dependency>> {
         Ok(&mut self
             .packages
-            .get_mut(package_id)
+            .iter_mut()
+            .find(|pkg| pkg.name == package)
             .context("package not found")?
             .dependencies)
     }
 
     pub fn get_deps_filtered_view(
         &self,
-        package_id: usize,
+        package: &str,
         filter: &str,
     ) -> anyhow::Result<Vec<DependencySelectorItem>> {
         let matcher = SkimMatcherV2::default();
 
         let deps = self
-            .get_deps(package_id)?
+            .get_deps(package)?
             .iter()
             .filter_map(|dependency| {
                 matcher
@@ -155,11 +181,8 @@ impl Document {
         Ok(deps)
     }
 
-    pub fn get_dep(&self, package_id: usize, name: &str) -> anyhow::Result<&Dependency> {
-        let dep = self
-            .get_deps(package_id)?
-            .iter()
-            .find(|dep| dep.name.eq(name));
+    pub fn get_dep(&self, package: &str, name: &str) -> anyhow::Result<&Dependency> {
+        let dep = self.get_deps(package)?.iter().find(|dep| dep.name.eq(name));
 
         match dep {
             None => bail!("could not find dependency with name {}", name),
@@ -167,9 +190,9 @@ impl Document {
         }
     }
 
-    pub fn get_dep_index(&self, package_id: usize, name: &String) -> anyhow::Result<usize> {
+    pub fn get_dep_index(&self, package: &str, name: &String) -> anyhow::Result<usize> {
         Ok(self
-            .get_deps(package_id)?
+            .get_deps(package)?
             .iter()
             .enumerate()
             .find(|(_, dep)| dep.get_name() == *name)
@@ -177,13 +200,9 @@ impl Document {
             .0)
     }
 
-    pub fn get_dep_mut(
-        &mut self,
-        package_id: usize,
-        name: &str,
-    ) -> anyhow::Result<&mut Dependency> {
+    pub fn get_dep_mut(&mut self, package: &str, name: &str) -> anyhow::Result<&mut Dependency> {
         let dep = self
-            .get_deps_mut(package_id)?
+            .get_deps_mut(package)?
             .iter_mut()
             .find(|dep| dep.name.eq(name));
 
@@ -193,21 +212,22 @@ impl Document {
         }
     }
 
-    pub fn write_dep(&mut self, package_id: usize, name: &str) -> anyhow::Result<()> {
+    pub fn write_dep(&mut self, package: &str, name: &str) -> anyhow::Result<()> {
         let (index, _) = self
-            .get_deps(package_id)?
+            .get_deps(package)?
             .iter()
             .enumerate()
             .find(|(_index, dep)| dep.get_name().eq(name))
             .ok_or(anyhow!("could not find dependency with name {}", name))?;
 
-        self.write_dep_raw(package_id, index)
+        self.write_dep_raw(package, index)
     }
 
-    fn write_dep_raw(&mut self, package_id: usize, dep_index: usize) -> anyhow::Result<()> {
+    fn write_dep_raw(&mut self, package_name: &str, dep_index: usize) -> anyhow::Result<()> {
         let package = self
             .packages
-            .get_mut(package_id)
+            .iter_mut()
+            .find(|pkg| pkg.name == package_name)
             .context("package not found")?;
 
         let dependency = package
@@ -292,13 +312,17 @@ impl Document {
 
         // update workspace deps
         if let Some(workspace_index) = self.workspace_index {
-            if workspace_index == package_id {
-                self.update_workspace_deps()?;
+            if let Some(workspace) = self.get_package_id(workspace_index) {
+                if workspace.name == package_name {
+                    self.update_workspace_deps()?;
+                }
             }
         }
 
         //write updates
-        let package = self.packages.get(package_id).context("package not found")?;
+        let package = self
+            .get_package(package_name)
+            .context("package not found")?;
 
         fs::write(&package.manifest_path, doc.to_string()).map_err(anyhow::Error::from)
     }

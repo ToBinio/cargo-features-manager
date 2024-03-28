@@ -1,6 +1,7 @@
 use crate::dependencies::dependency::{Dependency, DependencyType};
 use anyhow::Context;
 
+use crate::parsing::package::Package;
 use console::{style, Emoji};
 
 pub struct ScrollSelector<T> {
@@ -33,6 +34,48 @@ impl<T> ScrollSelector<T> {
 
     pub fn has_data(&self) -> bool {
         !self.data.is_empty()
+    }
+}
+
+pub struct PackageSelectorItem {
+    name: String,
+    display_name: String,
+}
+
+impl PackageSelectorItem {
+    pub fn new(dep: &Package, highlighted_letters: Vec<usize>) -> Self {
+        //todo extract to util function
+        let mut display_name: String = dep
+            .name
+            .chars()
+            .enumerate()
+            .map(|(index, c)| {
+                match (
+                    !dep.dependencies.is_empty(),
+                    highlighted_letters.contains(&index),
+                ) {
+                    (true, true) => style(c).red().to_string(),
+                    (true, false) => c.to_string(),
+                    //dark red
+                    (false, true) => style(c).color256(1).to_string(),
+                    //light gray
+                    (false, false) => style(c).color256(8).to_string(),
+                }
+            })
+            .collect();
+
+        Self {
+            name: dep.name.to_string(),
+            display_name,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn display_name(&self) -> &str {
+        &self.display_name
     }
 }
 
