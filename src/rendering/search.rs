@@ -1,6 +1,6 @@
 use console::style;
 
-pub fn highlight_search(text: &str, highlighted_letters: &Vec<usize>, is_dark: bool) -> String {
+pub fn highlight_search(text: &str, highlighted_letters: &[usize], is_dark: bool) -> String {
     text.chars()
         .enumerate()
         .map(|(index, c)| {

@@ -1,6 +1,5 @@
 use crate::dependencies::dependency::EnabledState;
 use anyhow::Context;
-use std::fmt::format;
 
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
@@ -8,7 +7,7 @@ use std::ops::{Not, Range};
 
 use crate::document::Document;
 
-use crate::rendering::scroll_selector::{ScrollSelector, SelectorItem};
+use crate::rendering::scroll_selector::ScrollSelector;
 
 pub struct Display {
     term: Term,
@@ -336,22 +335,21 @@ impl Display {
             (Key::Enter, DisplayState::Dep)
             | (Key::ArrowRight, DisplayState::Dep)
             | (Key::Char(' '), DisplayState::Dep) => {
-                if self.dep_selector.has_data() {
-                    if self
+                if self.dep_selector.has_data()
+                    && self
                         .document
                         .get_dep(
                             self.package_selector.get_selected()?.name(),
                             self.dep_selector.get_selected()?.name(),
                         )?
                         .has_features()
-                    {
-                        self.search_text = "".to_string();
+                {
+                    self.search_text = "".to_string();
 
-                        self.select_selected_dep()?;
+                    self.select_selected_dep()?;
 
-                        //needed to wrap
-                        self.feature_selector.shift(0);
-                    }
+                    //needed to wrap
+                    self.feature_selector.shift(0);
                 }
             }
             (Key::Enter, DisplayState::Feature)
