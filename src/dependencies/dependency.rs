@@ -1,12 +1,13 @@
 use crate::rendering::scroll_selector::SelectorItem;
 use anyhow::{anyhow, Context};
-use cargo_metadata::DependencyKind;
-use console::Emoji;
+use cargo_metadata::{DependencyKind, Target};
+use cargo_platform::Platform;
+use console::{style, Emoji};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::{format, Display, Formatter};
 
 pub struct Dependency {
     pub name: String,
@@ -14,13 +15,46 @@ pub struct Dependency {
 
     pub workspace: bool,
     pub kind: DependencyType,
+    pub target: Option<Platform>,
 
     pub features: HashMap<String, FeatureData>,
 }
 
 impl Dependency {
     pub fn get_name(&self) -> String {
-        self.name.to_string()
+        let mut name = if let Some(target) = &self.target {
+            format!("{}.{}", target, self.name)
+        } else {
+            self.name.to_string()
+        };
+
+        name = match self.kind {
+            DependencyType::Normal | DependencyType::Workspace => name,
+            DependencyType::Development => format!(
+                "{} {}",
+                Emoji("🧪", &style("dev").color256(8).to_string()),
+                name
+            )
+            .to_string(),
+            DependencyType::Build => format!(
+                "{} {}",
+                Emoji("🛠️", &style("build").color256(8).to_string()),
+                name
+            )
+            .to_string(),
+            DependencyType::Unknown => format!(
+                "{} {}",
+                Emoji("❔", &style("unknown").color256(8).to_string()),
+                name
+            )
+            .to_string(),
+        };
+
+        if self.workspace {
+            name = format!("{} {}", Emoji("🗃️", "W"), name).to_string();
+        }
+
+        name
     }
 
     pub fn get_version(&self) -> String {
@@ -206,50 +240,6 @@ pub enum DependencyType {
     Build,
     Workspace,
     Unknown,
-}
-
-impl DependencyType {
-    pub fn to_path(&self) -> &'static str {
-        match self {
-            DependencyType::Normal => "dependencies",
-            DependencyType::Development => "dev-dependencies",
-            DependencyType::Build => "build-dependencies",
-            DependencyType::Workspace => "workspace.dependencies",
-            DependencyType::Unknown => "dependencies",
-        }
-    }
-
-    pub fn get_mut_item_from_doc<'a>(
-        &self,
-        document: &'a mut toml_edit::Document,
-    ) -> anyhow::Result<&'a mut toml_edit::Item> {
-        let mut item = document.as_item_mut();
-
-        let path = self.to_path();
-
-        for key in path.split('.') {
-            item = item
-                .get_mut(key)
-                .ok_or(anyhow!("could not find - {}", path))?;
-        }
-
-        Ok(item)
-    }
-
-    pub fn get_item_from_doc<'a>(
-        &self,
-        document: &'a toml_edit::Document,
-    ) -> anyhow::Result<&'a toml_edit::Item> {
-        let mut item = document.as_item();
-
-        let path = self.to_path();
-
-        for key in path.split('.') {
-            item = item.get(key).ok_or(anyhow!("could not find - {}", path))?;
-        }
-
-        Ok(item)
-    }
 }
 
 impl From<DependencyKind> for DependencyType {

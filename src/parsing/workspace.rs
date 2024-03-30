@@ -88,6 +88,7 @@ fn parse_dependency_from_item(
         version: version.to_string(),
         workspace: false,
         kind: DependencyType::Workspace,
+        target: None,
         features: Default::default(),
     };
 

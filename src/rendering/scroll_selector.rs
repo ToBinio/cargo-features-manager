@@ -59,31 +59,7 @@ impl SelectorItem {
         let mut display_name =
             highlight_search(&dep.get_name(), &highlighted_letters, !dep.has_features());
 
-        display_name = match dep.kind {
-            DependencyType::Normal | DependencyType::Workspace => display_name,
-            DependencyType::Development => format!(
-                "{} {}",
-                Emoji("🧪", &style("dev").color256(8).to_string()),
-                display_name
-            )
-            .to_string(),
-            DependencyType::Build => format!(
-                "{} {}",
-                Emoji("🛠️", &style("build").color256(8).to_string()),
-                display_name
-            )
-            .to_string(),
-            DependencyType::Unknown => format!(
-                "{} {}",
-                Emoji("❔", &style("unknown").color256(8).to_string()),
-                display_name
-            )
-            .to_string(),
-        };
-
-        if dep.workspace {
-            display_name = format!("{} {}", Emoji("🗃️", "W"), display_name).to_string();
-        }
+   
 
         Self {
             name: dep.get_name(),

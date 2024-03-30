@@ -6,6 +6,7 @@ use crate::parsing::workspace::parse_workspace;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
 use anyhow::{anyhow, Context};
 
+use crate::dependencies::{get_item_from_doc, get_path};
 use std::collections::HashMap;
 
 pub struct Package {
@@ -69,31 +70,29 @@ pub fn parse_dependency(
     let kind: DependencyType = dependency.kind.into();
     let mut workspace = false;
 
-    //todo remove workaround when targets are handled...
-    if dependency.target.is_none() {
-        let deps = kind.get_item_from_doc(document)?;
+    let deps = get_item_from_doc(&get_path(&kind, &dependency.target), document)?;
 
-        let deps = deps.as_table().context(format!(
-            "could not parse dependencies as a table - {}",
-            package.name
-        ))?;
+    let deps = deps.as_table().context(format!(
+        "could not parse dependencies as a table - {}",
+        package.name
+    ))?;
 
-        let dep = deps.get(&dependency.name).ok_or(anyhow!(
-            "could not find - dep:{} - {} - {:?}",
-            dependency.name,
-            deps,
-            kind
-        ))?;
+    let dep = deps.get(&dependency.name).ok_or(anyhow!(
+        "could not find - dep:{} - {} - {:?}",
+        dependency.name,
+        deps,
+        kind
+    ))?;
 
-        if let Some(dep) = dep.as_table_like() {
-            if let Some(workspace_item) = dep.get("workspace") {
-                workspace = workspace_item.as_bool().unwrap_or(false);
-            }
+    if let Some(dep) = dep.as_table_like() {
+        if let Some(workspace_item) = dep.get("workspace") {
+            workspace = workspace_item.as_bool().unwrap_or(false);
         }
     }
 
     let mut new_dependency = Dependency {
         name: dependency.name.to_string(),
+        target: dependency.target.clone(),
         version: dependency
             .req
             .to_string()
