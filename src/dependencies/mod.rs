@@ -1,10 +1,8 @@
 use crate::dependencies::dependency::DependencyType;
 use anyhow::{anyhow, bail, Context};
-use cargo_metadata::{DependencyKind, Target};
+
 use cargo_platform::Platform;
-use clap::builder::Str;
-use itertools::Itertools;
-use std::ops::Index;
+
 use std::str::FromStr;
 
 pub mod dependency;
@@ -40,7 +38,7 @@ pub fn get_mut_item_from_doc<'a>(
         if is_target {
             is_target = false;
 
-            let target = Platform::from_str(key.trim_start_matches("'").trim_end_matches("'"))?;
+            let target = Platform::from_str(key.trim_start_matches('\'').trim_end_matches('\''))?;
 
             let table = item
                 .as_table_like_mut()
@@ -48,7 +46,7 @@ pub fn get_mut_item_from_doc<'a>(
 
             for (key, next_item) in table.iter_mut() {
                 let platform =
-                    Platform::from_str(key.trim_start_matches("'").trim_end_matches("'"))?;
+                    Platform::from_str(key.trim_start_matches('\'').trim_end_matches('\''))?;
 
                 if platform.eq(&target) {
                     item = next_item;
@@ -83,7 +81,7 @@ pub fn get_item_from_doc<'a>(
         if is_target {
             is_target = false;
 
-            let target = Platform::from_str(key.trim_start_matches("'").trim_end_matches("'"))?;
+            let target = Platform::from_str(key.trim_start_matches('\'').trim_end_matches('\''))?;
 
             let table = item
                 .as_table()
@@ -91,7 +89,7 @@ pub fn get_item_from_doc<'a>(
 
             for (key, next_item) in table.iter() {
                 let platform =
-                    Platform::from_str(key.trim_start_matches("'").trim_end_matches("'"))?;
+                    Platform::from_str(key.trim_start_matches('\'').trim_end_matches('\''))?;
 
                 if platform.eq(&target) {
                     item = next_item;

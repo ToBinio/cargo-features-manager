@@ -1,13 +1,13 @@
 use crate::rendering::scroll_selector::SelectorItem;
 use anyhow::{anyhow, Context};
-use cargo_metadata::{DependencyKind, Target};
+use cargo_metadata::DependencyKind;
 use cargo_platform::Platform;
 use console::{style, Emoji};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt::{format, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 pub struct Dependency {
     pub name: String,
