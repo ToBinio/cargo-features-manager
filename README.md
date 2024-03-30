@@ -41,10 +41,10 @@ When using `cargo features -d <dependency name>` it will directly open the corre
 
 Dependency which do not have any features are marked grey. <br>
 Dev-Dependency are marked with 🧪. <br>
-build-Dependency are marked with 🛠️.
+Build-Dependency are marked with 🛠️. <br>
+Workspace-Dependency are marked with 🗃️️.
 
 ![dependencySelector](resources/dependencySelector.png)
-
 
 #### feature selector
 
@@ -63,6 +63,10 @@ Features marked with 📦 mean that they require an optional dependency.
 Features which an active feature requires are marked grey.
 
 ![greyFeature](resources/greyFeature.png)
+
+Features marked with 🗃️️ are enabled by the workspace dependency and can only be disabled by the workspace dependency
+
+![workspaceFeatures](resources/workspaceFeatures.png)
 
 #### search mode
 

@@ -73,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-features-manager"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "cargo-platform",

@@ -223,7 +223,7 @@ impl Display {
                         "[ ]".to_string()
                     }
                 }
-                EnabledState::Workspace => format!("{}", Emoji(" 🗃️", "W")),
+                EnabledState::Workspace => format!("{}", Emoji("🗃️", "W")),
             };
 
             if data.is_default {
