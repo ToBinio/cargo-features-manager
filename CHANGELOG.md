@@ -3,6 +3,8 @@
 * workspace dependency support
 * highlight empty packages
 * search for packages
+* support custom targets
+* fix bug where it could differentiate between dependencies
 
 ## 0.6.0
 

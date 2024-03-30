@@ -9,6 +9,7 @@ use itertools::Itertools;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
 use crate::dependencies::dependency::{Dependency, EnabledState};
+use crate::dependencies::{get_mut_item_from_doc, get_path};
 use crate::parsing::package::{get_packages, Package};
 use crate::parsing::toml_document_from_path;
 
@@ -73,7 +74,7 @@ impl Document {
                     .dependencies
                     .iter()
                     .find(|workspace_dep| workspace_dep.name == dep.name)
-                    .ok_or(anyhow!("could not find workspace dep - {}", dep.name))?;
+                    .ok_or(anyhow!("could not find workspace dep - {}", dep.get_name()))?;
 
                 let enabled_workspace_features = workspace_dep
                     .features
@@ -182,7 +183,10 @@ impl Document {
     }
 
     pub fn get_dep(&self, package: &str, name: &str) -> anyhow::Result<&Dependency> {
-        let dep = self.get_deps(package)?.iter().find(|dep| dep.name.eq(name));
+        let dep = self
+            .get_deps(package)?
+            .iter()
+            .find(|dep| dep.get_name().eq(name));
 
         match dep {
             None => bail!("could not find dependency with name {}", name),
@@ -204,7 +208,7 @@ impl Document {
         let dep = self
             .get_deps_mut(package)?
             .iter_mut()
-            .find(|dep| dep.name.eq(name));
+            .find(|dep| dep.get_name().eq(name));
 
         match dep {
             None => bail!("could not find dependency with name {}", name),
@@ -238,7 +242,8 @@ impl Document {
         let features_to_enable = dependency.get_features_to_enable();
 
         let mut doc = toml_document_from_path(&package.manifest_path)?;
-        let deps = dependency.kind.get_mut_item_from_doc(&mut doc)?;
+        let deps =
+            get_mut_item_from_doc(&get_path(&dependency.kind, &dependency.target), &mut doc)?;
 
         let deps = deps.as_table_mut().context(format!(
             "could not parse dependencies as a table - {}",
@@ -246,20 +251,26 @@ impl Document {
         ))?;
 
         let table = match deps
-            .get_mut(&dependency.get_name())
+            .get_mut(&dependency.name)
             .context("dependency not found")?
             .as_table_like_mut()
         {
             None => {
                 deps.insert(
-                    &dependency.get_name(),
+                    &dependency.name,
                     Item::Value(Value::InlineTable(InlineTable::new())),
                 );
 
-                deps.get_mut(&dependency.get_name())
-                    .context(format!("could not find {} in dependency", dependency.name))?
+                deps.get_mut(&dependency.name)
+                    .context(format!(
+                        "could not find {} in dependency",
+                        dependency.get_name()
+                    ))?
                     .as_table_like_mut()
-                    .context(format!("could not parse {} as a table", dependency.name))?
+                    .context(format!(
+                        "could not parse {} as a table",
+                        dependency.get_name()
+                    ))?
             }
             Some(table) => table,
         };
@@ -273,7 +284,7 @@ impl Document {
         //check if entry has to be table or can just be string with version
         if dependency.can_use_default() && features_to_enable.is_empty() && !has_custom_attributes {
             deps.insert(
-                &dependency.get_name(),
+                &dependency.name,
                 Item::Value(Value::String(Formatted::new(dependency.get_version()))),
             );
         } else {

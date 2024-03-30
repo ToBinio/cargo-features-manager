@@ -1,9 +1,8 @@
-use crate::dependencies::dependency::{Dependency, DependencyType};
+use crate::dependencies::dependency::Dependency;
 use anyhow::Context;
 
 use crate::parsing::package::Package;
 use crate::rendering::search::highlight_search;
-use console::{style, Emoji};
 
 pub struct ScrollSelector {
     pub selected_index: usize,
@@ -56,34 +55,8 @@ impl SelectorItem {
     }
 
     pub fn from_dependency(dep: &Dependency, highlighted_letters: Vec<usize>) -> Self {
-        let mut display_name =
+        let display_name =
             highlight_search(&dep.get_name(), &highlighted_letters, !dep.has_features());
-
-        display_name = match dep.kind {
-            DependencyType::Normal | DependencyType::Workspace => display_name,
-            DependencyType::Development => format!(
-                "{} {}",
-                Emoji("🧪", &style("dev").color256(8).to_string()),
-                display_name
-            )
-            .to_string(),
-            DependencyType::Build => format!(
-                "{} {}",
-                Emoji("🛠️", &style("build").color256(8).to_string()),
-                display_name
-            )
-            .to_string(),
-            DependencyType::Unknown => format!(
-                "{} {}",
-                Emoji("❔", &style("unknown").color256(8).to_string()),
-                display_name
-            )
-            .to_string(),
-        };
-
-        if dep.workspace {
-            display_name = format!("{} {}", Emoji("🗃️", "W"), display_name).to_string();
-        }
 
         Self {
             name: dep.get_name(),
