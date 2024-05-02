@@ -1,4 +1,4 @@
-## unreleased
+## 0.7.1
 
 * make `*` as a version be a wildcard for `any` - always find prerelease versions
 * handle dependency renames via `package = ""`
