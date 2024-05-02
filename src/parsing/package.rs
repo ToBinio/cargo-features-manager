@@ -78,7 +78,7 @@ pub fn parse_dependency(
     ))?;
 
     let dep = if let Some(name) = &dependency.rename {
-        deps.get(&name).ok_or(anyhow!(
+        deps.get(name).ok_or(anyhow!(
             "could not find - dep:{} - {} - {:?}",
             name,
             deps,

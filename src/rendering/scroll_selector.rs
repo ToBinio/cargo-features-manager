@@ -63,7 +63,7 @@ impl SelectorItem {
             format!(
                 "{} {}",
                 display_name,
-                style(format!("({})", rename)).color256(8).to_string()
+                style(format!("({})", rename)).color256(8)
             )
         } else {
             display_name

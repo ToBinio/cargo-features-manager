@@ -83,9 +83,7 @@ fn parse_dependency_from_item(
 
         //parse rename - package
         if let Some(package) = data.get("package") {
-            let package = package
-                .as_str()
-                .ok_or(anyhow!("could not parse package"))?;
+            let package = package.as_str().ok_or(anyhow!("could not parse package"))?;
 
             rename = Some(package.to_string());
         }
