@@ -49,6 +49,7 @@ fn parse_dependency_from_item(
     let mut version = "*";
     let mut enabled_features = vec![];
     let mut uses_default_features = true;
+    let mut rename = None;
 
     if let Some(data) = data.as_table_like() {
         //parse version
@@ -79,12 +80,22 @@ fn parse_dependency_from_item(
 
             uses_default_features = uses_default;
         }
+
+        //parse rename - package
+        if let Some(package) = data.get("package") {
+            let package = package
+                .as_str()
+                .ok_or(anyhow!("could not parse package"))?;
+
+            rename = Some(package.to_string());
+        }
     } else {
         version = data.as_str().ok_or(anyhow!("could not parse version"))?;
     }
 
     let mut dependency = Dependency {
         name: name.to_string(),
+        rename,
         version: version.to_string(),
         workspace: false,
         kind: DependencyType::Workspace,

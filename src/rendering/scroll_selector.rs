@@ -1,5 +1,6 @@
 use crate::dependencies::dependency::Dependency;
 use anyhow::Context;
+use console::style;
 
 use crate::parsing::package::Package;
 use crate::rendering::search::highlight_search;
@@ -57,6 +58,16 @@ impl SelectorItem {
     pub fn from_dependency(dep: &Dependency, highlighted_letters: Vec<usize>) -> Self {
         let display_name =
             highlight_search(&dep.get_name(), &highlighted_letters, !dep.has_features());
+
+        let display_name = if let Some(rename) = &dep.rename {
+            format!(
+                "{} {}",
+                display_name,
+                style(format!("({})", rename)).color256(8).to_string()
+            )
+        } else {
+            display_name
+        };
 
         Self {
             name: dep.get_name(),

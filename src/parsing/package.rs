@@ -77,12 +77,21 @@ pub fn parse_dependency(
         package.name
     ))?;
 
-    let dep = deps.get(&dependency.name).ok_or(anyhow!(
-        "could not find - dep:{} - {} - {:?}",
-        dependency.name,
-        deps,
-        kind
-    ))?;
+    let dep = if let Some(name) = &dependency.rename {
+        deps.get(&name).ok_or(anyhow!(
+            "could not find - dep:{} - {} - {:?}",
+            name,
+            deps,
+            kind
+        ))?
+    } else {
+        deps.get(&dependency.name).ok_or(anyhow!(
+            "could not find - dep:{} - {} - {:?}",
+            dependency.name,
+            deps,
+            kind
+        ))?
+    };
 
     if let Some(dep) = dep.as_table_like() {
         if let Some(workspace_item) = dep.get("workspace") {
@@ -92,6 +101,7 @@ pub fn parse_dependency(
 
     let mut new_dependency = Dependency {
         name: dependency.name.to_string(),
+        rename: dependency.rename.clone(),
         target: dependency.target.clone(),
         version: dependency
             .req
