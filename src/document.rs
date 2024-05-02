@@ -251,7 +251,7 @@ impl Document {
         ))?;
 
         let table = match deps
-            .get_mut(&dependency.name)
+            .get_mut(dependency.rename.as_ref().unwrap_or(&dependency.name))
             .context("dependency not found")?
             .as_table_like_mut()
         {
