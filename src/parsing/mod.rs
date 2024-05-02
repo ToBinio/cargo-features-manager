@@ -77,6 +77,7 @@ pub fn get_package_from_version<'a>(
     Ok(packages
         .iter()
         .map(|(_, package)| package)
-        .find(|package| package.name == name && version_req.matches(&package.version))
+        .filter(|package  | package.name == name)
+        .find(|package|  version_req.matches(&package.version) || version_req.to_string() == "*")
         .unwrap_or_else(|| panic!("could not find version for {} {}", name, version_req)))
 }

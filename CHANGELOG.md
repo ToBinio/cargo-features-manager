@@ -1,3 +1,7 @@
+## unreleased
+
+* make `*` as a version be a wildcard for `any` - always find prerelease versions
+
 ## 0.7.0
 
 * workspace dependency support
