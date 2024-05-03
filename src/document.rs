@@ -107,22 +107,29 @@ impl Document {
     }
 
     pub fn get_package_names_filtered_view(&self, filter: &str) -> Result<Vec<SelectorItem>> {
-        let matcher = SkimMatcherV2::default();
+        let packages = if filter.is_empty() {
+            self.packages
+                .iter()
+                .sorted_by(|package_a, package_b| package_a.name.cmp(&package_b.name))
+                .map(|package| SelectorItem::from_package(package, vec![]))
+                .collect()
+        } else {
+            let matcher = SkimMatcherV2::default();
 
-        let deps = self
-            .packages
-            .iter()
-            .filter_map(|package| {
-                matcher
-                    .fuzzy(&package.name, filter, true)
-                    .map(|fuzzy_result| (package, fuzzy_result))
-            })
-            .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-            .map(|(package, fuzzy)| (package, fuzzy.1))
-            .map(|(package, indexes)| SelectorItem::from_package(package, indexes))
-            .collect();
+            self.packages
+                .iter()
+                .filter_map(|package| {
+                    matcher
+                        .fuzzy(&package.name, filter, true)
+                        .map(|fuzzy_result| (package, fuzzy_result))
+                })
+                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
+                .map(|(package, fuzzy)| (package, fuzzy.1))
+                .map(|(package, indexes)| SelectorItem::from_package(package, indexes))
+                .collect()
+        };
 
-        Ok(deps)
+        Ok(packages)
     }
 
     pub fn get_packages_names(&self) -> Vec<String> {
@@ -157,20 +164,27 @@ impl Document {
     }
 
     pub fn get_deps_filtered_view(&self, package: &str, filter: &str) -> Result<Vec<SelectorItem>> {
-        let matcher = SkimMatcherV2::default();
+        let deps = if filter.is_empty() {
+            self.get_deps(package)?
+                .iter()
+                .sorted_by(|dependency_a, dependency_b| dependency_a.name.cmp(&dependency_b.name))
+                .map(|dependency| SelectorItem::from_dependency(dependency, vec![]))
+                .collect()
+        } else {
+            let matcher = SkimMatcherV2::default();
 
-        let deps = self
-            .get_deps(package)?
-            .iter()
-            .filter_map(|dependency| {
-                matcher
-                    .fuzzy(&dependency.get_name(), filter, true)
-                    .map(|fuzzy_result| (dependency, fuzzy_result))
-            })
-            .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-            .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
-            .map(|(dependency, indexes)| SelectorItem::from_dependency(dependency, indexes))
-            .collect();
+            self.get_deps(package)?
+                .iter()
+                .filter_map(|dependency| {
+                    matcher
+                        .fuzzy(&dependency.get_name(), filter, true)
+                        .map(|fuzzy_result| (dependency, fuzzy_result))
+                })
+                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
+                .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
+                .map(|(dependency, indexes)| SelectorItem::from_dependency(dependency, indexes))
+                .collect()
+        };
 
         Ok(deps)
     }

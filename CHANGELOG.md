@@ -1,3 +1,7 @@
+## unreleased
+
+* sort dependencies and packages alphabetically if no filter is set 
+
 ## 0.7.1
 
 * make `*` as a version be a wildcard for `any` - always find prerelease versions

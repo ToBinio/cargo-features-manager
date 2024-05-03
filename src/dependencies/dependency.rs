@@ -66,15 +66,13 @@ impl Dependency {
     }
 
     pub fn get_features_filtered_view(&self, filter: &str) -> Vec<SelectorItem> {
-        let features: Vec<(&String, &FeatureData)> = self
+        let features = self
             .features
             .iter()
-            .filter(|feature| feature.0 != "default")
-            .collect();
+            .filter(|feature| feature.0 != "default");
 
         if filter.is_empty() {
             features
-                .iter()
                 .sorted_by(|(name_a, data_a), (name_b, data_b)| {
                     if data_a.is_default && !data_b.is_default {
                         return Ordering::Less;
@@ -92,7 +90,6 @@ impl Dependency {
             let matcher = SkimMatcherV2::default();
 
             features
-                .iter()
                 .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
                 .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
                 .map(|(name, fuzzy)| (name, fuzzy.1))
