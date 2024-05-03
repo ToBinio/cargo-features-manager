@@ -23,7 +23,7 @@ pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> Result<toml_edit:
 pub fn set_features(
     dependency: &mut Dependency,
     package: &cargo_metadata::Package,
-    mut uses_default_features: bool,
+    uses_default_features: bool,
     enabled_features: &Vec<String>,
 ) -> Result<()> {
     let default_features = package.features.get("default").cloned().unwrap_or(vec![]);
@@ -31,7 +31,6 @@ pub fn set_features(
     let features = package
         .features
         .iter()
-        .filter(|(name, _)| name != &"default")
         .map(|(feature, sub_features)| {
             (
                 feature.to_string(),
@@ -41,14 +40,6 @@ pub fn set_features(
                         .map(|name| SubFeature {
                             name: name.to_string(),
                             kind: name.as_str().into(),
-                        })
-                        .filter(|sub_feature| {
-                            if sub_feature.name == "default" {
-                                uses_default_features = true;
-                                false
-                            } else {
-                                true
-                            }
                         })
                         .filter(|sub_feature| sub_feature.kind != FeatureType::DependencyFeature)
                         .collect_vec(),

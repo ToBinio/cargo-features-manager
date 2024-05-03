@@ -65,7 +65,11 @@ impl Dependency {
     }
 
     pub fn get_features_filtered_view(&self, filter: &str) -> Vec<SelectorItem> {
-        let features: Vec<(&String, &FeatureData)> = self.features.iter().collect();
+        let features: Vec<(&String, &FeatureData)> = self
+            .features
+            .iter()
+            .filter(|feature| feature.0 != "default")
+            .collect();
 
         if filter.is_empty() {
             features
@@ -127,6 +131,7 @@ impl Dependency {
             .filter(|(_, data)| !can_use_default || !data.is_default)
             .filter(|(_, data)| data.enabled_state != EnabledState::Workspace)
             .map(|(name, _)| name.clone())
+            .filter(|name| name != "default")
             .filter(|name| self.get_currently_dependent_features(name).is_empty())
             .sorted()
             .collect()
