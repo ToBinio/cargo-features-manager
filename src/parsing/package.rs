@@ -4,9 +4,10 @@ use cargo_metadata::{CargoOpt, PackageId};
 
 use crate::parsing::workspace::parse_workspace;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
-use anyhow::{anyhow, Context};
+use color_eyre::Result;
 
 use crate::dependencies::{get_item_from_doc, get_path};
+use color_eyre::eyre::{eyre, ContextCompat};
 use std::collections::HashMap;
 
 pub struct Package {
@@ -16,7 +17,7 @@ pub struct Package {
     pub manifest_path: String,
 }
 
-pub fn get_packages() -> anyhow::Result<(Vec<Package>, Option<Package>)> {
+pub fn get_packages() -> Result<(Vec<Package>, Option<Package>)> {
     let metadata = cargo_metadata::MetadataCommand::new()
         .features(CargoOpt::AllFeatures)
         .exec()?;
@@ -31,7 +32,7 @@ pub fn get_packages() -> anyhow::Result<(Vec<Package>, Option<Package>)> {
         .workspace_members
         .iter()
         .map(|package| parse_package(package, &metadata_packages))
-        .collect::<anyhow::Result<Vec<Package>>>()?;
+        .collect::<Result<Vec<Package>>>()?;
 
     Ok((
         packages,
@@ -42,12 +43,12 @@ pub fn get_packages() -> anyhow::Result<(Vec<Package>, Option<Package>)> {
 pub fn parse_package(
     package: &PackageId,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
-) -> anyhow::Result<Package> {
+) -> Result<Package> {
     let package = packages.get(package).context("package not found")?;
 
     let toml_doc = toml_document_from_path(package.manifest_path.as_str())?;
 
-    let dependencies: anyhow::Result<Vec<Dependency>> = package
+    let dependencies: Result<Vec<Dependency>> = package
         .dependencies
         .iter()
         .map(|dep| parse_dependency(dep, packages, &toml_doc))
@@ -64,7 +65,7 @@ pub fn parse_dependency(
     dependency: &cargo_metadata::Dependency,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
     document: &toml_edit::Document,
-) -> anyhow::Result<Dependency> {
+) -> Result<Dependency> {
     let package = get_package_from_version(&dependency.name, &dependency.req, packages)?;
 
     let kind: DependencyType = dependency.kind.into();
@@ -78,14 +79,14 @@ pub fn parse_dependency(
     ))?;
 
     let dep = if let Some(name) = &dependency.rename {
-        deps.get(name).ok_or(anyhow!(
+        deps.get(name).ok_or(eyre!(
             "could not find - dep:{} - {} - {:?}",
             name,
             deps,
             kind
         ))?
     } else {
-        deps.get(&dependency.name).ok_or(anyhow!(
+        deps.get(&dependency.name).ok_or(eyre!(
             "could not find - dep:{} - {} - {:?}",
             dependency.name,
             deps,

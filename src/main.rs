@@ -5,7 +5,8 @@ use std::process::exit;
 
 use clap::{arg, CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use console::{style, Term};
+use color_eyre::Result;
+use console::Term;
 
 use crate::document::Document;
 use crate::prune::prune;
@@ -47,7 +48,9 @@ enum FeaturesSubCommands {
     },
 }
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let CargoCli::Features(args) = CargoCli::parse();
 
     if let Some(generator) = args.generator {
@@ -59,15 +62,13 @@ fn main() {
             cmd.get_name().to_string(),
             &mut io::stdout(),
         );
-        return;
+        return Ok(());
     }
 
-    if let Err(err) = run(args) {
-        print!("{} : {}", style("error").red().bold(), err);
-    }
+    run(args)
 }
 
-fn run(args: FeaturesArgs) -> anyhow::Result<()> {
+fn run(args: FeaturesArgs) -> Result<()> {
     let document = Document::new()?;
 
     if let Some(sub) = args.sub {

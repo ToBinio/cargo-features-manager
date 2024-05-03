@@ -1,8 +1,8 @@
+use color_eyre::eyre::{bail, eyre, ContextCompat, Error};
 use std::cmp::PartialEq;
 use std::fs;
 
-use anyhow::{anyhow, bail, Context};
-
+use color_eyre::Result;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 
@@ -21,7 +21,7 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn new() -> anyhow::Result<Document> {
+    pub fn new() -> Result<Document> {
         let (mut packages, workspace) = get_packages()?;
 
         if packages.len() == 1
@@ -52,7 +52,7 @@ impl Document {
         Ok(document)
     }
 
-    fn update_workspace_deps(&mut self) -> anyhow::Result<()> {
+    fn update_workspace_deps(&mut self) -> Result<()> {
         let Some(workspace_index) = self.workspace_index else {
             return Ok(());
         };
@@ -74,7 +74,7 @@ impl Document {
                     .dependencies
                     .iter()
                     .find(|workspace_dep| workspace_dep.name == dep.name)
-                    .ok_or(anyhow!("could not find workspace dep - {}", dep.get_name()))?;
+                    .ok_or(eyre!("could not find workspace dep - {}", dep.get_name()))?;
 
                 let enabled_workspace_features = workspace_dep
                     .features
@@ -106,10 +106,7 @@ impl Document {
         Ok(())
     }
 
-    pub fn get_package_names_filtered_view(
-        &self,
-        filter: &str,
-    ) -> anyhow::Result<Vec<SelectorItem>> {
+    pub fn get_package_names_filtered_view(&self, filter: &str) -> Result<Vec<SelectorItem>> {
         let matcher = SkimMatcherV2::default();
 
         let deps = self
@@ -143,14 +140,14 @@ impl Document {
         self.packages.iter().find(|pkg| pkg.name == package)
     }
 
-    pub fn get_deps(&self, package: &str) -> anyhow::Result<&Vec<Dependency>> {
+    pub fn get_deps(&self, package: &str) -> Result<&Vec<Dependency>> {
         Ok(&self
             .get_package(package)
             .context("package not found")?
             .dependencies)
     }
 
-    pub fn get_deps_mut(&mut self, package: &str) -> anyhow::Result<&mut Vec<Dependency>> {
+    pub fn get_deps_mut(&mut self, package: &str) -> Result<&mut Vec<Dependency>> {
         Ok(&mut self
             .packages
             .iter_mut()
@@ -159,11 +156,7 @@ impl Document {
             .dependencies)
     }
 
-    pub fn get_deps_filtered_view(
-        &self,
-        package: &str,
-        filter: &str,
-    ) -> anyhow::Result<Vec<SelectorItem>> {
+    pub fn get_deps_filtered_view(&self, package: &str, filter: &str) -> Result<Vec<SelectorItem>> {
         let matcher = SkimMatcherV2::default();
 
         let deps = self
@@ -182,7 +175,7 @@ impl Document {
         Ok(deps)
     }
 
-    pub fn get_dep(&self, package: &str, name: &str) -> anyhow::Result<&Dependency> {
+    pub fn get_dep(&self, package: &str, name: &str) -> Result<&Dependency> {
         let dep = self
             .get_deps(package)?
             .iter()
@@ -194,17 +187,17 @@ impl Document {
         }
     }
 
-    pub fn get_dep_index(&self, package: &str, name: &String) -> anyhow::Result<usize> {
+    pub fn get_dep_index(&self, package: &str, name: &String) -> Result<usize> {
         Ok(self
             .get_deps(package)?
             .iter()
             .enumerate()
             .find(|(_, dep)| dep.get_name() == *name)
-            .ok_or(anyhow!("dependency \"{}\" could not be found", name))?
+            .ok_or(eyre!("dependency \"{}\" could not be found", name))?
             .0)
     }
 
-    pub fn get_dep_mut(&mut self, package: &str, name: &str) -> anyhow::Result<&mut Dependency> {
+    pub fn get_dep_mut(&mut self, package: &str, name: &str) -> Result<&mut Dependency> {
         let dep = self
             .get_deps_mut(package)?
             .iter_mut()
@@ -216,18 +209,18 @@ impl Document {
         }
     }
 
-    pub fn write_dep(&mut self, package: &str, name: &str) -> anyhow::Result<()> {
+    pub fn write_dep(&mut self, package: &str, name: &str) -> Result<()> {
         let (index, _) = self
             .get_deps(package)?
             .iter()
             .enumerate()
             .find(|(_index, dep)| dep.get_name().eq(name))
-            .ok_or(anyhow!("could not find dependency with name {}", name))?;
+            .ok_or(eyre!("could not find dependency with name {}", name))?;
 
         self.write_dep_raw(package, index)
     }
 
-    fn write_dep_raw(&mut self, package_name: &str, dep_index: usize) -> anyhow::Result<()> {
+    fn write_dep_raw(&mut self, package_name: &str, dep_index: usize) -> Result<()> {
         let package = self
             .packages
             .iter_mut()
@@ -335,7 +328,7 @@ impl Document {
             .get_package(package_name)
             .context("package not found")?;
 
-        fs::write(&package.manifest_path, doc.to_string()).map_err(anyhow::Error::from)
+        fs::write(&package.manifest_path, doc.to_string()).map_err(Error::from)
     }
     pub fn is_workspace(&self) -> bool {
         self.packages.len() > 1

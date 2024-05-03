@@ -1,5 +1,6 @@
 use crate::dependencies::dependency::Dependency;
-use anyhow::Context;
+use color_eyre::eyre::ContextCompat;
+use color_eyre::Result;
 use console::style;
 
 use crate::parsing::package::Package;
@@ -27,7 +28,7 @@ impl ScrollSelector {
         self.selected_index = selected_temp as usize;
     }
 
-    pub fn get_selected(&self) -> anyhow::Result<&SelectorItem> {
+    pub fn get_selected(&self) -> Result<&SelectorItem> {
         self.data
             .get(self.selected_index)
             .context("nothing selected")

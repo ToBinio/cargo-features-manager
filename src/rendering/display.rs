@@ -1,6 +1,7 @@
 use crate::dependencies::dependency::EnabledState;
-use anyhow::Context;
 
+use color_eyre::eyre::{Context, ContextCompat};
+use color_eyre::Result;
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
 use std::ops::{Not, Range};
@@ -24,7 +25,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new(document: Document) -> anyhow::Result<Display> {
+    pub fn new(document: Document) -> Result<Display> {
         Ok(Display {
             term: Term::buffered_stdout(),
             package_selector: ScrollSelector {
@@ -52,7 +53,7 @@ impl Display {
         })
     }
 
-    fn select_selected_package(&mut self) -> anyhow::Result<()> {
+    fn select_selected_package(&mut self) -> Result<()> {
         self.state = DisplayState::Dep;
 
         // update selector
@@ -63,7 +64,7 @@ impl Display {
         Ok(())
     }
 
-    pub fn set_selected_dep(&mut self, dep_name: String) -> anyhow::Result<()> {
+    pub fn set_selected_dep(&mut self, dep_name: String) -> Result<()> {
         match self
             .document
             .get_dep_index(self.package_selector.get_selected()?.name(), &dep_name)
@@ -78,7 +79,7 @@ impl Display {
         }
     }
 
-    fn select_selected_dep(&mut self) -> anyhow::Result<()> {
+    fn select_selected_dep(&mut self) -> Result<()> {
         self.state = DisplayState::Feature;
 
         let dep = self.document.get_dep(
@@ -92,7 +93,7 @@ impl Display {
         Ok(())
     }
 
-    pub fn start(&mut self) -> anyhow::Result<()> {
+    pub fn start(&mut self) -> Result<()> {
         //setup
         self.term.hide_cursor()?;
 
@@ -125,7 +126,7 @@ impl Display {
         Ok(())
     }
 
-    fn display_packages(&mut self) -> anyhow::Result<()> {
+    fn display_packages(&mut self) -> Result<()> {
         write!(self.term, "Packages")?;
         self.display_search_header()?;
 
@@ -150,7 +151,7 @@ impl Display {
         Ok(())
     }
 
-    fn display_deps(&mut self) -> anyhow::Result<()> {
+    fn display_deps(&mut self) -> Result<()> {
         write!(self.term, "Dependencies")?;
         self.display_search_header()?;
 
@@ -176,7 +177,7 @@ impl Display {
         Ok(())
     }
 
-    fn display_features(&mut self) -> anyhow::Result<()> {
+    fn display_features(&mut self) -> Result<()> {
         let dep = self
             .document
             .get_dep(
@@ -273,7 +274,7 @@ impl Display {
         Ok(())
     }
 
-    fn display_search_header(&mut self) -> anyhow::Result<()> {
+    fn display_search_header(&mut self) -> Result<()> {
         if !self.search_text.is_empty() {
             write!(self.term, " - {}", self.search_text)?;
         }
@@ -281,7 +282,7 @@ impl Display {
         Ok(())
     }
 
-    fn input_event(&mut self) -> anyhow::Result<RunningState> {
+    fn input_event(&mut self) -> Result<RunningState> {
         match (self.term.read_key()?, &self.state) {
             //movement
             //up
@@ -402,7 +403,7 @@ impl Display {
         Ok(RunningState::Running)
     }
 
-    fn get_max_range(&self) -> anyhow::Result<Range<usize>> {
+    fn get_max_range(&self) -> Result<Range<usize>> {
         let current_selected = match self.state {
             DisplayState::Dep => self.dep_selector.selected_index,
             DisplayState::Feature => self.feature_selector.selected_index,
@@ -444,7 +445,7 @@ impl Display {
         Ok(start..max_range.min(start + height - 1 - offset))
     }
 
-    fn update_selected_data(&mut self) -> anyhow::Result<()> {
+    fn update_selected_data(&mut self) -> Result<()> {
         match self.state {
             DisplayState::Package => {
                 self.package_selector.data = self
@@ -470,7 +471,7 @@ impl Display {
         Ok(())
     }
 
-    fn move_back(&mut self) -> anyhow::Result<RunningState> {
+    fn move_back(&mut self) -> Result<RunningState> {
         match self.state {
             DisplayState::Package => Ok(RunningState::Finished),
             DisplayState::Dep => {

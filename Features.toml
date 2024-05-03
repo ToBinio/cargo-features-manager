@@ -1,1 +1,2 @@
 clap = ["color", "error-context", "help", "suggestions", "usage"]
+anyhow = ["backtrace"]

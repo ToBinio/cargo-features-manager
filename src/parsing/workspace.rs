@@ -1,8 +1,9 @@
 use crate::dependencies::dependency::{Dependency, DependencyType};
 use crate::parsing::package::Package;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
-use anyhow::anyhow;
 use cargo_metadata::PackageId;
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use console::Emoji;
 use semver::VersionReq;
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ use toml_edit::Item;
 pub fn parse_workspace(
     path: &str,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
-) -> anyhow::Result<Option<Package>> {
+) -> Result<Option<Package>> {
     let path = format!("{}/Cargo.toml", path);
 
     let document = toml_document_from_path(&path)?;
@@ -23,11 +24,11 @@ pub fn parse_workspace(
         return Ok(None);
     };
 
-    let dependencies_table = dependencies.as_table_like().ok_or(anyhow!(
+    let dependencies_table = dependencies.as_table_like().ok_or(eyre!(
         "failed to parse workspace.dependencies - not a table"
     ))?;
 
-    let dependencies: anyhow::Result<Vec<Dependency>> = dependencies_table
+    let dependencies: Result<Vec<Dependency>> = dependencies_table
         .iter()
         .map(|(name, data)| parse_dependency_from_item(packages, name, data))
         .collect();
@@ -45,7 +46,7 @@ fn parse_dependency_from_item(
     packages: &HashMap<PackageId, cargo_metadata::Package>,
     name: &str,
     data: &Item,
-) -> anyhow::Result<Dependency> {
+) -> Result<Dependency> {
     let mut version = "*";
     let mut enabled_features = vec![];
     let mut uses_default_features = true;
@@ -56,14 +57,14 @@ fn parse_dependency_from_item(
         if let Some(version_data) = data.get("version") {
             version = version_data
                 .as_str()
-                .ok_or(anyhow!("could not parse version"))?;
+                .ok_or(eyre!("could not parse version"))?;
         }
 
         //parse enabled features
         if let Some(features) = data.get("features") {
             let features = features
                 .as_array()
-                .ok_or(anyhow!("could not parse features"))?;
+                .ok_or(eyre!("could not parse features"))?;
 
             enabled_features = features
                 .iter()
@@ -76,19 +77,19 @@ fn parse_dependency_from_item(
         if let Some(uses_default) = data.get("default-features") {
             let uses_default = uses_default
                 .as_bool()
-                .ok_or(anyhow!("could not parse default-features"))?;
+                .ok_or(eyre!("could not parse default-features"))?;
 
             uses_default_features = uses_default;
         }
 
         //parse rename - package
         if let Some(package) = data.get("package") {
-            let package = package.as_str().ok_or(anyhow!("could not parse package"))?;
+            let package = package.as_str().ok_or(eyre!("could not parse package"))?;
 
             rename = Some(package.to_string());
         }
     } else {
-        version = data.as_str().ok_or(anyhow!("could not parse version"))?;
+        version = data.as_str().ok_or(eyre!("could not parse version"))?;
     }
 
     let mut dependency = Dependency {

@@ -1,7 +1,8 @@
 use crate::rendering::scroll_selector::SelectorItem;
-use anyhow::{anyhow, Context};
 use cargo_metadata::DependencyKind;
 use cargo_platform::Platform;
+use color_eyre::eyre::{eyre, ContextCompat};
+use color_eyre::Result;
 use console::{style, Emoji};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
@@ -9,6 +10,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+#[derive(Debug)]
 pub struct Dependency {
     pub name: String,
     pub rename: Option<String>,
@@ -130,7 +132,7 @@ impl Dependency {
             .collect()
     }
 
-    pub fn toggle_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
+    pub fn toggle_feature(&mut self, feature_name: &str) -> Result<()> {
         let data = self
             .features
             .get(feature_name)
@@ -147,22 +149,24 @@ impl Dependency {
         Ok(())
     }
 
-    pub fn set_feature_to_workspace(&mut self, feature_name: &str) -> anyhow::Result<()> {
-        let data = self
-            .features
-            .get_mut(feature_name)
-            .ok_or(anyhow!("couldnt find package {}", feature_name))?;
+    pub fn set_feature_to_workspace(&mut self, feature_name: &str) -> Result<()> {
+        let data = self.features.get_mut(feature_name).ok_or(eyre!(
+            "couldnt find feature {} trying to set as workspace feature for {}",
+            feature_name,
+            self.name
+        ))?;
 
         data.enabled_state = EnabledState::Workspace;
 
         Ok(())
     }
 
-    pub fn enable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
-        let data = self
-            .features
-            .get_mut(feature_name)
-            .ok_or(anyhow!("couldnt find package {}", feature_name))?;
+    pub fn enable_feature(&mut self, feature_name: &str) -> Result<()> {
+        let data = self.features.get_mut(feature_name).ok_or(eyre!(
+            "couldnt find feature {} trying to enable for {}",
+            feature_name,
+            self.name
+        ))?;
 
         if data.is_enabled() {
             //early return to prevent loop
@@ -186,7 +190,7 @@ impl Dependency {
         Ok(())
     }
 
-    pub fn disable_feature(&mut self, feature_name: &str) -> anyhow::Result<()> {
+    pub fn disable_feature(&mut self, feature_name: &str) -> Result<()> {
         let data = self
             .features
             .get_mut(feature_name)

@@ -14,7 +14,7 @@ rust-version = "1.64.0"
 include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
-anyhow = "1.0.80"
+color-eyre = "0.6.3"
 cargo-platform = "0.1.8"
 cargo_metadata = "0.18.1"
 clap = { version = "4.5.1", features = ["color", "derive", "error-context", "help", "suggestions", "usage"], default-features = false }

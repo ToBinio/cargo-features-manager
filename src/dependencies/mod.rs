@@ -1,5 +1,5 @@
 use crate::dependencies::dependency::DependencyType;
-use anyhow::{anyhow, bail, Context};
+use color_eyre::eyre::{bail, eyre, ContextCompat, Result};
 
 use cargo_platform::Platform;
 
@@ -29,7 +29,7 @@ pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
 pub fn get_mut_item_from_doc<'a>(
     path: &str,
     document: &'a mut toml_edit::Document,
-) -> anyhow::Result<&'a mut toml_edit::Item> {
+) -> Result<&'a mut toml_edit::Item> {
     let mut item = document.as_item_mut();
 
     let mut is_target = false;
@@ -42,7 +42,7 @@ pub fn get_mut_item_from_doc<'a>(
 
             let table = item
                 .as_table_like_mut()
-                .context(anyhow!("could not find - {} - no table", path))?;
+                .context(eyre!("could not find - {} - no table", path))?;
 
             for (key, next_item) in table.iter_mut() {
                 let platform =
@@ -59,7 +59,7 @@ pub fn get_mut_item_from_doc<'a>(
 
         item = item
             .get_mut(key)
-            .context(anyhow!("could not find - {}", path))?;
+            .context(eyre!("could not find - {}", path))?;
 
         if key == "target" {
             is_target = true;
@@ -72,7 +72,7 @@ pub fn get_mut_item_from_doc<'a>(
 pub fn get_item_from_doc<'a>(
     path: &str,
     document: &'a toml_edit::Document,
-) -> anyhow::Result<&'a toml_edit::Item> {
+) -> Result<&'a toml_edit::Item> {
     let mut item = document.as_item();
 
     let mut is_target = false;
@@ -85,7 +85,7 @@ pub fn get_item_from_doc<'a>(
 
             let table = item
                 .as_table()
-                .context(anyhow!("could not find - {} - no table", path))?;
+                .context(eyre!("could not find - {} - no table", path))?;
 
             for (key, next_item) in table.iter() {
                 let platform =
@@ -100,9 +100,7 @@ pub fn get_item_from_doc<'a>(
             bail!("could not find - {} - no table", path)
         }
 
-        item = item
-            .get(key)
-            .context(anyhow!("could not find - {}", path))?;
+        item = item.get(key).context(eyre!("could not find - {}", path))?;
 
         if key == "target" {
             is_target = true;

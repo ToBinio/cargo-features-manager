@@ -1,5 +1,5 @@
 use crate::document::Document;
-use anyhow::{anyhow, Context};
+use color_eyre::Result;
 use std::collections::HashMap;
 use std::fs;
 
@@ -8,10 +8,11 @@ use std::io::Write;
 use std::ops::Not;
 use std::path::Path;
 
+use color_eyre::eyre::{eyre, ContextCompat};
 use std::process::{Command, Stdio};
 use toml::Table;
 
-pub fn prune(mut document: Document, is_dry_run: bool) -> anyhow::Result<()> {
+pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
     let mut term = Term::stdout();
 
     let ignored_features = get_ignored_features("./")?;
@@ -49,7 +50,7 @@ fn prune_package(
     package_name: &str,
     inset: usize,
     base_ignored: &HashMap<String, Vec<String>>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let deps = document
         .get_deps(package_name)?
         .iter()
@@ -163,7 +164,7 @@ fn prune_package(
     Ok(())
 }
 
-fn check() -> anyhow::Result<bool> {
+fn check() -> Result<bool> {
     if !build()? {
         return Ok(false);
     }
@@ -175,7 +176,7 @@ fn check() -> anyhow::Result<bool> {
     Ok(true)
 }
 
-fn build() -> anyhow::Result<bool> {
+fn build() -> Result<bool> {
     let mut child = Command::new("cargo")
         .arg("build")
         .arg("--all-targets")
@@ -183,26 +184,24 @@ fn build() -> anyhow::Result<bool> {
         .stderr(Stdio::null())
         .spawn()?;
 
-    let code = child.wait()?.code().ok_or(anyhow!("Could not build"))?;
+    let code = child.wait()?.code().ok_or(eyre!("Could not build"))?;
 
     Ok(code == 0)
 }
 
-fn test() -> anyhow::Result<bool> {
+fn test() -> Result<bool> {
     let mut child = Command::new("cargo")
         .arg("test")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()?;
 
-    let code = child.wait()?.code().ok_or(anyhow!("Could not test"))?;
+    let code = child.wait()?.code().ok_or(eyre!("Could not test"))?;
 
     Ok(code == 0)
 }
 
-fn get_ignored_features<P: AsRef<Path>>(
-    base_path: P,
-) -> anyhow::Result<HashMap<String, Vec<String>>> {
+fn get_ignored_features<P: AsRef<Path>>(base_path: P) -> Result<HashMap<String, Vec<String>>> {
     let result = fs::read_to_string(base_path.as_ref().join("Features.toml"));
 
     match result {
@@ -216,7 +215,7 @@ fn get_ignored_features<P: AsRef<Path>>(
                     key,
                     value
                         .as_array()
-                        .ok_or(anyhow!("Invalid Features.toml format"))?
+                        .ok_or(eyre!("Invalid Features.toml format"))?
                         .iter()
                         .to_owned()
                         .filter_map(|value| value.as_str())
