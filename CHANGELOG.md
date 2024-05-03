@@ -1,5 +1,7 @@
 ## unreleased
-
+* use `color-eyre` instead of `anyhow`
+* handle unused workspace dependencies
+* allow `default` to be a sub_feature
 * sort dependencies and packages alphabetically if no filter is set 
 
 ## 0.7.1
