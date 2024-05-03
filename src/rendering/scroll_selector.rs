@@ -57,18 +57,16 @@ impl SelectorItem {
     }
 
     pub fn from_dependency(dep: &Dependency, highlighted_letters: Vec<usize>) -> Self {
-        let display_name =
+        let mut display_name =
             highlight_search(&dep.get_name(), &highlighted_letters, !dep.has_features());
 
-        let display_name = if let Some(rename) = &dep.rename {
-            format!(
-                "{} {}",
-                display_name,
-                style(format!("({})", rename)).color256(8)
-            )
-        } else {
-            display_name
-        };
+        if let Some(rename) = &dep.rename {
+            display_name.push_str(&style(format!(" ({})", rename)).color256(8).to_string());
+        }
+
+        if let Some(comment) = &dep.comment {
+            display_name.push_str(&style(format!(" ({})", comment)).color256(8).to_string());
+        }
 
         Self {
             name: dep.get_name(),

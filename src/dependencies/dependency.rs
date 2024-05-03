@@ -14,6 +14,7 @@ use std::fmt::{Display, Formatter};
 pub struct Dependency {
     pub name: String,
     pub rename: Option<String>,
+    pub comment: Option<String>,
     pub version: String,
 
     pub workspace: bool,

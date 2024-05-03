@@ -95,6 +95,7 @@ fn parse_dependency_from_item(
     let mut dependency = Dependency {
         name: name.to_string(),
         rename,
+        comment: None,
         version: version.to_string(),
         workspace: false,
         kind: DependencyType::Workspace,
@@ -102,14 +103,16 @@ fn parse_dependency_from_item(
         features: Default::default(),
     };
 
-    let package = get_package_from_version(name, &VersionReq::parse(version)?, packages)?;
-
-    set_features(
-        &mut dependency,
-        package,
-        uses_default_features,
-        &enabled_features,
-    )?;
+    if let Ok(package) = get_package_from_version(name, &VersionReq::parse(version)?, packages) {
+        set_features(
+            &mut dependency,
+            package,
+            uses_default_features,
+            &enabled_features,
+        )?;
+    } else {
+        dependency.comment = Some("unused".to_string());
+    }
 
     Ok(dependency)
 }

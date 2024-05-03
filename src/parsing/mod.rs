@@ -2,7 +2,7 @@ use crate::dependencies::dependency::{
     Dependency, EnabledState, FeatureData, FeatureType, SubFeature,
 };
 use cargo_metadata::PackageId;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{ContextCompat, eyre};
 use color_eyre::Result;
 use itertools::Itertools;
 use semver::VersionReq;
@@ -74,10 +74,10 @@ pub fn get_package_from_version<'a>(
     version_req: &VersionReq,
     packages: &'a HashMap<PackageId, cargo_metadata::Package>,
 ) -> Result<&'a cargo_metadata::Package> {
-    Ok(packages
+    packages
         .iter()
         .map(|(_, package)| package)
         .filter(|package| package.name == name)
         .find(|package| version_req.matches(&package.version) || version_req.to_string() == "*")
-        .unwrap_or_else(|| panic!("could not find version for {} {}", name, version_req)))
+        .context( format!("could not find version for {} {}", name, version_req))
 }

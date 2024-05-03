@@ -112,6 +112,7 @@ pub fn parse_dependency(
         kind,
         workspace,
         features: HashMap::new(),
+        comment: None,
     };
 
     set_features(
