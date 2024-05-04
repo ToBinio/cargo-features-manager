@@ -64,7 +64,7 @@ pub fn parse_package(
 pub fn parse_dependency(
     dependency: &cargo_metadata::Dependency,
     packages: &HashMap<PackageId, cargo_metadata::Package>,
-    document: &toml_edit::Document,
+    document: &toml_edit::DocumentMut,
 ) -> Result<Dependency> {
     let package = get_package_from_version(&dependency.name, &dependency.req, packages)?;
 

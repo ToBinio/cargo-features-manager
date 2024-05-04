@@ -13,7 +13,7 @@ use std::path::Path;
 pub mod package;
 pub mod workspace;
 
-pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> Result<toml_edit::Document> {
+pub fn toml_document_from_path<P: AsRef<Path>>(dir_path: P) -> Result<toml_edit::DocumentMut> {
     let file_content = fs::read_to_string(&dir_path)
         .map_err(|_| eyre!("could not find Cargo.toml at {:?}", dir_path.as_ref()))?;
 

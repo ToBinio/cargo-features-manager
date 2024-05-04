@@ -28,7 +28,7 @@ pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
 
 pub fn get_mut_item_from_doc<'a>(
     path: &str,
-    document: &'a mut toml_edit::Document,
+    document: &'a mut toml_edit::DocumentMut,
 ) -> Result<&'a mut toml_edit::Item> {
     let mut item = document.as_item_mut();
 
@@ -71,7 +71,7 @@ pub fn get_mut_item_from_doc<'a>(
 
 pub fn get_item_from_doc<'a>(
     path: &str,
-    document: &'a toml_edit::Document,
+    document: &'a toml_edit::DocumentMut,
 ) -> Result<&'a toml_edit::Item> {
     let mut item = document.as_item();
 
