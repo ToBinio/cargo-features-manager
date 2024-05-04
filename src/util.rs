@@ -1,8 +1,8 @@
-use color_eyre::eyre::{bail, ContextCompat, eyre};
+use cargo_platform::Platform;
+use color_eyre::eyre::{bail, eyre, ContextCompat};
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use cargo_platform::Platform;
 
 pub fn toml_document_from_path<P: AsRef<Path>>(
     dir_path: P,
@@ -12,7 +12,6 @@ pub fn toml_document_from_path<P: AsRef<Path>>(
 
     Ok(file_content.parse()?)
 }
-
 
 pub fn get_mut_item_from_doc<'a>(
     path: &str,

@@ -103,7 +103,7 @@ fn remove_feature(feature: &String, features: &mut Vec<String>, dependency: &Dep
 
     features.remove(index);
 
-    if let Some(feature) = dependency.get_feature(&feature) {
+    if let Some(feature) = dependency.get_feature(feature) {
         for sub_feature in &feature.sub_features {
             remove_feature(&sub_feature.name, features, dependency);
         }
@@ -149,7 +149,7 @@ fn prune_features(
 
         if document.is_workspace() {
             term.clear_line()?;
-            writeln!(term, "")?;
+            writeln!(term)?;
             writeln!(
                 term,
                 "{:package_inset$}{} [{}/{}]",
@@ -345,7 +345,7 @@ fn get_ignored_features<P: AsRef<Path>>(
 
     match result {
         Ok(document) => {
-            let item = get_item_from_doc(&item_path, &document);
+            let item = get_item_from_doc(item_path, &document);
 
             let Ok(item) = item else {
                 return Ok(HashMap::new());
