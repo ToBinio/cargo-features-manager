@@ -3,7 +3,6 @@ use std::cmp::PartialEq;
 use std::fs;
 
 use color_eyre::Result;
-use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
@@ -13,7 +12,6 @@ use crate::project::dependency::feature::EnabledState;
 use crate::project::dependency::util::{get_mut_item_from_doc, get_path};
 use crate::project::package::Package;
 
-use crate::rendering::scroll_selector::SelectorItem;
 use crate::util::toml_document_from_path;
 
 pub struct Document {
@@ -107,30 +105,8 @@ impl Document {
         Ok(())
     }
 
-    pub fn get_package_names_filtered_view(&self, filter: &str) -> Result<Vec<SelectorItem>> {
-        let packages = if filter.is_empty() {
-            self.packages
-                .iter()
-                .sorted_by(|package_a, package_b| package_a.name.cmp(&package_b.name))
-                .map(|package| SelectorItem::from_package(package, vec![]))
-                .collect()
-        } else {
-            let matcher = SkimMatcherV2::default();
-
-            self.packages
-                .iter()
-                .filter_map(|package| {
-                    matcher
-                        .fuzzy(&package.name, filter, true)
-                        .map(|fuzzy_result| (package, fuzzy_result))
-                })
-                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(package, fuzzy)| (package, fuzzy.1))
-                .map(|(package, indexes)| SelectorItem::from_package(package, indexes))
-                .collect()
-        };
-
-        Ok(packages)
+    pub fn get_packages(&self) -> &Vec<Package> {
+        &self.packages
     }
 
     pub fn get_packages_names(&self) -> Vec<String> {

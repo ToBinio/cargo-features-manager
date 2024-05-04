@@ -1,21 +1,20 @@
 use crate::project::dependency::feature::EnabledState;
 use crate::project::document::Document;
+use crate::rendering::filter_view::FilterView;
 use color_eyre::eyre::{Context, ContextCompat};
 use color_eyre::Result;
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
 use std::ops::{Not, Range};
 
-use crate::rendering::scroll_selector::ScrollSelector;
-
 pub struct Display {
     term: Term,
 
     document: Document,
 
-    package_selector: ScrollSelector,
-    dep_selector: ScrollSelector,
-    feature_selector: ScrollSelector,
+    package_selector: FilterView,
+    dep_selector: FilterView,
+    feature_selector: FilterView,
 
     state: DisplayState,
 
@@ -26,15 +25,15 @@ impl Display {
     pub fn new(document: Document) -> Result<Display> {
         Ok(Display {
             term: Term::buffered_stdout(),
-            package_selector: ScrollSelector {
+            package_selector: FilterView {
                 selected_index: 0,
-                data: document.get_package_names_filtered_view("")?,
+                data: FilterView::data_from_document(&document, "")?,
             },
-            dep_selector: ScrollSelector {
+            dep_selector: FilterView {
                 selected_index: 0,
-                data: document.get_package_by_id(0)?.get_deps_filtered_view("")?,
+                data: FilterView::data_from_package(document.get_package_by_id(0)?, "")?,
             },
-            feature_selector: ScrollSelector {
+            feature_selector: FilterView {
                 selected_index: 0,
                 data: vec![],
             },
@@ -52,10 +51,11 @@ impl Display {
         self.state = DisplayState::Dep;
 
         // update selector
-        self.dep_selector.data = self
-            .document
-            .get_package(self.package_selector.get_selected()?.name())?
-            .get_deps_filtered_view("")?;
+        self.dep_selector.data = FilterView::data_from_package(
+            self.document
+                .get_package(self.package_selector.get_selected()?.name())?,
+            "",
+        )?;
 
         Ok(())
     }
@@ -85,7 +85,7 @@ impl Display {
             .get_dep(self.dep_selector.get_selected()?.name())?;
 
         // update selector
-        self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
+        self.feature_selector.data = FilterView::data_from_dependency(dep, &self.search_text);
 
         Ok(())
     }
@@ -440,15 +440,15 @@ impl Display {
     fn update_selected_data(&mut self) -> Result<()> {
         match self.state {
             DisplayState::Package => {
-                self.package_selector.data = self
-                    .document
-                    .get_package_names_filtered_view(&self.search_text)?;
+                self.package_selector.data =
+                    FilterView::data_from_document(&self.document, &self.search_text)?;
             }
             DisplayState::Dep => {
-                self.dep_selector.data = self
+                let package = self
                     .document
-                    .get_package(self.package_selector.get_selected()?.name())?
-                    .get_deps_filtered_view(&self.search_text)?;
+                    .get_package(self.package_selector.get_selected()?.name())?;
+
+                self.dep_selector.data = FilterView::data_from_package(package, &self.search_text)?;
             }
             DisplayState::Feature => {
                 let dep = self
@@ -456,7 +456,7 @@ impl Display {
                     .get_package(self.package_selector.get_selected()?.name())?
                     .get_dep(self.dep_selector.get_selected()?.name())?;
 
-                self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
+                self.dep_selector.data = FilterView::data_from_dependency(dep, &self.search_text);
             }
         }
 

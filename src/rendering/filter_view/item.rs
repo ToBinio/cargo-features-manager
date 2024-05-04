@@ -1,50 +1,14 @@
-use color_eyre::eyre::ContextCompat;
-use color_eyre::Result;
-use console::style;
-
 use crate::project::dependency::Dependency;
 use crate::project::package::Package;
 use crate::rendering::search::highlight_search;
+use console::style;
 
-pub struct ScrollSelector {
-    pub selected_index: usize,
-    pub data: Vec<SelectorItem>,
-}
-
-impl ScrollSelector {
-    pub fn shift(&mut self, shift: isize) {
-        if !self.has_data() {
-            self.selected_index = 0;
-            return;
-        }
-
-        let mut selected_temp = self.selected_index as isize;
-
-        selected_temp += self.data.len() as isize;
-        selected_temp += shift;
-
-        selected_temp %= self.data.len() as isize;
-
-        self.selected_index = selected_temp as usize;
-    }
-
-    pub fn get_selected(&self) -> Result<&SelectorItem> {
-        self.data
-            .get(self.selected_index)
-            .context("nothing selected")
-    }
-
-    pub fn has_data(&self) -> bool {
-        !self.data.is_empty()
-    }
-}
-
-pub struct SelectorItem {
+pub struct FilterViewItem {
     name: String,
     display_name: String,
 }
 
-impl SelectorItem {
+impl FilterViewItem {
     pub fn from_package(dep: &Package, highlighted_letters: Vec<usize>) -> Self {
         Self {
             name: dep.name.to_string(),

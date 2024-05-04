@@ -1,8 +1,5 @@
 use crate::project::dependency::Dependency;
-use crate::rendering::scroll_selector::SelectorItem;
 use color_eyre::eyre::{bail, eyre};
-use fuzzy_matcher::skim::SkimMatcherV2;
-use itertools::Itertools;
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
@@ -14,33 +11,6 @@ pub struct Package {
 impl Package {
     pub fn get_deps(&self) -> &Vec<Dependency> {
         &self.dependencies
-    }
-
-    //todo in rendering function
-    pub fn get_deps_filtered_view(&self, filter: &str) -> color_eyre::Result<Vec<SelectorItem>> {
-        let deps = if filter.is_empty() {
-            self.dependencies
-                .iter()
-                .sorted_by(|dependency_a, dependency_b| dependency_a.name.cmp(&dependency_b.name))
-                .map(|dependency| SelectorItem::from_dependency(dependency, vec![]))
-                .collect()
-        } else {
-            let matcher = SkimMatcherV2::default();
-
-            self.dependencies
-                .iter()
-                .filter_map(|dependency| {
-                    matcher
-                        .fuzzy(&dependency.get_name(), filter, true)
-                        .map(|fuzzy_result| (dependency, fuzzy_result))
-                })
-                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
-                .map(|(dependency, indexes)| SelectorItem::from_dependency(dependency, indexes))
-                .collect()
-        };
-
-        Ok(deps)
     }
 
     pub fn get_dep(&self, name: &str) -> color_eyre::Result<&Dependency> {

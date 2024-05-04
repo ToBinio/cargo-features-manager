@@ -1,14 +1,11 @@
 use color_eyre::eyre::{eyre, ContextCompat, Result};
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use cargo_platform::Platform;
 
 use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeatureType};
-use crate::rendering::scroll_selector::SelectorItem;
 use cargo_metadata::DependencyKind;
 use console::{style, Emoji};
-use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 
 pub mod feature;
@@ -67,40 +64,6 @@ impl Dependency {
 
     pub fn get_version(&self) -> String {
         self.version.to_string()
-    }
-
-    //todo move to something in rendering
-    pub fn get_features_filtered_view(&self, filter: &str) -> Vec<SelectorItem> {
-        let features = self
-            .features
-            .iter()
-            .filter(|feature| feature.0 != "default");
-
-        if filter.is_empty() {
-            features
-                .sorted_by(|(name_a, data_a), (name_b, data_b)| {
-                    if data_a.is_default && !data_b.is_default {
-                        return Ordering::Less;
-                    }
-
-                    if data_b.is_default && !data_a.is_default {
-                        return Ordering::Greater;
-                    }
-
-                    name_a.cmp(name_b)
-                })
-                .map(|(name, _)| SelectorItem::from_feature(name, vec![]))
-                .collect()
-        } else {
-            let matcher = SkimMatcherV2::default();
-
-            features
-                .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
-                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(name, fuzzy)| (name, fuzzy.1))
-                .map(|(name, indexes)| SelectorItem::from_feature(name, indexes))
-                .collect()
-        }
     }
 
     pub fn get_feature(&self, feature_name: &str) -> Option<&FeatureData> {
