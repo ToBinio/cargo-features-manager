@@ -1,7 +1,5 @@
 use crate::parsing::package::get_package_from_version;
-use crate::project::dependency::feature::{
-    EnabledState, FeatureData, SubFeature, SubFeatureType,
-};
+use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeature, SubFeatureType};
 use crate::project::dependency::util::{get_item_from_doc, get_path};
 use crate::project::dependency::{Dependency, DependencyType};
 use cargo_metadata::PackageId;

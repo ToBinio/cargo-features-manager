@@ -1,12 +1,12 @@
+use crate::parsing::dependency::parse_dependency_from_item;
+use crate::project::dependency::Dependency;
+use crate::project::package::Package;
+use crate::util::toml_document_from_path;
 use cargo_metadata::PackageId;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use console::Emoji;
 use std::collections::HashMap;
-use crate::parsing::dependency::parse_dependency_from_item;
-use crate::project::dependency::Dependency;
-use crate::project::package::Package;
-use crate::util::toml_document_from_path;
 
 pub fn parse_workspace(
     path: &str,
