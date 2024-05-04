@@ -8,13 +8,13 @@ use itertools::Itertools;
 
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::parsing::package::{get_packages, Package};
-use crate::parsing::toml_document_from_path;
-use crate::project::dependencies::feature::EnabledState;
-use crate::project::dependencies::util::{get_mut_item_from_doc, get_path};
-use crate::project::dependencies::Dependency;
+use crate::parsing::package::get_packages;
+use crate::project::dependency::feature::EnabledState;
+use crate::project::dependency::util::{get_mut_item_from_doc, get_path};
+use crate::project::package::Package;
 
 use crate::rendering::scroll_selector::SelectorItem;
+use crate::util::toml_document_from_path;
 
 pub struct Document {
     packages: Vec<Package>,
@@ -28,11 +28,11 @@ impl Document {
         if packages.len() == 1
             && packages
                 .first()
-                .expect("no package found")
+                .context("no package found")?
                 .dependencies
                 .is_empty()
         {
-            bail!("no dependencies were found")
+            bail!("no dependency were found")
         }
 
         let mut workspace_index = None;
@@ -140,93 +140,31 @@ impl Document {
             .collect()
     }
 
-    pub fn get_package_id(&self, package_id: usize) -> Option<&Package> {
-        self.packages.get(package_id)
+    pub fn get_package_by_id(&self, package_id: usize) -> Result<&Package> {
+        self.packages
+            .get(package_id)
+            .context(format!("no package for id {} found", package_id))
     }
 
-    pub fn get_package(&self, package: &str) -> Option<&Package> {
-        self.packages.iter().find(|pkg| pkg.name == package)
+    pub fn get_package(&self, package: &str) -> Result<&Package> {
+        self.packages
+            .iter()
+            .find(|pkg| pkg.name == package)
+            .context(format!("no package with name {} found", package))
     }
 
-    pub fn get_deps(&self, package: &str) -> Result<&Vec<Dependency>> {
-        Ok(&self
-            .get_package(package)
-            .context("package not found")?
-            .dependencies)
-    }
-
-    pub fn get_deps_mut(&mut self, package: &str) -> Result<&mut Vec<Dependency>> {
-        Ok(&mut self
-            .packages
+    pub fn get_package_mut(&mut self, package: &str) -> Result<&mut Package> {
+        self.packages
             .iter_mut()
             .find(|pkg| pkg.name == package)
-            .context("package not found")?
-            .dependencies)
+            .context(format!("no package with name {} found", package))
     }
 
-    pub fn get_deps_filtered_view(&self, package: &str, filter: &str) -> Result<Vec<SelectorItem>> {
-        let deps = if filter.is_empty() {
-            self.get_deps(package)?
-                .iter()
-                .sorted_by(|dependency_a, dependency_b| dependency_a.name.cmp(&dependency_b.name))
-                .map(|dependency| SelectorItem::from_dependency(dependency, vec![]))
-                .collect()
-        } else {
-            let matcher = SkimMatcherV2::default();
-
-            self.get_deps(package)?
-                .iter()
-                .filter_map(|dependency| {
-                    matcher
-                        .fuzzy(&dependency.get_name(), filter, true)
-                        .map(|fuzzy_result| (dependency, fuzzy_result))
-                })
-                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(dependency, fuzzy)| (dependency, fuzzy.1))
-                .map(|(dependency, indexes)| SelectorItem::from_dependency(dependency, indexes))
-                .collect()
-        };
-
-        Ok(deps)
-    }
-
-    pub fn get_dep(&self, package: &str, name: &str) -> Result<&Dependency> {
-        let dep = self
-            .get_deps(package)?
-            .iter()
-            .find(|dep| dep.get_name().eq(name));
-
-        match dep {
-            None => bail!("could not find dependency with name {}", name),
-            Some(some) => Ok(some),
-        }
-    }
-
-    pub fn get_dep_index(&self, package: &str, name: &String) -> Result<usize> {
-        Ok(self
-            .get_deps(package)?
-            .iter()
-            .enumerate()
-            .find(|(_, dep)| dep.get_name() == *name)
-            .ok_or(eyre!("dependency \"{}\" could not be found", name))?
-            .0)
-    }
-
-    pub fn get_dep_mut(&mut self, package: &str, name: &str) -> Result<&mut Dependency> {
-        let dep = self
-            .get_deps_mut(package)?
-            .iter_mut()
-            .find(|dep| dep.get_name().eq(name));
-
-        match dep {
-            None => bail!("could not find dependency with name {}", name),
-            Some(some) => Ok(some),
-        }
-    }
-
+    //todo extract writing
     pub fn write_dep(&mut self, package: &str, name: &str) -> Result<()> {
         let (index, _) = self
-            .get_deps(package)?
+            .get_package(package)?
+            .get_deps()
             .iter()
             .enumerate()
             .find(|(_index, dep)| dep.get_name().eq(name))
@@ -254,7 +192,7 @@ impl Document {
             get_mut_item_from_doc(&get_path(&dependency.kind, &dependency.target), &mut doc)?;
 
         let deps = deps.as_table_mut().context(format!(
-            "could not parse dependencies as a table - {}",
+            "could not parse dependency as a table - {}",
             package.name
         ))?;
 
@@ -331,17 +269,15 @@ impl Document {
 
         // update workspace deps
         if let Some(workspace_index) = self.workspace_index {
-            if let Some(workspace) = self.get_package_id(workspace_index) {
-                if workspace.name == package_name {
-                    self.update_workspace_deps()?;
-                }
+            let workspace = self.get_package_by_id(workspace_index)?;
+
+            if workspace.name == package_name {
+                self.update_workspace_deps()?;
             }
         }
 
         //write updates
-        let package = self
-            .get_package(package_name)
-            .context("package not found")?;
+        let package = self.get_package(package_name)?;
 
         fs::write(&package.manifest_path, doc.to_string()).map_err(Error::from)
     }

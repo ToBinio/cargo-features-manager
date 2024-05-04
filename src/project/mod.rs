@@ -1,2 +1,4 @@
-pub mod dependencies;
+pub mod dependency;
 pub mod document;
+
+pub mod package;

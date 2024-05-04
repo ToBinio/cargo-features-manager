@@ -1,15 +1,15 @@
-use crate::project::dependencies::DependencyType;
+use crate::project::dependency::DependencyType;
 use cargo_platform::Platform;
 use color_eyre::eyre::{bail, eyre, ContextCompat};
 use std::str::FromStr;
 
 pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
     let path = match kind {
-        DependencyType::Normal => "dependencies",
-        DependencyType::Development => "dev-dependencies",
-        DependencyType::Build => "build-dependencies",
-        DependencyType::Workspace => "workspace.dependencies",
-        DependencyType::Unknown => "dependencies",
+        DependencyType::Normal => "dependency",
+        DependencyType::Development => "dev-dependency",
+        DependencyType::Build => "build-dependency",
+        DependencyType::Workspace => "workspace.dependency",
+        DependencyType::Unknown => "dependency",
     };
 
     if let Some(target) = target {

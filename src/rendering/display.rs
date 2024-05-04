@@ -1,4 +1,4 @@
-use crate::project::dependencies::feature::EnabledState;
+use crate::project::dependency::feature::EnabledState;
 use crate::project::document::Document;
 use color_eyre::eyre::{Context, ContextCompat};
 use color_eyre::Result;
@@ -32,10 +32,7 @@ impl Display {
             },
             dep_selector: ScrollSelector {
                 selected_index: 0,
-                data: document.get_deps_filtered_view(
-                    &document.get_package_id(0).context("no package found")?.name,
-                    "",
-                )?,
+                data: document.get_package_by_id(0)?.get_deps_filtered_view("")?,
             },
             feature_selector: ScrollSelector {
                 selected_index: 0,
@@ -57,7 +54,8 @@ impl Display {
         // update selector
         self.dep_selector.data = self
             .document
-            .get_deps_filtered_view(self.package_selector.get_selected()?.name(), "")?;
+            .get_package(self.package_selector.get_selected()?.name())?
+            .get_deps_filtered_view("")?;
 
         Ok(())
     }
@@ -65,7 +63,8 @@ impl Display {
     pub fn set_selected_dep(&mut self, dep_name: String) -> Result<()> {
         match self
             .document
-            .get_dep_index(self.package_selector.get_selected()?.name(), &dep_name)
+            .get_package(self.package_selector.get_selected()?.name())?
+            .get_dep_index(&dep_name)
         {
             Ok(index) => {
                 self.dep_selector.selected_index = index;
@@ -80,10 +79,10 @@ impl Display {
     fn select_selected_dep(&mut self) -> Result<()> {
         self.state = DisplayState::Feature;
 
-        let dep = self.document.get_dep(
-            self.package_selector.get_selected()?.name(),
-            self.dep_selector.get_selected()?.name(),
-        )?;
+        let dep = self
+            .document
+            .get_package(self.package_selector.get_selected()?.name())?
+            .get_dep(self.dep_selector.get_selected()?.name())?;
 
         // update selector
         self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
@@ -178,10 +177,8 @@ impl Display {
     fn display_features(&mut self) -> Result<()> {
         let dep = self
             .document
-            .get_dep(
-                self.package_selector.get_selected()?.name(),
-                self.dep_selector.get_selected()?.name(),
-            )
+            .get_package(self.package_selector.get_selected()?.name())?
+            .get_dep(self.dep_selector.get_selected()?.name())
             .context(format!(
                 "couldn't find {}",
                 self.dep_selector.get_selected()?.name()
@@ -198,10 +195,8 @@ impl Display {
 
         let dep = self
             .document
-            .get_dep(
-                self.package_selector.get_selected()?.name(),
-                self.dep_selector.get_selected()?.name(),
-            )
+            .get_package(self.package_selector.get_selected()?.name())?
+            .get_dep(self.dep_selector.get_selected()?.name())
             .context(format!(
                 "could not find {}",
                 self.dep_selector.get_selected()?.name()
@@ -337,10 +332,8 @@ impl Display {
                 if self.dep_selector.has_data()
                     && self
                         .document
-                        .get_dep(
-                            self.package_selector.get_selected()?.name(),
-                            self.dep_selector.get_selected()?.name(),
-                        )?
+                        .get_package(self.package_selector.get_selected()?.name())?
+                        .get_dep(self.dep_selector.get_selected()?.name())?
                         .has_features()
                 {
                     self.search_text = "".to_string();
@@ -359,7 +352,8 @@ impl Display {
 
                     let dep = self
                         .document
-                        .get_dep_mut(self.package_selector.get_selected()?.name(), dep_name)?;
+                        .get_package_mut(self.package_selector.get_selected()?.name())?
+                        .get_dep_mut(dep_name)?;
 
                     dep.toggle_feature(self.feature_selector.get_selected()?.name())?;
 
@@ -418,10 +412,10 @@ impl Display {
 
         if let DisplayState::Feature = self.state {
             if self.feature_selector.has_data() {
-                let dep = self.document.get_dep(
-                    self.package_selector.get_selected()?.name(),
-                    self.dep_selector.get_selected()?.name(),
-                )?;
+                let dep = self
+                    .document
+                    .get_package(self.package_selector.get_selected()?.name())?
+                    .get_dep(self.dep_selector.get_selected()?.name())?;
 
                 let feature = self.feature_selector.get_selected()?;
                 let data = dep
@@ -451,16 +445,16 @@ impl Display {
                     .get_package_names_filtered_view(&self.search_text)?;
             }
             DisplayState::Dep => {
-                self.dep_selector.data = self.document.get_deps_filtered_view(
-                    self.package_selector.get_selected()?.name(),
-                    &self.search_text,
-                )?;
+                self.dep_selector.data = self
+                    .document
+                    .get_package(self.package_selector.get_selected()?.name())?
+                    .get_deps_filtered_view(&self.search_text)?;
             }
             DisplayState::Feature => {
-                let dep = self.document.get_dep(
-                    self.package_selector.get_selected()?.name(),
-                    self.dep_selector.get_selected()?.name(),
-                )?;
+                let dep = self
+                    .document
+                    .get_package(self.package_selector.get_selected()?.name())?
+                    .get_dep(self.dep_selector.get_selected()?.name())?;
 
                 self.feature_selector.data = dep.get_features_filtered_view(&self.search_text);
             }

@@ -8,7 +8,7 @@ use std::ops::Not;
 use std::path::Path;
 
 use crate::project::document::Document;
-use color_eyre::eyre::{eyre, ContextCompat};
+use color_eyre::eyre::eyre;
 use std::process::{Command, Stdio};
 use toml::Table;
 
@@ -52,21 +52,21 @@ fn prune_package(
     base_ignored: &HashMap<String, Vec<String>>,
 ) -> Result<()> {
     let deps = document
-        .get_deps(package_name)?
+        .get_package(package_name)?
+        .get_deps()
         .iter()
         .map(|dep| dep.get_name())
         .collect::<Vec<String>>();
 
     let ignored_features = get_ignored_features(
         document
-            .get_package(package_name)
-            .context("package not found")?
+            .get_package(package_name)?
             .manifest_path
             .trim_end_matches("/Cargo.toml"),
     )?;
 
     for name in deps.iter() {
-        let dependency = document.get_dep_mut(package_name, name)?;
+        let dependency = document.get_package_mut(package_name)?.get_dep_mut(name)?;
 
         let enabled_features = dependency
             .features
@@ -102,7 +102,8 @@ fn prune_package(
             writeln!(term, "{:inset$} └ {}", "", feature)?;
 
             document
-                .get_dep_mut(package_name, name)?
+                .get_package_mut(package_name)?
+                .get_dep_mut(name)?
                 .disable_feature(feature)?;
             document.write_dep(package_name, name)?;
 
@@ -113,7 +114,8 @@ fn prune_package(
             //reset to start
             for feature in &enabled_features {
                 document
-                    .get_dep_mut(package_name, name)?
+                    .get_package_mut(package_name)?
+                    .get_dep_mut(name)?
                     .enable_feature(feature)?;
             }
             document.write_dep(package_name, name)?;
@@ -154,7 +156,8 @@ fn prune_package(
         if to_be_disabled.is_empty().not() {
             for feature in to_be_disabled {
                 document
-                    .get_dep_mut(package_name, name)?
+                    .get_package_mut(package_name)?
+                    .get_dep_mut(name)?
                     .disable_feature(&feature)?;
             }
 

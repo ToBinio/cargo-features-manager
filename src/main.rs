@@ -17,6 +17,7 @@ mod rendering;
 
 mod parsing;
 mod project;
+mod util;
 
 #[derive(Parser)]
 #[command(name = "cargo")]

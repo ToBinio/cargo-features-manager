@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use cargo_platform::Platform;
 
-use crate::project::dependencies::feature::{EnabledState, FeatureData, SubFeatureType};
+use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeatureType};
 use crate::rendering::scroll_selector::SelectorItem;
 use cargo_metadata::DependencyKind;
 use console::{style, Emoji};
@@ -69,6 +69,7 @@ impl Dependency {
         self.version.to_string()
     }
 
+    //todo move to something in rendering
     pub fn get_features_filtered_view(&self, filter: &str) -> Vec<SelectorItem> {
         let features = self
             .features
