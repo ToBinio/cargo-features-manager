@@ -71,9 +71,6 @@ pub fn get_item_from_doc<'a>(
 ) -> color_eyre::Result<&'a toml_edit::Item> {
     let mut item = document.as_item();
 
-    println!("{}", item);
-    println!("{}", document);
-
     let mut is_target = false;
 
     'outer: for key in path.split('.') {
