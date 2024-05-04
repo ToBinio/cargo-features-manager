@@ -1,2 +1,0 @@
-clap = ["color", "error-context", "help", "suggestions", "usage"]
-color-eyre = ["capture-spantrace","track-caller", "color-spantrace", "tracing-error"]

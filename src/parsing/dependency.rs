@@ -1,7 +1,8 @@
 use crate::parsing::package::get_package_from_version;
 use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeature, SubFeatureType};
-use crate::project::dependency::util::{get_item_from_doc, get_path};
+use crate::project::dependency::util::get_path;
 use crate::project::dependency::{Dependency, DependencyType};
+use crate::util::get_item_from_doc;
 use cargo_metadata::PackageId;
 use color_eyre::eyre::{eyre, ContextCompat};
 use itertools::Itertools;
