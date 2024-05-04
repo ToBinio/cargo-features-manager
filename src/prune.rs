@@ -10,7 +10,9 @@ use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::save::save_dependency;
 use crate::util::{get_item_from_doc, toml_document_from_path};
+use clap::builder::Str;
 use color_eyre::eyre::{eyre, ContextCompat};
+use itertools::Itertools;
 use std::process::{Command, Stdio};
 
 pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
@@ -136,7 +138,10 @@ fn prune_features(
     let package_inset = if features.len() == 1 { 0 } else { 2 };
     let dependency_inset = if features.len() == 1 { 2 } else { 4 };
 
-    for (package_name, dependencies) in features {
+    for (package_name, dependencies) in features
+        .into_iter()
+        .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
+    {
         let package_feature_count = dependencies.values().flatten().count();
         let mut package_checked_features_count = 0;
         let mut package_offset_to_top = 1;
@@ -152,7 +157,10 @@ fn prune_features(
             offset_to_top += 2;
         }
 
-        for (dependency_name, features) in dependencies {
+        for (dependency_name, features) in dependencies
+            .into_iter()
+            .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
+        {
             let mut to_be_disabled = vec![];
 
             for (id, feature) in features.iter().enumerate() {
@@ -162,7 +170,7 @@ fn prune_features(
                     "{:dependency_inset$}{} [{}/{}]",
                     "",
                     dependency_name,
-                    id + 1,
+                    id,
                     features.len()
                 )?;
                 term.clear_line()?;
@@ -177,9 +185,14 @@ fn prune_features(
 
                 save_dependency(document, &package_name, &dependency_name)?;
 
-                if check()? {
-                    //todo disable parent features and dont test them
-                    to_be_disabled.push(feature.to_string());
+                if !to_be_disabled.contains(feature) && check()? {
+                    set_features_to_be_disabled(
+                        document
+                            .get_package(&package_name)?
+                            .get_dep(&dependency_name)?,
+                        feature.to_string(),
+                        &mut to_be_disabled,
+                    );
                 }
 
                 //reset to start
@@ -217,7 +230,12 @@ fn prune_features(
             offset_to_top += 1;
             package_offset_to_top += 1;
 
-            let mut disabled_count = style(to_be_disabled.len());
+            let mut disabled_count = style(
+                features
+                    .iter()
+                    .filter(|feature| to_be_disabled.contains(feature))
+                    .count(),
+            );
 
             if to_be_disabled.is_empty().not() {
                 disabled_count = disabled_count.red();
@@ -251,6 +269,30 @@ fn prune_features(
     }
 
     Ok(())
+}
+
+fn set_features_to_be_disabled(
+    dependency: &Dependency,
+    feature: String,
+    to_be_disabled: &mut Vec<String>,
+) {
+    if to_be_disabled.contains(&feature) {
+        return;
+    }
+
+    to_be_disabled.push(feature.clone());
+
+    dependency
+        .features
+        .iter()
+        .filter(|(_, data)| {
+            data.sub_features
+                .iter()
+                .any(|sub_feature| sub_feature.name == feature)
+        })
+        .for_each(|(name, _)| {
+            set_features_to_be_disabled(dependency, name.to_string(), to_be_disabled);
+        });
 }
 
 fn check() -> Result<bool> {
