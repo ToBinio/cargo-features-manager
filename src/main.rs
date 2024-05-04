@@ -8,17 +8,15 @@ use clap_complete::{generate, Shell};
 use color_eyre::Result;
 use console::Term;
 
-use crate::document::Document;
+use crate::project::document::Document;
 use crate::prune::prune;
 use crate::rendering::display::Display;
-
-mod dependencies;
-mod document;
 
 mod prune;
 mod rendering;
 
 mod parsing;
+mod project;
 
 #[derive(Parser)]
 #[command(name = "cargo")]

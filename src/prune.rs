@@ -1,4 +1,3 @@
-use crate::document::Document;
 use color_eyre::Result;
 use std::collections::HashMap;
 use std::fs;
@@ -8,6 +7,7 @@ use std::io::Write;
 use std::ops::Not;
 use std::path::Path;
 
+use crate::project::document::Document;
 use color_eyre::eyre::{eyre, ContextCompat};
 use std::process::{Command, Stdio};
 use toml::Table;

@@ -1,9 +1,9 @@
-use crate::dependencies::dependency::Dependency;
 use color_eyre::eyre::ContextCompat;
 use color_eyre::Result;
 use console::style;
 
 use crate::parsing::package::Package;
+use crate::project::dependencies::Dependency;
 use crate::rendering::search::highlight_search;
 
 pub struct ScrollSelector {

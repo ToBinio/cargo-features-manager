@@ -1,6 +1,6 @@
-use crate::dependencies::dependency::{Dependency, DependencyType};
 use crate::parsing::package::Package;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
+use crate::project::dependencies::{Dependency, DependencyType};
 use cargo_metadata::PackageId;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;

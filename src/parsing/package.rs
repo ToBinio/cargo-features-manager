@@ -1,12 +1,11 @@
-use crate::dependencies::dependency::{Dependency, DependencyType};
-
 use cargo_metadata::{CargoOpt, PackageId};
 
 use crate::parsing::workspace::parse_workspace;
 use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
 use color_eyre::Result;
 
-use crate::dependencies::{get_item_from_doc, get_path};
+use crate::project::dependencies::util::{get_item_from_doc, get_path};
+use crate::project::dependencies::{Dependency, DependencyType};
 use color_eyre::eyre::{eyre, ContextCompat};
 use std::collections::HashMap;
 

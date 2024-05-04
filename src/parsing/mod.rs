@@ -1,8 +1,9 @@
-use crate::dependencies::dependency::{
-    Dependency, EnabledState, FeatureData, FeatureType, SubFeature,
+use crate::project::dependencies::feature::{
+    EnabledState, FeatureData, SubFeature, SubFeatureType,
 };
+use crate::project::dependencies::Dependency;
 use cargo_metadata::PackageId;
-use color_eyre::eyre::{ContextCompat, eyre};
+use color_eyre::eyre::{eyre, ContextCompat};
 use color_eyre::Result;
 use itertools::Itertools;
 use semver::VersionReq;
@@ -41,7 +42,7 @@ pub fn set_features(
                             name: name.to_string(),
                             kind: name.as_str().into(),
                         })
-                        .filter(|sub_feature| sub_feature.kind != FeatureType::DependencyFeature)
+                        .filter(|sub_feature| sub_feature.kind != SubFeatureType::DependencyFeature)
                         .collect_vec(),
                     is_default: default_features.contains(feature),
                     enabled_state: EnabledState::Normal(false),
@@ -53,14 +54,14 @@ pub fn set_features(
     dependency.features = features;
 
     for feature in enabled_features {
-        if Into::<FeatureType>::into(feature.as_str()) == FeatureType::Normal {
+        if Into::<SubFeatureType>::into(feature.as_str()) == SubFeatureType::Normal {
             dependency.enable_feature(feature)?;
         }
     }
 
     if uses_default_features {
         for feature in &default_features {
-            if Into::<FeatureType>::into(feature.as_str()) == FeatureType::Normal {
+            if Into::<SubFeatureType>::into(feature.as_str()) == SubFeatureType::Normal {
                 dependency.enable_feature(feature)?;
             }
         }
@@ -79,5 +80,8 @@ pub fn get_package_from_version<'a>(
         .map(|(_, package)| package)
         .filter(|package| package.name == name)
         .find(|package| version_req.matches(&package.version) || version_req.to_string() == "*")
-        .context( format!("could not find version for {} {}", name, version_req))
+        .context(format!(
+            "could not find version for {} {}",
+            name, version_req
+        ))
 }

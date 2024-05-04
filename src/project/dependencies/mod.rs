@@ -1,14 +1,18 @@
+use color_eyre::eyre::{eyre, ContextCompat, Result};
+use std::cmp::Ordering;
+use std::collections::HashMap;
+
+use cargo_platform::Platform;
+
+use crate::project::dependencies::feature::{EnabledState, FeatureData, SubFeatureType};
 use crate::rendering::scroll_selector::SelectorItem;
 use cargo_metadata::DependencyKind;
-use cargo_platform::Platform;
-use color_eyre::eyre::{eyre, ContextCompat};
-use color_eyre::Result;
 use console::{style, Emoji};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+
+pub mod feature;
+pub mod util;
 
 #[derive(Debug)]
 pub struct Dependency {
@@ -182,7 +186,7 @@ impl Dependency {
         let sub_features = data
             .sub_features
             .iter()
-            .filter(|sub_feature| sub_feature.kind == FeatureType::Normal)
+            .filter(|sub_feature| sub_feature.kind == SubFeatureType::Normal)
             .map(|sub_feature| sub_feature.name.to_string())
             .collect_vec();
 
@@ -258,77 +262,5 @@ impl From<DependencyKind> for DependencyType {
             DependencyKind::Build => DependencyType::Build,
             DependencyKind::Unknown => DependencyType::Unknown,
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct FeatureData {
-    pub sub_features: Vec<SubFeature>,
-    pub is_default: bool,
-    pub enabled_state: EnabledState,
-}
-
-impl FeatureData {
-    pub fn is_enabled(&self) -> bool {
-        match self.enabled_state {
-            EnabledState::Normal(is_enabled) => is_enabled,
-            EnabledState::Workspace => true,
-        }
-    }
-
-    pub fn is_toggleable(&self) -> bool {
-        match self.enabled_state {
-            EnabledState::Normal(_) => true,
-            EnabledState::Workspace => false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum EnabledState {
-    Normal(bool),
-    Workspace,
-}
-
-#[derive(Clone, Debug)]
-pub struct SubFeature {
-    pub name: String,
-    pub kind: FeatureType,
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum FeatureType {
-    Normal,
-    Dependency,
-    DependencyFeature,
-}
-
-impl Display for SubFeature {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.kind == FeatureType::Dependency {
-            f.write_str(&format!(
-                "{}{}",
-                Emoji("📦", "dep:"),
-                self.name.trim_start_matches("dep:")
-            ))?
-        } else {
-            f.write_str(&self.name)?
-        }
-
-        Ok(())
-    }
-}
-
-impl From<&str> for FeatureType {
-    fn from(s: &str) -> Self {
-        if s.starts_with("dep:") {
-            return FeatureType::Dependency;
-        }
-
-        if s.contains('/') {
-            return FeatureType::DependencyFeature;
-        }
-
-        FeatureType::Normal
     }
 }

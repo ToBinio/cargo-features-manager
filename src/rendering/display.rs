@@ -1,12 +1,10 @@
-use crate::dependencies::dependency::EnabledState;
-
+use crate::project::dependencies::feature::EnabledState;
+use crate::project::document::Document;
 use color_eyre::eyre::{Context, ContextCompat};
 use color_eyre::Result;
 use console::{style, Emoji, Key, Term};
 use std::io::Write;
 use std::ops::{Not, Range};
-
-use crate::document::Document;
 
 use crate::rendering::scroll_selector::ScrollSelector;
 

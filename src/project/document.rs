@@ -8,10 +8,11 @@ use itertools::Itertools;
 
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};
 
-use crate::dependencies::dependency::{Dependency, EnabledState};
-use crate::dependencies::{get_mut_item_from_doc, get_path};
 use crate::parsing::package::{get_packages, Package};
 use crate::parsing::toml_document_from_path;
+use crate::project::dependencies::feature::EnabledState;
+use crate::project::dependencies::util::{get_mut_item_from_doc, get_path};
+use crate::project::dependencies::Dependency;
 
 use crate::rendering::scroll_selector::SelectorItem;
 
