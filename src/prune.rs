@@ -7,166 +7,197 @@ use std::io::Write;
 use std::ops::Not;
 use std::path::Path;
 
+use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::save::save_dependency;
 use color_eyre::eyre::eyre;
 use std::process::{Command, Stdio};
 use toml::Table;
 
+//todo test with renamed dependencies!!!
+
 pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
     let mut term = Term::stdout();
 
-    let ignored_features = get_ignored_features("./")?;
+    let mut enabled_features = get_enabled_features(&document);
 
-    for name in document.get_packages_names().iter() {
-        if document.is_workspace() {
-            writeln!(term, "{}", name)?;
-            prune_package(
-                &mut document,
-                is_dry_run,
-                &mut term,
-                name,
-                2,
-                &ignored_features,
-            )?;
-        } else {
-            prune_package(
-                &mut document,
-                is_dry_run,
-                &mut term,
-                name,
-                0,
-                &ignored_features,
-            )?;
-        }
-    }
+    let base_ignored_features = get_ignored_features("./")?;
+    remove_ignored_features(&document, &base_ignored_features, &mut enabled_features)?;
+
+    prune_features(&mut document, is_dry_run, &mut term, enabled_features)?;
 
     Ok(())
 }
 
-fn prune_package(
+fn get_enabled_features(document: &Document) -> HashMap<String, HashMap<String, Vec<String>>> {
+    let mut data = HashMap::new();
+
+    for package in document.get_packages() {
+        let mut package_data = HashMap::new();
+
+        for dependency in package.get_deps() {
+            let enabled_features = dependency
+                .features
+                .iter()
+                .filter(|(_name, data)| data.is_toggleable() && data.is_enabled())
+                .map(|(name, _data)| name)
+                .cloned()
+                .collect::<Vec<String>>();
+
+            if enabled_features.is_empty().not() {
+                package_data.insert(dependency.name.clone(), enabled_features);
+            }
+        }
+
+        if package_data.is_empty().not() {
+            data.insert(package.name.clone(), package_data);
+        }
+    }
+    data
+}
+
+fn remove_ignored_features(
+    document: &Document,
+    base_ignored: &HashMap<String, Vec<String>>,
+    enabled_features: &mut HashMap<String, HashMap<String, Vec<String>>>,
+) -> Result<()> {
+    for (package_name, dependencies) in enabled_features {
+        let package = document.get_package(package_name)?;
+
+        let ignored_features =
+            get_ignored_features(package.manifest_path.trim_end_matches("/Cargo.toml"))?;
+
+        for (dependency_name, features) in dependencies {
+            let dependency = package.get_dep(dependency_name)?;
+
+            if dependency.can_use_default() {
+                features.push("default".to_string());
+            }
+
+            for feature in ignored_features.get(dependency_name).unwrap_or(&vec![]) {
+                remove_feature(feature, features, dependency);
+            }
+            for feature in base_ignored.get(dependency_name).unwrap_or(&vec![]) {
+                remove_feature(feature, features, dependency);
+            }
+
+            if let Some(index) = features.iter().position(|name| name == "default") {
+                features.remove(index);
+            }
+        }
+    }
+
+    //todo remove empty packages / dependencies
+
+    Ok(())
+}
+
+fn remove_feature(feature: &String, features: &mut Vec<String>, dependency: &Dependency) {
+    let index = features.iter().position(|name| name == feature);
+
+    let Some(index) = index else {
+        return;
+    };
+
+    features.remove(index);
+
+    if let Some(feature) = dependency.get_feature(&feature) {
+        for sub_feature in &feature.sub_features {
+            remove_feature(&sub_feature.name, features, dependency);
+        }
+    }
+}
+
+fn prune_features(
     document: &mut Document,
     is_dry_run: bool,
     term: &mut Term,
-    package_name: &str,
-    inset: usize,
-    base_ignored: &HashMap<String, Vec<String>>,
+    features: HashMap<String, HashMap<String, Vec<String>>>,
 ) -> Result<()> {
-    let deps = document
-        .get_package(package_name)?
-        .get_deps()
-        .iter()
-        .map(|dep| dep.get_name())
-        .collect::<Vec<String>>();
+    let inset = if features.len() == 1 { 0 } else { 2 };
 
-    let ignored_features = get_ignored_features(
-        document
-            .get_package(package_name)?
-            .manifest_path
-            .trim_end_matches("/Cargo.toml"),
-    )?;
-
-    for name in deps.iter() {
-        let dependency = document.get_package_mut(package_name)?.get_dep_mut(name)?;
-
-        let enabled_features = dependency
-            .features
-            .iter()
-            .filter(|(_name, data)| data.is_toggleable() && data.is_enabled())
-            .filter(|(feature_name, _data)| {
-                !ignored_features
-                    .get(name)
-                    .unwrap_or(&vec![])
-                    .contains(feature_name)
-            })
-            .filter(|(feature_name, _data)| {
-                !base_ignored
-                    .get(name)
-                    .unwrap_or(&vec![])
-                    .contains(feature_name)
-            })
-            .map(|(name, _)| name)
-            .cloned()
-            .collect::<Vec<String>>();
-
-        if enabled_features.is_empty() {
-            continue;
+    for (package_name, dependencies) in features {
+        if document.is_workspace() {
+            writeln!(term, "{}", package_name)?;
         }
 
-        term.clear_line()?;
-        writeln!(term, "{:inset$}{} [0/0]", "", name)?;
-
-        let mut to_be_disabled = vec![];
-
-        for (id, feature) in enabled_features.iter().enumerate() {
+        for (dependency_name, features) in dependencies {
             term.clear_line()?;
-            writeln!(term, "{:inset$} └ {}", "", feature)?;
+            writeln!(term, "{:inset$}{} [0/0]", "", dependency_name)?;
 
-            document
-                .get_package_mut(package_name)?
-                .get_dep_mut(name)?
-                .disable_feature(feature)?;
+            let mut to_be_disabled = vec![];
 
-            save_dependency(document, package_name, name)?;
+            for (id, feature) in features.iter().enumerate() {
+                term.clear_line()?;
+                writeln!(term, "{:inset$} └ {}", "", feature)?;
 
-            if check()? {
-                to_be_disabled.push(feature.to_string());
-            }
-
-            //reset to start
-            for feature in &enabled_features {
                 document
-                    .get_package_mut(package_name)?
-                    .get_dep_mut(name)?
-                    .enable_feature(feature)?;
+                    .get_package_mut(&package_name)?
+                    .get_dep_mut(&dependency_name)?
+                    .disable_feature(feature)?;
+
+                save_dependency(document, &package_name, &dependency_name)?;
+
+                if check()? {
+                    to_be_disabled.push(feature.to_string());
+                }
+
+                //reset to start
+                for feature in &features {
+                    document
+                        .get_package_mut(&package_name)?
+                        .get_dep_mut(&dependency_name)?
+                        .enable_feature(feature)?;
+                }
+
+                save_dependency(document, &package_name, &dependency_name)?;
+
+                term.move_cursor_up(2)?;
+                term.clear_line()?;
+                writeln!(
+                    term,
+                    "{:inset$}{} [{}/{}]",
+                    "",
+                    dependency_name,
+                    id + 1,
+                    features.len()
+                )?;
             }
 
-            save_dependency(document, package_name, name)?;
+            let mut disabled_count = style(to_be_disabled.len());
 
-            term.move_cursor_up(2)?;
+            if to_be_disabled.is_empty().not() {
+                disabled_count = disabled_count.red();
+            }
+
+            term.move_cursor_up(1)?;
             term.clear_line()?;
             writeln!(
                 term,
                 "{:inset$}{} [{}/{}]",
                 "",
-                name,
-                id + 1,
-                enabled_features.len()
+                dependency_name,
+                disabled_count,
+                features.len()
             )?;
-        }
 
-        let mut disabled_count = style(to_be_disabled.len());
-
-        if to_be_disabled.is_empty().not() {
-            disabled_count = disabled_count.red();
-        }
-
-        term.move_cursor_up(1)?;
-        term.clear_line()?;
-        writeln!(
-            term,
-            "{:inset$}{} [{}/{}]",
-            "",
-            name,
-            disabled_count,
-            enabled_features.len()
-        )?;
-
-        if is_dry_run {
-            continue;
-        }
-
-        if to_be_disabled.is_empty().not() {
-            for feature in to_be_disabled {
-                document
-                    .get_package_mut(package_name)?
-                    .get_dep_mut(name)?
-                    .disable_feature(&feature)?;
+            if is_dry_run {
+                continue;
             }
 
-            save_dependency(document, package_name, name)?;
+            if to_be_disabled.is_empty().not() {
+                for feature in to_be_disabled {
+                    document
+                        .get_package_mut(&package_name)?
+                        .get_dep_mut(&dependency_name)?
+                        .disable_feature(&feature)?;
+                }
+
+                save_dependency(document, &package_name, &dependency_name)?;
+            }
         }
     }
+
     Ok(())
 }
 

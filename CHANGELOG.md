@@ -2,7 +2,8 @@
 * use `color-eyre` instead of `anyhow`
 * handle unused workspace dependencies
 * allow `default` to be a sub_feature
-* sort dependencies and packages alphabetically if no filter is set 
+* sort dependencies and packages alphabetically if no filter is set
+* when running `cargo features prune` correctly handle sub features
 
 ## 0.7.1
 
