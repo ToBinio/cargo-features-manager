@@ -10,7 +10,6 @@ use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::save::save_dependency;
 use crate::util::{get_item_from_doc, toml_document_from_path};
-use clap::builder::Str;
 use color_eyre::eyre::{eyre, ContextCompat};
 use itertools::Itertools;
 use std::process::{Command, Stdio};
@@ -92,8 +91,6 @@ fn remove_ignored_features(
         }
     }
 
-    //todo remove empty packages / dependencies
-
     Ok(())
 }
 
@@ -142,6 +139,10 @@ fn prune_features(
         .into_iter()
         .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
     {
+        if dependencies.is_empty() {
+            continue;
+        }
+
         let package_feature_count = dependencies.values().flatten().count();
         let mut package_checked_features_count = 0;
         let mut package_offset_to_top = 1;
@@ -161,6 +162,10 @@ fn prune_features(
             .into_iter()
             .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
         {
+            if features.is_empty() {
+                continue;
+            }
+
             let mut to_be_disabled = vec![];
 
             for (id, feature) in features.iter().enumerate() {
