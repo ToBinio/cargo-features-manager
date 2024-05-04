@@ -19,6 +19,8 @@ mod parsing;
 mod project;
 mod util;
 
+mod save;
+
 #[derive(Parser)]
 #[command(name = "cargo")]
 #[command(bin_name = "cargo")]

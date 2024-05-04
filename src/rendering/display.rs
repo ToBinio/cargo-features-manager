@@ -1,6 +1,7 @@
 use crate::project::dependency::feature::EnabledState;
 use crate::project::document::Document;
 use crate::rendering::filter_view::FilterView;
+use crate::save::save_dependency;
 use color_eyre::eyre::{Context, ContextCompat};
 use color_eyre::Result;
 use console::{style, Emoji, Key, Term};
@@ -357,8 +358,11 @@ impl Display {
 
                     dep.toggle_feature(self.feature_selector.get_selected()?.name())?;
 
-                    self.document
-                        .write_dep(self.package_selector.get_selected()?.name(), dep_name)?;
+                    save_dependency(
+                        &mut self.document,
+                        self.package_selector.get_selected()?.name(),
+                        dep_name,
+                    )?;
                 }
             }
 

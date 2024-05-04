@@ -5,11 +5,11 @@ use std::str::FromStr;
 
 pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
     let path = match kind {
-        DependencyType::Normal => "dependency",
-        DependencyType::Development => "dev-dependency",
-        DependencyType::Build => "build-dependency",
-        DependencyType::Workspace => "workspace.dependency",
-        DependencyType::Unknown => "dependency",
+        DependencyType::Normal => "dependencies",
+        DependencyType::Development => "dev-dependencies",
+        DependencyType::Build => "build-dependencies",
+        DependencyType::Workspace => "workspace.dependencies",
+        DependencyType::Unknown => "dependencies",
     };
 
     if let Some(target) = target {
@@ -70,6 +70,9 @@ pub fn get_item_from_doc<'a>(
     document: &'a toml_edit::DocumentMut,
 ) -> color_eyre::Result<&'a toml_edit::Item> {
     let mut item = document.as_item();
+
+    println!("{}", item);
+    println!("{}", document);
 
     let mut is_target = false;
 

@@ -19,12 +19,12 @@ pub fn parse_workspace(
         return Ok(None);
     };
 
-    let Some(dependencies) = workspace.get("dependency") else {
+    let Some(dependencies) = workspace.get("dependencies") else {
         return Ok(None);
     };
 
     let dependencies_table = dependencies.as_table_like().ok_or(eyre!(
-        "failed to parse workspace.dependency - not a table"
+        "failed to parse workspace.dependencies - not a table"
     ))?;
 
     let dependencies: Result<Vec<Dependency>> = dependencies_table

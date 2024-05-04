@@ -1,18 +1,11 @@
-use color_eyre::eyre::{bail, eyre, ContextCompat, Error};
-use std::cmp::PartialEq;
-use std::fs;
+use color_eyre::eyre::{bail, eyre, ContextCompat};
 
 use color_eyre::Result;
 use itertools::Itertools;
 
-use toml_edit::{Array, Formatted, InlineTable, Item, Value};
-
 use crate::parsing::package::get_packages;
 use crate::project::dependency::feature::EnabledState;
-use crate::project::dependency::util::{get_mut_item_from_doc, get_path};
 use crate::project::package::Package;
-
-use crate::util::toml_document_from_path;
 
 pub struct Document {
     packages: Vec<Package>,
@@ -30,7 +23,7 @@ impl Document {
                 .dependencies
                 .is_empty()
         {
-            bail!("no dependency were found")
+            bail!("no dependencies were found")
         }
 
         let mut workspace_index = None;
@@ -51,7 +44,7 @@ impl Document {
         Ok(document)
     }
 
-    fn update_workspace_deps(&mut self) -> Result<()> {
+    pub fn update_workspace_deps(&mut self) -> Result<()> {
         let Some(workspace_index) = self.workspace_index else {
             return Ok(());
         };
@@ -136,126 +129,8 @@ impl Document {
             .context(format!("no package with name {} found", package))
     }
 
-    //todo extract writing
-    pub fn write_dep(&mut self, package: &str, name: &str) -> Result<()> {
-        let (index, _) = self
-            .get_package(package)?
-            .get_deps()
-            .iter()
-            .enumerate()
-            .find(|(_index, dep)| dep.get_name().eq(name))
-            .ok_or(eyre!("could not find dependency with name {}", name))?;
-
-        self.write_dep_raw(package, index)
-    }
-
-    fn write_dep_raw(&mut self, package_name: &str, dep_index: usize) -> Result<()> {
-        let package = self
-            .packages
-            .iter_mut()
-            .find(|pkg| pkg.name == package_name)
-            .context("package not found")?;
-
-        let dependency = package
-            .dependencies
-            .get(dep_index)
-            .context("dependency not found")?;
-
-        let features_to_enable = dependency.get_features_to_enable();
-
-        let mut doc = toml_document_from_path(&package.manifest_path)?;
-        let deps =
-            get_mut_item_from_doc(&get_path(&dependency.kind, &dependency.target), &mut doc)?;
-
-        let deps = deps.as_table_mut().context(format!(
-            "could not parse dependency as a table - {}",
-            package.name
-        ))?;
-
-        let table = match deps
-            .get_mut(dependency.rename.as_ref().unwrap_or(&dependency.name))
-            .context("dependency not found")?
-            .as_table_like_mut()
-        {
-            None => {
-                deps.insert(
-                    &dependency.name,
-                    Item::Value(Value::InlineTable(InlineTable::new())),
-                );
-
-                deps.get_mut(&dependency.name)
-                    .context(format!(
-                        "could not find {} in dependency",
-                        dependency.get_name()
-                    ))?
-                    .as_table_like_mut()
-                    .context(format!(
-                        "could not parse {} as a table",
-                        dependency.get_name()
-                    ))?
-            }
-            Some(table) => table,
-        };
-
-        let has_custom_attributes = table
-            .get_values()
-            .iter()
-            .map(|(name, _)| name.first().map(|key| key.to_string()).unwrap_or_default())
-            .any(|name| !["features", "default-features", "version"].contains(&&*name));
-
-        //check if entry has to be table or can just be string with version
-        if dependency.can_use_default() && features_to_enable.is_empty() && !has_custom_attributes {
-            deps.insert(
-                &dependency.name,
-                Item::Value(Value::String(Formatted::new(dependency.get_version()))),
-            );
-        } else {
-            //version
-            if !dependency.version.is_empty() && !table.contains_key("git") && !dependency.workspace
-            {
-                table.insert(
-                    "version",
-                    Item::Value(Value::String(Formatted::new(dependency.get_version()))),
-                );
-            }
-
-            //features
-            let mut features = Array::new();
-
-            for name in features_to_enable {
-                features.push(Value::String(Formatted::new(name)));
-            }
-
-            if features.is_empty() {
-                table.remove("features");
-            } else {
-                table.insert("features", Item::Value(Value::Array(features)));
-            }
-
-            //default-feature
-            if dependency.can_use_default() || dependency.workspace {
-                table.remove("default-features");
-            } else {
-                table.insert(
-                    "default-features",
-                    Item::Value(Value::Boolean(Formatted::new(false))),
-                );
-            }
-        }
-
-        // update workspace deps
-        if let Some(workspace_index) = self.workspace_index {
-            let workspace = self.get_package_by_id(workspace_index)?;
-
-            if workspace.name == package_name {
-                self.update_workspace_deps()?;
-            }
-        }
-
-        //write updates
-        let package = self.get_package(package_name)?;
-
-        fs::write(&package.manifest_path, doc.to_string()).map_err(Error::from)
+    pub fn workspace_index(&self) -> Option<usize> {
+        self.workspace_index
     }
     pub fn is_workspace(&self) -> bool {
         self.packages.len() > 1

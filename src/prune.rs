@@ -8,6 +8,7 @@ use std::ops::Not;
 use std::path::Path;
 
 use crate::project::document::Document;
+use crate::save::save_dependency;
 use color_eyre::eyre::eyre;
 use std::process::{Command, Stdio};
 use toml::Table;
@@ -105,7 +106,8 @@ fn prune_package(
                 .get_package_mut(package_name)?
                 .get_dep_mut(name)?
                 .disable_feature(feature)?;
-            document.write_dep(package_name, name)?;
+
+            save_dependency(document, package_name, name)?;
 
             if check()? {
                 to_be_disabled.push(feature.to_string());
@@ -118,7 +120,8 @@ fn prune_package(
                     .get_dep_mut(name)?
                     .enable_feature(feature)?;
             }
-            document.write_dep(package_name, name)?;
+
+            save_dependency(document, package_name, name)?;
 
             term.move_cursor_up(2)?;
             term.clear_line()?;
@@ -161,7 +164,7 @@ fn prune_package(
                     .disable_feature(&feature)?;
             }
 
-            document.write_dep(package_name, name)?;
+            save_dependency(document, package_name, name)?;
         }
     }
     Ok(())

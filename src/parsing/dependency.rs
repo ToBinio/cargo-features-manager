@@ -24,7 +24,7 @@ pub fn parse_dependency(
     let deps = get_item_from_doc(&get_path(&kind, &dependency.target), document)?;
 
     let deps = deps.as_table().context(format!(
-        "could not parse dependency as a table - {}",
+        "could not parse dependencies as a table - {}",
         package.name
     ))?;
 
