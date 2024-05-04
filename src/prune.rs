@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use std::collections::HashMap;
-use std::fs;
 
 use console::{style, Term};
 use std::io::Write;
@@ -28,7 +27,9 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
     Ok(())
 }
 
-fn get_enabled_features(document: &Document) -> HashMap<String, HashMap<String, Vec<String>>> {
+type FeaturesToTest = HashMap<String, HashMap<String, Vec<String>>>;
+
+fn get_enabled_features(document: &Document) -> FeaturesToTest {
     let mut data = HashMap::new();
 
     for package in document.get_packages() {
@@ -59,7 +60,7 @@ fn get_enabled_features(document: &Document) -> HashMap<String, HashMap<String, 
 fn remove_ignored_features(
     document: &Document,
     base_ignored: &HashMap<String, Vec<String>>,
-    enabled_features: &mut HashMap<String, HashMap<String, Vec<String>>>,
+    enabled_features: &mut FeaturesToTest,
 ) -> Result<()> {
     for (package_name, dependencies) in enabled_features {
         let package = document.get_package(package_name)?;
@@ -114,24 +115,60 @@ fn prune_features(
     document: &mut Document,
     is_dry_run: bool,
     term: &mut Term,
-    features: HashMap<String, HashMap<String, Vec<String>>>,
+    features: FeaturesToTest,
 ) -> Result<()> {
-    let inset = if features.len() == 1 { 0 } else { 2 };
+    let feature_count = features
+        .values()
+        .flat_map(|dependencies| dependencies.values())
+        .flatten()
+        .count();
+
+    let mut checked_features_count = 0;
+
+    writeln!(
+        term,
+        "workspace [{}/{}]",
+        checked_features_count, feature_count
+    )?;
+
+    let mut offset_to_top = 1;
+
+    let package_inset = if features.len() == 1 { 0 } else { 2 };
+    let dependency_inset = if features.len() == 1 { 2 } else { 4 };
 
     for (package_name, dependencies) in features {
+        let package_feature_count = dependencies.values().flatten().count();
+        let mut package_checked_features_count = 0;
+        let mut package_offset_to_top = 1;
+
         if document.is_workspace() {
-            writeln!(term, "{}", package_name)?;
+            term.clear_line()?;
+            writeln!(term, "")?;
+            writeln!(
+                term,
+                "{:package_inset$}{} [{}/{}]",
+                "", package_name, package_checked_features_count, package_feature_count
+            )?;
+            offset_to_top += 2;
         }
 
         for (dependency_name, features) in dependencies {
-            term.clear_line()?;
-            writeln!(term, "{:inset$}{} [0/0]", "", dependency_name)?;
-
             let mut to_be_disabled = vec![];
 
             for (id, feature) in features.iter().enumerate() {
                 term.clear_line()?;
-                writeln!(term, "{:inset$} └ {}", "", feature)?;
+                writeln!(
+                    term,
+                    "{:dependency_inset$}{} [{}/{}]",
+                    "",
+                    dependency_name,
+                    id + 1,
+                    features.len()
+                )?;
+                term.clear_line()?;
+                writeln!(term, "{:dependency_inset$} └ {}", "", feature)?;
+
+                term.move_cursor_up(2)?;
 
                 document
                     .get_package_mut(&package_name)?
@@ -155,17 +192,30 @@ fn prune_features(
 
                 save_dependency(document, &package_name, &dependency_name)?;
 
-                term.move_cursor_up(2)?;
-                term.clear_line()?;
+                checked_features_count += 1;
+                package_checked_features_count += 1;
+
+                term.move_cursor_up(offset_to_top)?;
                 writeln!(
                     term,
-                    "{:inset$}{} [{}/{}]",
-                    "",
-                    dependency_name,
-                    id + 1,
-                    features.len()
+                    "workspace [{}/{}]",
+                    checked_features_count, feature_count
                 )?;
+                term.move_cursor_down(offset_to_top - 1)?;
+
+                if document.is_workspace() {
+                    term.move_cursor_up(package_offset_to_top)?;
+                    writeln!(
+                        term,
+                        "{:package_inset$}{} [{}/{}]",
+                        "", package_name, package_checked_features_count, package_feature_count
+                    )?;
+                    term.move_cursor_down(package_offset_to_top - 1)?;
+                }
             }
+
+            offset_to_top += 1;
+            package_offset_to_top += 1;
 
             let mut disabled_count = style(to_be_disabled.len());
 
@@ -173,11 +223,10 @@ fn prune_features(
                 disabled_count = disabled_count.red();
             }
 
-            term.move_cursor_up(1)?;
             term.clear_line()?;
             writeln!(
                 term,
-                "{:inset$}{} [{}/{}]",
+                "{:dependency_inset$}{} [{}/{}]",
                 "",
                 dependency_name,
                 disabled_count,

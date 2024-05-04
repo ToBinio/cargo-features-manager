@@ -7,6 +7,7 @@
 * allow `default` to be a sub_feature
 * sort dependencies and packages alphabetically if no filter is set
 * when running `cargo features prune` correctly handle sub features
+* improved progress display while running `cargo features prune`
 
 ## 0.7.1
 
