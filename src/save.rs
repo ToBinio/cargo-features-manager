@@ -1,6 +1,6 @@
-use crate::project::dependency::util::{get_mut_item_from_doc, get_path};
+use crate::project::dependency::util::get_path;
 use crate::project::document::Document;
-use crate::util::toml_document_from_path;
+use crate::util::{get_mut_item_from_doc, toml_document_from_path};
 use color_eyre::eyre::{ContextCompat, Error};
 use std::fs;
 use toml_edit::{Array, Formatted, InlineTable, Item, Value};

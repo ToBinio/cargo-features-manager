@@ -30,3 +30,7 @@ toml_edit = { version = "0.22.12", default-features = false, features = ["displa
 [[bin]]
 name = "cargo-features"
 path = "src/main.rs"
+
+[cargo-features-manager.keep]
+clap = ["default"]
+color-eyre = ["default"]

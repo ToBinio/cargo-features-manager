@@ -10,18 +10,17 @@ use std::path::Path;
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::save::save_dependency;
-use color_eyre::eyre::eyre;
+use crate::util::{get_item_from_doc, toml_document_from_path};
+use color_eyre::eyre::{eyre, ContextCompat};
 use std::process::{Command, Stdio};
-use toml::Table;
-
-//todo test with renamed dependencies!!!
 
 pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
     let mut term = Term::stdout();
 
     let mut enabled_features = get_enabled_features(&document);
 
-    let base_ignored_features = get_ignored_features("./")?;
+    let base_ignored_features =
+        get_ignored_features("./", "workspace.cargo-features-manager.keep")?;
     remove_ignored_features(&document, &base_ignored_features, &mut enabled_features)?;
 
     prune_features(&mut document, is_dry_run, &mut term, enabled_features)?;
@@ -45,7 +44,7 @@ fn get_enabled_features(document: &Document) -> HashMap<String, HashMap<String, 
                 .collect::<Vec<String>>();
 
             if enabled_features.is_empty().not() {
-                package_data.insert(dependency.name.clone(), enabled_features);
+                package_data.insert(dependency.get_name().clone(), enabled_features);
             }
         }
 
@@ -53,6 +52,7 @@ fn get_enabled_features(document: &Document) -> HashMap<String, HashMap<String, 
             data.insert(package.name.clone(), package_data);
         }
     }
+
     data
 }
 
@@ -64,8 +64,10 @@ fn remove_ignored_features(
     for (package_name, dependencies) in enabled_features {
         let package = document.get_package(package_name)?;
 
-        let ignored_features =
-            get_ignored_features(package.manifest_path.trim_end_matches("/Cargo.toml"))?;
+        let ignored_features = get_ignored_features(
+            package.manifest_path.trim_end_matches("/Cargo.toml"),
+            "cargo-features-manager.keep",
+        )?;
 
         for (dependency_name, features) in dependencies {
             let dependency = package.get_dep(dependency_name)?;
@@ -139,6 +141,7 @@ fn prune_features(
                 save_dependency(document, &package_name, &dependency_name)?;
 
                 if check()? {
+                    //todo disable parent features and dont test them
                     to_be_disabled.push(feature.to_string());
                 }
 
@@ -238,28 +241,41 @@ fn test() -> Result<bool> {
     Ok(code == 0)
 }
 
-fn get_ignored_features<P: AsRef<Path>>(base_path: P) -> Result<HashMap<String, Vec<String>>> {
-    let result = fs::read_to_string(base_path.as_ref().join("Features.toml"));
+fn get_ignored_features<P: AsRef<Path>>(
+    file_path: P,
+    item_path: &str,
+) -> Result<HashMap<String, Vec<String>>> {
+    let result = toml_document_from_path(file_path.as_ref().join("Cargo.toml"));
 
     match result {
-        Ok(file) => {
-            let table = file.parse::<Table>()?;
+        Ok(document) => {
+            let item = get_item_from_doc(&item_path, &document);
+
+            let Ok(item) = item else {
+                return Ok(HashMap::new());
+            };
+
+            let table = item.as_table_like().context(format!(
+                "could not parse {} in {:?}",
+                item_path,
+                file_path.as_ref()
+            ))?;
 
             let mut map = HashMap::new();
 
-            for (key, value) in table {
+            for (key, value) in table.iter() {
                 map.insert(
-                    key,
+                    key.to_string(),
                     value
                         .as_array()
-                        .ok_or(eyre!("Invalid Features.toml format"))?
+                        .ok_or(eyre!("Invalid format to keep features"))?
                         .iter()
-                        .to_owned()
                         .filter_map(|value| value.as_str())
                         .map(|value| value.to_string())
                         .collect(),
                 );
             }
+
             Ok(map)
         }
         Err(_) => Ok(HashMap::new()),

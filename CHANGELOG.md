@@ -1,4 +1,7 @@
 ## unreleased
+
+* #### BREAKING - move Features.toml into Cargo.toml see [README.md](README.md#prune)
+
 * use `color-eyre` instead of `anyhow`
 * handle unused workspace dependencies
 * allow `default` to be a sub_feature

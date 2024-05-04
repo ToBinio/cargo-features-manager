@@ -1,2 +1,0 @@
-clap = ["default"]
-color-eyre = ["default"]

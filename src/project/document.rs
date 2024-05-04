@@ -102,13 +102,6 @@ impl Document {
         &self.packages
     }
 
-    pub fn get_packages_names(&self) -> Vec<String> {
-        self.packages
-            .iter()
-            .map(|package| package.name.to_string())
-            .collect()
-    }
-
     pub fn get_package_by_id(&self, package_id: usize) -> Result<&Package> {
         self.packages
             .get(package_id)
