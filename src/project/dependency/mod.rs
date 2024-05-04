@@ -1,14 +1,15 @@
-use crate::rendering::scroll_selector::SelectorItem;
-use cargo_metadata::DependencyKind;
-use cargo_platform::Platform;
-use color_eyre::eyre::{eyre, ContextCompat};
-use color_eyre::Result;
-use console::{style, Emoji};
-use fuzzy_matcher::skim::SkimMatcherV2;
-use itertools::Itertools;
-use std::cmp::Ordering;
+use color_eyre::eyre::{eyre, ContextCompat, Result};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+
+use cargo_platform::Platform;
+
+use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeatureType};
+use cargo_metadata::DependencyKind;
+use console::{style, Emoji};
+use itertools::Itertools;
+
+pub mod feature;
+pub mod util;
 
 #[derive(Debug)]
 pub struct Dependency {
@@ -63,39 +64,6 @@ impl Dependency {
 
     pub fn get_version(&self) -> String {
         self.version.to_string()
-    }
-
-    pub fn get_features_filtered_view(&self, filter: &str) -> Vec<SelectorItem> {
-        let features = self
-            .features
-            .iter()
-            .filter(|feature| feature.0 != "default");
-
-        if filter.is_empty() {
-            features
-                .sorted_by(|(name_a, data_a), (name_b, data_b)| {
-                    if data_a.is_default && !data_b.is_default {
-                        return Ordering::Less;
-                    }
-
-                    if data_b.is_default && !data_a.is_default {
-                        return Ordering::Greater;
-                    }
-
-                    name_a.cmp(name_b)
-                })
-                .map(|(name, _)| SelectorItem::from_feature(name, vec![]))
-                .collect()
-        } else {
-            let matcher = SkimMatcherV2::default();
-
-            features
-                .filter_map(|(name, _)| matcher.fuzzy(name, filter, true).map(|some| (name, some)))
-                .sorted_by(|(_, fuzzy_a), (_, fuzzy_b)| fuzzy_a.0.cmp(&fuzzy_b.0).reverse())
-                .map(|(name, fuzzy)| (name, fuzzy.1))
-                .map(|(name, indexes)| SelectorItem::from_feature(name, indexes))
-                .collect()
-        }
     }
 
     pub fn get_feature(&self, feature_name: &str) -> Option<&FeatureData> {
@@ -182,7 +150,7 @@ impl Dependency {
         let sub_features = data
             .sub_features
             .iter()
-            .filter(|sub_feature| sub_feature.kind == FeatureType::Normal)
+            .filter(|sub_feature| sub_feature.kind == SubFeatureType::Normal)
             .map(|sub_feature| sub_feature.name.to_string())
             .collect_vec();
 
@@ -258,77 +226,5 @@ impl From<DependencyKind> for DependencyType {
             DependencyKind::Build => DependencyType::Build,
             DependencyKind::Unknown => DependencyType::Unknown,
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct FeatureData {
-    pub sub_features: Vec<SubFeature>,
-    pub is_default: bool,
-    pub enabled_state: EnabledState,
-}
-
-impl FeatureData {
-    pub fn is_enabled(&self) -> bool {
-        match self.enabled_state {
-            EnabledState::Normal(is_enabled) => is_enabled,
-            EnabledState::Workspace => true,
-        }
-    }
-
-    pub fn is_toggleable(&self) -> bool {
-        match self.enabled_state {
-            EnabledState::Normal(_) => true,
-            EnabledState::Workspace => false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum EnabledState {
-    Normal(bool),
-    Workspace,
-}
-
-#[derive(Clone, Debug)]
-pub struct SubFeature {
-    pub name: String,
-    pub kind: FeatureType,
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum FeatureType {
-    Normal,
-    Dependency,
-    DependencyFeature,
-}
-
-impl Display for SubFeature {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.kind == FeatureType::Dependency {
-            f.write_str(&format!(
-                "{}{}",
-                Emoji("📦", "dep:"),
-                self.name.trim_start_matches("dep:")
-            ))?
-        } else {
-            f.write_str(&self.name)?
-        }
-
-        Ok(())
-    }
-}
-
-impl From<&str> for FeatureType {
-    fn from(s: &str) -> Self {
-        if s.starts_with("dep:") {
-            return FeatureType::Dependency;
-        }
-
-        if s.contains('/') {
-            return FeatureType::DependencyFeature;
-        }
-
-        FeatureType::Normal
     }
 }

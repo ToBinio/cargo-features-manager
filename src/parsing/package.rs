@@ -1,21 +1,15 @@
-use crate::dependencies::dependency::{Dependency, DependencyType};
-
 use cargo_metadata::{CargoOpt, PackageId};
 
 use crate::parsing::workspace::parse_workspace;
-use crate::parsing::{get_package_from_version, set_features, toml_document_from_path};
 use color_eyre::Result;
 
-use crate::dependencies::{get_item_from_doc, get_path};
-use color_eyre::eyre::{eyre, ContextCompat};
+use crate::parsing::dependency::parse_dependency;
+use crate::project::dependency::Dependency;
+use crate::project::package::Package;
+use crate::util::toml_document_from_path;
+use color_eyre::eyre::ContextCompat;
+use semver::VersionReq;
 use std::collections::HashMap;
-
-pub struct Package {
-    pub dependencies: Vec<Dependency>,
-    pub name: String,
-    // path include the Cargo.toml
-    pub manifest_path: String,
-}
 
 pub fn get_packages() -> Result<(Vec<Package>, Option<Package>)> {
     let metadata = cargo_metadata::MetadataCommand::new()
@@ -61,66 +55,18 @@ pub fn parse_package(
     })
 }
 
-pub fn parse_dependency(
-    dependency: &cargo_metadata::Dependency,
-    packages: &HashMap<PackageId, cargo_metadata::Package>,
-    document: &toml_edit::Document,
-) -> Result<Dependency> {
-    let package = get_package_from_version(&dependency.name, &dependency.req, packages)?;
-
-    let kind: DependencyType = dependency.kind.into();
-    let mut workspace = false;
-
-    let deps = get_item_from_doc(&get_path(&kind, &dependency.target), document)?;
-
-    let deps = deps.as_table().context(format!(
-        "could not parse dependencies as a table - {}",
-        package.name
-    ))?;
-
-    let dep = if let Some(name) = &dependency.rename {
-        deps.get(name).ok_or(eyre!(
-            "could not find - dep:{} - {} - {:?}",
-            name,
-            deps,
-            kind
-        ))?
-    } else {
-        deps.get(&dependency.name).ok_or(eyre!(
-            "could not find - dep:{} - {} - {:?}",
-            dependency.name,
-            deps,
-            kind
-        ))?
-    };
-
-    if let Some(dep) = dep.as_table_like() {
-        if let Some(workspace_item) = dep.get("workspace") {
-            workspace = workspace_item.as_bool().unwrap_or(false);
-        }
-    }
-
-    let mut new_dependency = Dependency {
-        name: dependency.name.to_string(),
-        rename: dependency.rename.clone(),
-        target: dependency.target.clone(),
-        version: dependency
-            .req
-            .to_string()
-            .trim_start_matches('^')
-            .to_owned(),
-        kind,
-        workspace,
-        features: HashMap::new(),
-        comment: None,
-    };
-
-    set_features(
-        &mut new_dependency,
-        package,
-        dependency.uses_default_features,
-        &dependency.features,
-    )?;
-
-    Ok(new_dependency)
+pub fn get_package_from_version<'a>(
+    name: &str,
+    version_req: &VersionReq,
+    packages: &'a HashMap<PackageId, cargo_metadata::Package>,
+) -> Result<&'a cargo_metadata::Package> {
+    packages
+        .iter()
+        .map(|(_, package)| package)
+        .filter(|package| package.name == name)
+        .find(|package| version_req.matches(&package.version) || version_req.to_string() == "*")
+        .context(format!(
+            "could not find version for {} {}",
+            name, version_req
+        ))
 }

@@ -17,15 +17,15 @@ include = ["src/**/*", "LICENSE", "README.md"]
 color-eyre = "0.6.3"
 cargo-platform = "0.1.8"
 cargo_metadata = "0.18.1"
-clap = { version = "4.5.1", features = ["color", "derive", "error-context", "help", "suggestions", "usage"], default-features = false }
-clap_complete = "4.5.1"
+clap = { version = "4.5.4", features = ["color", "derive", "error-context", "help", "suggestions", "usage"], default-features = false }
+clap_complete = "4.5.2"
 console = { version = "0.15.8", default-features = false }
-ctrlc = "3.4.2"
+ctrlc = "3.4.4"
 fuzzy-matcher = "0.3.7"
 itertools = { version = "0.12.1", default-features = false, features = ["use_alloc"] }
 semver = { version = "1.0.22", default-features = false }
-toml = { version = "0.8.10", default-features = false, features = ["parse"] }
-toml_edit = { version = "0.22.6", default-features = false, features = ["display"] }
+toml = { version = "0.8.12", default-features = false, features = ["parse"] }
+toml_edit = { version = "0.22.12", default-features = false, features = ["display"] }
 
 [[bin]]
 name = "cargo-features"

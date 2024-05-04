@@ -1,11 +1,7 @@
-use crate::dependencies::dependency::DependencyType;
-use color_eyre::eyre::{bail, eyre, ContextCompat, Result};
-
+use crate::project::dependency::DependencyType;
 use cargo_platform::Platform;
-
+use color_eyre::eyre::{bail, eyre, ContextCompat};
 use std::str::FromStr;
-
-pub mod dependency;
 
 pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
     let path = match kind {
@@ -28,8 +24,8 @@ pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
 
 pub fn get_mut_item_from_doc<'a>(
     path: &str,
-    document: &'a mut toml_edit::Document,
-) -> Result<&'a mut toml_edit::Item> {
+    document: &'a mut toml_edit::DocumentMut,
+) -> color_eyre::Result<&'a mut toml_edit::Item> {
     let mut item = document.as_item_mut();
 
     let mut is_target = false;
@@ -71,8 +67,8 @@ pub fn get_mut_item_from_doc<'a>(
 
 pub fn get_item_from_doc<'a>(
     path: &str,
-    document: &'a toml_edit::Document,
-) -> Result<&'a toml_edit::Item> {
+    document: &'a toml_edit::DocumentMut,
+) -> color_eyre::Result<&'a toml_edit::Item> {
     let mut item = document.as_item();
 
     let mut is_target = false;
