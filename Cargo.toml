@@ -14,7 +14,7 @@ rust-version = "1.64.0"
 include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
-color-eyre = "0.6.3"
+color-eyre = { version = "0.6.3", features = ["issue-url"] }
 cargo-platform = "0.1.8"
 cargo_metadata = "0.18.1"
 clap = { version = "4.5.4", features = ["derive"] }
@@ -22,10 +22,10 @@ clap_complete = "4.5.2"
 console = { version = "0.15.8", default-features = false }
 ctrlc = "3.4.4"
 fuzzy-matcher = "0.3.7"
-itertools = { version = "0.12.1", default-features = false, features = ["use_alloc"] }
+itertools = "0.12.1"
 semver = { version = "1.0.22", default-features = false }
 toml = { version = "0.8.12", default-features = false, features = ["parse"] }
-toml_edit = { version = "0.22.12", default-features = false, features = ["display"] }
+toml_edit = { version = "0.22.12", features = ["perf", "serde", "unbounded"] }
 
 [[bin]]
 name = "cargo-features"

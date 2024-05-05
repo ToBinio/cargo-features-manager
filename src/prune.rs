@@ -239,11 +239,12 @@ fn prune_features(
                 features
                     .iter()
                     .filter(|feature| to_be_disabled.contains(feature))
-                    .count(),
+                    .map(|feature| style(format!("-{}", feature)).red().to_string())
+                    .join(","),
             );
 
-            if to_be_disabled.is_empty().not() {
-                disabled_count = disabled_count.red();
+            if to_be_disabled.is_empty() {
+                disabled_count = style("0".to_string());
             }
 
             term.clear_line()?;
