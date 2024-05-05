@@ -24,13 +24,9 @@ ctrlc = "3.4.4"
 fuzzy-matcher = "0.3.7"
 itertools = { version = "0.12.1", default-features = false, features = ["use_alloc"] }
 semver = { version = "1.0.22", default-features = false }
-toml = { version = "0.8.12", default-features = false, features = ["parse"] }
-toml_edit = { version = "0.22.12", default-features = false, features = ["display"] }
+toml = { version = "0.8.12", default-features = false }
+toml_edit = "0.22.12"
 
 [[bin]]
 name = "cargo-features"
 path = "src/main.rs"
-
-[cargo-features-manager.keep]
-clap = ["default"]
-color-eyre = ["default"]

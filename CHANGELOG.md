@@ -8,6 +8,8 @@
 * sort dependencies and packages alphabetically if no filter is set
 * when running `cargo features prune` correctly handle sub features
 * improved progress display while running `cargo features prune`
+* `cargo features prune` now displays which features get disabled
+* add list of known features to ignore when running `cargo features prune`
 
 ## 0.7.1
 
