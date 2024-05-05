@@ -83,10 +83,17 @@ You can run prune with `cargo features prune`
 
 this will disable all features which are not required to compile.
 
-### always keep
+### false positives
 
-If your project requires features to be enabled which do not make the compile fail. You can add a section to
-your `Cargo.toml` named `cargo-features-manager.keep` in there you can define which features will be kept.
+Some features may not cause the compilation to fail but still remove functionality. To limit the extent of such cases we
+keep a [file](Known-Features.toml) including all known false positives. These features will not be disabled
+by `cargo features prune` and instead be display gray letting you know that you should consider if you really need the
+feature.
+
+If you know of any other features that fall under this category fell free to open an Issue or PR!
+
+If your project requires additional features to be always kept. You can add a section to your `Cargo.toml`
+named `cargo-features-manager.keep` in there you can define which features will be kept.
 
 ```toml
 # for individial packages

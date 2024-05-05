@@ -1,0 +1,4 @@
+clap = ["default"]
+color-eyre = ["default"]
+regex = ["default"]
+serde_json = ["preserve_order"]

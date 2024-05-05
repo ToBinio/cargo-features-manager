@@ -23,9 +23,40 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
         get_ignored_features("./", "workspace.cargo-features-manager.keep")?;
     remove_ignored_features(&document, &base_ignored_features, &mut enabled_features)?;
 
-    prune_features(&mut document, is_dry_run, &mut term, enabled_features)?;
+    prune_features(
+        &mut document,
+        is_dry_run,
+        &mut term,
+        enabled_features,
+        known_features()?,
+    )?;
 
     Ok(())
+}
+
+//give a map of known features that do not affect completion but remove functionality
+pub fn known_features() -> Result<HashMap<String, Vec<String>>> {
+    let file = include_str!("../Known-Features.toml");
+
+    let document: toml_edit::DocumentMut = file.parse()?;
+
+    let mut map = HashMap::new();
+
+    for (dependency, features) in document.as_table() {
+        let features = features
+            .as_array()
+            .context("could not parse Known-Features.toml")?;
+
+        let features = features
+            .iter()
+            .filter_map(|item| item.as_str())
+            .map(|name| name.to_string())
+            .collect_vec();
+
+        map.insert(dependency.to_string(), features);
+    }
+
+    Ok(map)
 }
 
 type FeaturesToTest = HashMap<String, HashMap<String, Vec<String>>>;
@@ -115,12 +146,15 @@ fn prune_features(
     is_dry_run: bool,
     term: &mut Term,
     features: FeaturesToTest,
+    known_features: HashMap<String, Vec<String>>,
 ) -> Result<()> {
     let feature_count = features
         .values()
         .flat_map(|dependencies| dependencies.values())
         .flatten()
         .count();
+
+    let mut has_known_features_enabled = false;
 
     let mut checked_features_count = 0;
 
@@ -166,7 +200,21 @@ fn prune_features(
                 continue;
             }
 
+            let mut known_features_list = vec![];
+            let dependency = document
+                .get_package(&package_name)?
+                .get_dep(&dependency_name)?;
+
+            for feature_name in known_features.get(&dependency_name).unwrap_or(&vec![]) {
+                set_features_to_be_keept(
+                    dependency,
+                    feature_name.to_string(),
+                    &mut known_features_list,
+                )
+            }
+
             let mut to_be_disabled = vec![];
+            to_be_disabled.append(&mut known_features_list.clone());
 
             for (id, feature) in features.iter().enumerate() {
                 term.clear_line()?;
@@ -239,7 +287,14 @@ fn prune_features(
                 features
                     .iter()
                     .filter(|feature| to_be_disabled.contains(feature))
-                    .map(|feature| style(format!("-{}", feature)).red().to_string())
+                    .map(|feature| {
+                        if known_features_list.contains(feature) {
+                            has_known_features_enabled = true;
+                            style(feature).color256(7).to_string()
+                        } else {
+                            style(format!("-{}", feature)).red().to_string()
+                        }
+                    })
                     .join(","),
             );
 
@@ -263,6 +318,10 @@ fn prune_features(
 
             if to_be_disabled.is_empty().not() {
                 for feature in to_be_disabled {
+                    if known_features_list.contains(&feature) {
+                        continue;
+                    }
+
                     document
                         .get_package_mut(&package_name)?
                         .get_dep_mut(&dependency_name)?
@@ -272,6 +331,12 @@ fn prune_features(
                 save_dependency(document, &package_name, &dependency_name)?;
             }
         }
+    }
+
+    if has_known_features_enabled {
+        term.clear_line()?;
+        writeln!(term)?;
+        writeln!(term, "Some features that do not affect compilation but can limit functionally where found. For more information refer to https://github.com/ToBinio/cargo-features-manager?tab=readme-ov-file#prune")?;
     }
 
     Ok(())
@@ -299,6 +364,24 @@ fn set_features_to_be_disabled(
         .for_each(|(name, _)| {
             set_features_to_be_disabled(dependency, name.to_string(), to_be_disabled);
         });
+}
+
+fn set_features_to_be_keept(
+    dependency: &Dependency,
+    feature: String,
+    to_be_disabled: &mut Vec<String>,
+) {
+    if to_be_disabled.contains(&feature) {
+        return;
+    }
+
+    to_be_disabled.push(feature.clone());
+
+    if let Some(feature) = dependency.get_feature(&feature) {
+        for sub_feature in &feature.sub_features {
+            set_features_to_be_keept(dependency, sub_feature.name.clone(), to_be_disabled);
+        }
+    }
 }
 
 fn check() -> Result<bool> {
