@@ -1,4 +1,4 @@
-## unreleased
+## 0.8.0
 
 * #### BREAKING - move Features.toml into Cargo.toml see [README.md](README.md#prune)
 

@@ -96,6 +96,8 @@ If your project requires additional features to be always kept. You can add a se
 named `cargo-features-manager.keep` in there you can define which features will be kept.
 
 ```toml
+# Cargo.toml
+
 # for individial packages
 [cargo-features-manager.keep]
 clap = ["default"]

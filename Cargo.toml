@@ -1,6 +1,6 @@
 [package]
 name = "cargo-features-manager"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2021"
 authors = ["ToBinio"]
 license = "MIT"
@@ -11,7 +11,7 @@ keywords = ["cli", "manager", "cargo", "crates", "feature"]
 homepage = "https://github.com/ToBinio/cargo-features-manager.git"
 readme = "README.md"
 rust-version = "1.64.0"
-include = ["src/**/*", "LICENSE", "README.md"]
+include = ["src/**/*", "LICENSE", "README.md", "Known-Features.toml"]
 
 [dependencies]
 color-eyre = "0.6.3"
