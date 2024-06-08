@@ -460,7 +460,8 @@ impl Display {
                     .get_package(self.package_selector.get_selected()?.name())?
                     .get_dep(self.dep_selector.get_selected()?.name())?;
 
-                self.dep_selector.data = FilterView::data_from_dependency(dep, &self.search_text);
+                self.feature_selector.data =
+                    FilterView::data_from_dependency(dep, &self.search_text);
             }
         }
 

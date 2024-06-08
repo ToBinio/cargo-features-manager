@@ -1,6 +1,6 @@
 [package]
 name = "cargo-features-manager"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 authors = ["ToBinio"]
 license = "MIT"

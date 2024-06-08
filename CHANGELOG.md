@@ -1,3 +1,7 @@
+## 0.8.1
+
+* fix search for features not working
+
 ## 0.8.0
 
 * #### BREAKING - move Features.toml into Cargo.toml see [README.md](README.md#prune)
