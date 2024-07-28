@@ -1,4 +1,4 @@
-## unreleased
+## 0.8.2
 
 * fix `features-manager.keep` only being applied to normal dependencies
 

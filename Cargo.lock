@@ -98,7 +98,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-features-manager"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "cargo-platform",
  "cargo_metadata",
