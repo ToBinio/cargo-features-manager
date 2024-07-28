@@ -109,10 +109,10 @@ fn remove_ignored_features(
                 features.push("default".to_string());
             }
 
-            for feature in ignored_features.get(dependency_name).unwrap_or(&vec![]) {
+            for feature in ignored_features.get(&dependency.name).unwrap_or(&vec![]) {
                 remove_feature(feature, features, dependency);
             }
-            for feature in base_ignored.get(dependency_name).unwrap_or(&vec![]) {
+            for feature in base_ignored.get(&dependency.name).unwrap_or(&vec![]) {
                 remove_feature(feature, features, dependency);
             }
 

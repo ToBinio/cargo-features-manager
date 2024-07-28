@@ -1,3 +1,7 @@
+## unreleased
+
+* fix `features-manager.keep` only being applied to normal dependencies
+
 ## 0.8.1
 
 * fix search for features not working
