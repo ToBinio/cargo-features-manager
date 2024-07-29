@@ -46,6 +46,8 @@ enum FeaturesSubCommands {
     Prune {
         #[arg(long, short)]
         dry_run: bool,
+        #[arg(long, short)]
+        skip_tests: bool,
     },
 }
 
@@ -74,8 +76,8 @@ fn run(args: FeaturesArgs) -> Result<()> {
 
     if let Some(sub) = args.sub {
         match sub {
-            FeaturesSubCommands::Prune { dry_run } => {
-                prune(document, dry_run)?;
+            FeaturesSubCommands::Prune { dry_run, skip_tests } => {
+                prune(document, dry_run, skip_tests)?;
             }
         }
     } else {

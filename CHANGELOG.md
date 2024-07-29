@@ -1,3 +1,8 @@
+## unreleased
+
+* `cargo features prune` now runs all test
+* add `--skip-tests` to prune
+
 ## 0.8.2
 
 * fix `features-manager.keep` only being applied to normal dependencies

@@ -14,7 +14,7 @@ use color_eyre::eyre::{eyre, ContextCompat};
 use itertools::Itertools;
 use std::process::{Command, Stdio};
 
-pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
+pub fn prune(mut document: Document, is_dry_run: bool, skip_tests: bool) -> Result<()> {
     let mut term = Term::stdout();
 
     let mut enabled_features = get_enabled_features(&document);
@@ -26,6 +26,7 @@ pub fn prune(mut document: Document, is_dry_run: bool) -> Result<()> {
     prune_features(
         &mut document,
         is_dry_run,
+        skip_tests,
         &mut term,
         enabled_features,
         known_features()?,
@@ -144,6 +145,7 @@ fn remove_feature(feature: &String, features: &mut Vec<String>, dependency: &Dep
 fn prune_features(
     document: &mut Document,
     is_dry_run: bool,
+    skip_tests: bool,
     term: &mut Term,
     features: FeaturesToTest,
     known_features: HashMap<String, Vec<String>>,
@@ -238,7 +240,7 @@ fn prune_features(
 
                 save_dependency(document, &package_name, &dependency_name)?;
 
-                if !to_be_disabled.contains(feature) && check()? {
+                if !to_be_disabled.contains(feature) && check(skip_tests)? {
                     set_features_to_be_disabled(
                         document
                             .get_package(&package_name)?
@@ -384,12 +386,12 @@ fn set_features_to_be_keept(
     }
 }
 
-fn check() -> Result<bool> {
+fn check(skip_tests: bool) -> Result<bool> {
     if !build()? {
         return Ok(false);
     }
 
-    if !test()? {
+    if !skip_tests && !test()? {
         return Ok(false);
     }
 
@@ -412,6 +414,7 @@ fn build() -> Result<bool> {
 fn test() -> Result<bool> {
     let mut child = Command::new("cargo")
         .arg("test")
+        .arg("--workspace")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()?;
