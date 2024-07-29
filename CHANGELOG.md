@@ -1,4 +1,4 @@
-## unreleased
+## 0.8.3
 
 * `cargo features prune` now runs all test
 * add `--skip-tests` to prune
