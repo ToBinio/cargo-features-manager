@@ -1,3 +1,7 @@
+## 0.8.4
+
+* fix handling of renamed dependencies in workspaces - [the-wondersmith](https://github.com/ToBinio/cargo-features-manager/pull/39)
+
 ## 0.8.3
 
 * `cargo features prune` now runs all test
