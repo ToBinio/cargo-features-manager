@@ -65,8 +65,8 @@ impl Document {
                 let workspace_dep = workspace
                     .dependencies
                     .iter()
-                    .find(|workspace_dep| workspace_dep.name == dep.name)
-                    .ok_or(eyre!("could not find workspace dep - {}", dep.get_name()))?;
+                    .find(|workspace_dep| workspace_dep.name == dep.name || workspace_dep.rename.as_ref().is_some_and(|name| name == dep.name.as_str()))
+                    .ok_or(eyre!("could not find workspace dep - {:#?}", dep.get_name()))?;
 
                 let enabled_workspace_features = workspace_dep
                     .features
