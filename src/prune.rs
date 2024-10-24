@@ -10,11 +10,17 @@ use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::save::save_dependency;
 use crate::util::{get_item_from_doc, toml_document_from_path};
+use crate::CleanLevel;
 use color_eyre::eyre::{eyre, ContextCompat};
 use itertools::Itertools;
 use std::process::{Command, Stdio};
 
-pub fn prune(mut document: Document, is_dry_run: bool, skip_tests: bool) -> Result<()> {
+pub fn prune(
+    mut document: Document,
+    is_dry_run: bool,
+    skip_tests: bool,
+    clean: CleanLevel,
+) -> Result<()> {
     let mut term = Term::stdout();
 
     let mut enabled_features = get_enabled_features(&document);
@@ -27,6 +33,7 @@ pub fn prune(mut document: Document, is_dry_run: bool, skip_tests: bool) -> Resu
         &mut document,
         is_dry_run,
         skip_tests,
+        clean,
         &mut term,
         enabled_features,
         known_features()?,
@@ -146,6 +153,7 @@ fn prune_features(
     document: &mut Document,
     is_dry_run: bool,
     skip_tests: bool,
+    should_clean: CleanLevel,
     term: &mut Term,
     features: FeaturesToTest,
     known_features: HashMap<String, Vec<String>>,
@@ -303,6 +311,10 @@ fn prune_features(
                 features.len()
             )?;
 
+            if let CleanLevel::Dependency = should_clean {
+                clean()?;
+            }
+
             if is_dry_run {
                 continue;
             }
@@ -321,6 +333,10 @@ fn prune_features(
 
                 save_dependency(document, &package_name, &dependency_name)?;
             }
+        }
+
+        if let CleanLevel::Package = should_clean {
+            clean()?;
         }
     }
 
@@ -406,6 +422,18 @@ fn set_features_to_be_keept(
             set_features_to_be_keept(dependency, sub_feature.name.clone(), to_be_disabled);
         }
     }
+}
+
+fn clean() -> Result<()> {
+    let mut child = Command::new("cargo")
+        .arg("clean")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    let _ = child.wait()?.code().ok_or(eyre!("Could not clear"))?;
+
+    Ok(())
 }
 
 fn check(skip_tests: bool) -> Result<bool> {

@@ -48,7 +48,18 @@ enum FeaturesSubCommands {
         dry_run: bool,
         #[arg(long, short)]
         skip_tests: bool,
+        /// `cargo clean` will run after each <CLEAN>
+        #[arg(long, short, default_value_t, value_enum)]
+        clean: CleanLevel,
     },
+}
+
+#[derive(clap::ValueEnum, Clone, Default, Debug)]
+enum CleanLevel {
+    #[default]
+    Never,
+    Package,
+    Dependency,
 }
 
 fn main() -> Result<()> {
@@ -76,8 +87,12 @@ fn run(args: FeaturesArgs) -> Result<()> {
 
     if let Some(sub) = args.sub {
         match sub {
-            FeaturesSubCommands::Prune { dry_run, skip_tests } => {
-                prune(document, dry_run, skip_tests)?;
+            FeaturesSubCommands::Prune {
+                dry_run,
+                skip_tests,
+                clean,
+            } => {
+                prune(document, dry_run, skip_tests, clean)?;
             }
         }
     } else {

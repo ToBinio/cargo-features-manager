@@ -1,6 +1,7 @@
 ## unreleased
 
 * move prune progress display to bottom
+* add `cargo features prune --clean <CLEAN>`
 
 ## 0.8.4
 
