@@ -1,6 +1,6 @@
 [package]
 name = "cargo-features-manager"
-version = "0.8.4"
+version = "0.9.0"
 edition = "2021"
 authors = ["ToBinio"]
 license = "MIT"
@@ -17,15 +17,15 @@ include = ["src/**/*", "LICENSE", "README.md", "Known-Features.toml"]
 color-eyre = "0.6.3"
 cargo-platform = "0.1.8"
 cargo_metadata = "0.18.1"
-clap = { version = "4.5.11", features = ["derive"] }
-clap_complete = "4.5.11"
+clap = { version = "4.5.20", features = ["derive"] }
+clap_complete = "4.5.35"
 console = { version = "0.15.8", default-features = false }
-ctrlc = "3.4.4"
+ctrlc = "3.4.5"
 fuzzy-matcher = "0.3.7"
 itertools = { version = "0.13.0", default-features = false, features = ["use_alloc"] }
 semver = { version = "1.0.23", default-features = false }
-toml = { version = "0.8.16", default-features = false }
-toml_edit = "0.22.17"
+toml = { version = "0.8.19", default-features = false }
+toml_edit = "0.22.22"
 
 [[bin]]
 name = "cargo-features"
