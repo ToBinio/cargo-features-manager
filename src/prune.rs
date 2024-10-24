@@ -157,16 +157,9 @@ fn prune_features(
         .count();
 
     let mut has_known_features_enabled = false;
-
     let mut checked_features_count = 0;
 
-    writeln!(
-        term,
-        "workspace [{}/{}]",
-        checked_features_count, feature_count
-    )?;
-
-    let mut offset_to_top = 1;
+    writeln!(term, "workspace [{}]", feature_count)?;
 
     let package_inset = if features.len() == 1 { 0 } else { 2 };
     let dependency_inset = if features.len() == 1 { 2 } else { 4 };
@@ -181,17 +174,15 @@ fn prune_features(
 
         let package_feature_count = dependencies.values().flatten().count();
         let mut package_checked_features_count = 0;
-        let mut package_offset_to_top = 1;
 
         if document.is_workspace() {
             term.clear_line()?;
             writeln!(term)?;
             writeln!(
                 term,
-                "{:package_inset$}{} [{}/{}]",
-                "", package_name, package_checked_features_count, package_feature_count
+                "{:package_inset$}{} [{}]",
+                "", package_name, package_feature_count
             )?;
-            offset_to_top += 2;
         }
 
         for (dependency_name, features) in dependencies
@@ -230,8 +221,17 @@ fn prune_features(
                 )?;
                 term.clear_line()?;
                 writeln!(term, "{:dependency_inset$} └ {}", "", feature)?;
-
                 term.move_cursor_up(2)?;
+
+                write_progress_bar(
+                    term,
+                    feature_count,
+                    checked_features_count,
+                    document,
+                    &package_name,
+                    package_feature_count,
+                    package_checked_features_count,
+                )?;
 
                 document
                     .get_package_mut(&package_name)?
@@ -263,27 +263,16 @@ fn prune_features(
                 checked_features_count += 1;
                 package_checked_features_count += 1;
 
-                term.move_cursor_up(offset_to_top)?;
-                writeln!(
+                write_progress_bar(
                     term,
-                    "workspace [{}/{}]",
-                    checked_features_count, feature_count
+                    feature_count,
+                    checked_features_count,
+                    document,
+                    &package_name,
+                    package_feature_count,
+                    package_checked_features_count,
                 )?;
-                term.move_cursor_down(offset_to_top - 1)?;
-
-                if document.is_workspace() {
-                    term.move_cursor_up(package_offset_to_top)?;
-                    writeln!(
-                        term,
-                        "{:package_inset$}{} [{}/{}]",
-                        "", package_name, package_checked_features_count, package_feature_count
-                    )?;
-                    term.move_cursor_down(package_offset_to_top - 1)?;
-                }
             }
-
-            offset_to_top += 1;
-            package_offset_to_top += 1;
 
             let mut disabled_count = style(
                 features
@@ -341,6 +330,39 @@ fn prune_features(
         writeln!(term, "Some features that do not affect compilation but can limit functionally where found. For more information refer to https://github.com/ToBinio/cargo-features-manager?tab=readme-ov-file#prune")?;
     }
 
+    Ok(())
+}
+
+fn write_progress_bar(
+    term: &mut Term,
+    workspace_feature_count: usize,
+    completed_workspace_feature_count: usize,
+    document: &Document,
+    package_name: &str,
+    package_features: usize,
+    completed_package_features: usize,
+) -> Result<()> {
+    term.move_cursor_down(2)?;
+    term.clear_line()?;
+    writeln!(term)?;
+    term.clear_line()?;
+    write!(
+        term,
+        "Workspace [{}/{}]",
+        completed_workspace_feature_count, workspace_feature_count,
+    )?;
+
+    if document.is_workspace() {
+        write!(
+            term,
+            " -> {} [{}/{}]",
+            package_name, completed_package_features, package_features
+        )?;
+    }
+
+    writeln!(term)?;
+
+    term.move_cursor_up(4)?;
     Ok(())
 }
 

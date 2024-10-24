@@ -1,3 +1,7 @@
+## unreleased
+
+* move prune progress display to bottom
+
 ## 0.8.4
 
 * fix handling of renamed dependencies in workspaces - [the-wondersmith](https://github.com/ToBinio/cargo-features-manager/pull/39)
