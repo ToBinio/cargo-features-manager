@@ -1,7 +1,7 @@
-use crate::parsing::dependency::parse_dependency_from_item;
+use crate::io::parsing::dependency::parse_dependency_from_item;
 use crate::project::dependency::Dependency;
 use crate::project::package::Package;
-use crate::util::toml_document_from_path;
+use crate::io::util::toml_document_from_path;
 use cargo_metadata::PackageId;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;

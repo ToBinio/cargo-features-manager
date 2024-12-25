@@ -3,7 +3,7 @@ use color_eyre::eyre::{bail, eyre, ContextCompat};
 use color_eyre::Result;
 use itertools::Itertools;
 
-use crate::parsing::package::get_packages;
+use crate::io::parsing::package::get_packages;
 use crate::project::dependency::feature::EnabledState;
 use crate::project::package::Package;
 

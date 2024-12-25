@@ -1,6 +1,5 @@
 #![warn(clippy::unwrap_used)]
 
-use std::io;
 use std::process::exit;
 
 use clap::{arg, CommandFactory, Parser, Subcommand};
@@ -8,18 +7,16 @@ use clap_complete::{generate, Shell};
 use color_eyre::Result;
 use console::Term;
 
+use crate::edit::display::Display;
 use crate::project::document::Document;
 use crate::prune::prune;
-use crate::rendering::display::Display;
 
+mod edit;
 mod prune;
-mod rendering;
 
-mod parsing;
 mod project;
-mod util;
 
-mod save;
+mod io;
 
 #[derive(Parser)]
 #[command(name = "cargo")]
@@ -74,7 +71,7 @@ fn main() -> Result<()> {
             generator,
             cmd,
             cmd.get_name().to_string(),
-            &mut io::stdout(),
+            &mut std::io::stdout(),
         );
         return Ok(());
     }
