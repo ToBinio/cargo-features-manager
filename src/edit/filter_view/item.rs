@@ -1,6 +1,6 @@
+use crate::edit::search::highlight_search;
 use crate::project::dependency::Dependency;
 use crate::project::package::Package;
-use crate::edit::search::highlight_search;
 use console::style;
 
 pub struct FilterViewItem {

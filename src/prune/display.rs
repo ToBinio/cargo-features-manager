@@ -88,7 +88,7 @@ impl Display {
         Ok(())
     }
 
-    pub fn next_dependency(&mut self, name: &str, features: &Vec<FeatureName>) {
+    pub fn next_dependency(&mut self, name: &str, features: &[FeatureName]) {
         self.dependency_feature_count = features.len();
         self.dependency_name = name.to_string();
     }

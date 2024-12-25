@@ -1,7 +1,7 @@
+use crate::edit::filter_view::item::FilterViewItem;
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::project::package::Package;
-use crate::edit::filter_view::item::FilterViewItem;
 use color_eyre::eyre::ContextCompat;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;

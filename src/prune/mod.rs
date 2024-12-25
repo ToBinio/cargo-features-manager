@@ -72,7 +72,7 @@ fn prune_features(
 ) -> Result<()> {
     let mut has_known_features_enabled = false;
 
-    let mut display = Display::new(&features, &document);
+    let mut display = Display::new(&features, document);
     display.start()?;
 
     for (package_name, dependencies) in features

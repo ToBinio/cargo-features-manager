@@ -4,9 +4,9 @@ use crate::io::parsing::workspace::parse_workspace;
 use color_eyre::Result;
 
 use crate::io::parsing::dependency::parse_dependency;
+use crate::io::util::toml_document_from_path;
 use crate::project::dependency::Dependency;
 use crate::project::package::Package;
-use crate::io::util::toml_document_from_path;
 use color_eyre::eyre::ContextCompat;
 use semver::VersionReq;
 use std::collections::HashMap;
