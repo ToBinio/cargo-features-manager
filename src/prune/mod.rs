@@ -7,7 +7,7 @@ use crate::io::save::save_dependency;
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::prune::display::Display;
-use crate::prune::parse::{get_features_to_test, FeaturesToTest};
+use crate::prune::parse::get_features_to_test;
 use crate::CleanLevel;
 use color_eyre::eyre::{eyre, ContextCompat};
 use itertools::Itertools;
@@ -17,6 +17,11 @@ mod parse;
 
 mod display;
 
+type PackageName = String;
+pub type DependencyName = String;
+pub type FeatureName = String;
+pub type FeaturesMap = HashMap<PackageName, HashMap<DependencyName, Vec<FeatureName>>>;
+
 pub fn prune(
     mut document: Document,
     is_dry_run: bool,
@@ -25,14 +30,30 @@ pub fn prune(
 ) -> Result<()> {
     let features_to_test = get_features_to_test(&document)?;
 
-    prune_features(
+    let to_be_disabled = prune_features(
         &mut document,
-        is_dry_run,
         skip_tests,
         clean,
         features_to_test,
         known_features()?,
     )?;
+
+    if is_dry_run {
+        return Ok(());
+    }
+
+    for (package_name, dependency) in to_be_disabled {
+        for (dependency_name, features) in dependency {
+            for feature in features {
+                document
+                    .get_package_mut(&package_name)?
+                    .get_dep_mut(&dependency_name)?
+                    .disable_feature(&feature)?;
+            }
+
+            save_dependency(&mut document, &package_name, &dependency_name)?;
+        }
+    }
 
     Ok(())
 }
@@ -64,12 +85,13 @@ pub fn known_features() -> Result<HashMap<String, Vec<String>>> {
 
 fn prune_features(
     document: &mut Document,
-    is_dry_run: bool,
     skip_tests: bool,
     should_clean: CleanLevel,
-    features: FeaturesToTest,
+    features: FeaturesMap,
     known_features: HashMap<String, Vec<String>>,
-) -> Result<()> {
+) -> Result<FeaturesMap> {
+    let mut features_map = HashMap::new();
+
     let mut has_known_features_enabled = false;
 
     let mut display = Display::new(&features, document);
@@ -163,24 +185,15 @@ fn prune_features(
                 clean()?;
             }
 
-            if is_dry_run {
-                continue;
-            }
+            let to_be_disabled = to_be_disabled
+                .into_iter()
+                .filter(|feature| known_features_list.contains(feature).not())
+                .collect_vec();
 
-            if to_be_disabled.is_empty().not() {
-                for feature in to_be_disabled {
-                    if known_features_list.contains(&feature) {
-                        continue;
-                    }
-
-                    document
-                        .get_package_mut(&package_name)?
-                        .get_dep_mut(&dependency_name)?
-                        .disable_feature(&feature)?;
-                }
-
-                save_dependency(document, &package_name, &dependency_name)?;
-            }
+            features_map
+                .entry(package_name.to_string())
+                .or_insert_with(HashMap::new)
+                .insert(dependency_name, to_be_disabled);
         }
 
         if let CleanLevel::Package = should_clean {
@@ -192,7 +205,7 @@ fn prune_features(
         display.display_known_features_notice()?;
     }
 
-    Ok(())
+    Ok(features_map)
 }
 
 fn set_features_to_be_disabled(

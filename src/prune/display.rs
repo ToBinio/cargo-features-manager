@@ -1,5 +1,5 @@
 use crate::project::document::Document;
-use crate::prune::parse::{DependencyName, FeatureName, FeaturesToTest};
+use crate::prune::{DependencyName, FeatureName, FeaturesMap};
 use color_eyre::Result;
 use console::{style, Term};
 use itertools::Itertools;
@@ -27,7 +27,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new(features_to_test: &FeaturesToTest, document: &Document) -> Self {
+    pub fn new(features_to_test: &FeaturesMap, document: &Document) -> Self {
         let feature_count = features_to_test
             .values()
             .flat_map(|dependencies| dependencies.values())
@@ -60,7 +60,7 @@ impl Display {
     pub fn display_known_features_notice(&mut self) -> Result<()> {
         self.term.clear_line()?;
         writeln!(self.term)?;
-        writeln!(self.term, "Some features that do not affect compilation but can limit functionally where found. For more information refer to https://github.com/ToBinio/cargo-features-manager?tab=readme-ov-file#prune")?;
+        writeln!(self.term, "Some features that do not affect compilation but can limit functionally where found. For more information refer to https://github.com/ToBinio/cargo-features-manager#prune")?;
         Ok(())
     }
 

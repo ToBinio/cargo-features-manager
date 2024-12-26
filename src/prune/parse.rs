@@ -3,17 +3,13 @@ use color_eyre::Result;
 use crate::io::util::{get_item_from_doc, toml_document_from_path};
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
+use crate::prune::FeaturesMap;
 use color_eyre::eyre::{eyre, ContextCompat};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 
-type PackageName = String;
-pub type DependencyName = String;
-pub type FeatureName = String;
-pub type FeaturesToTest = HashMap<PackageName, HashMap<DependencyName, Vec<FeatureName>>>;
-
-pub fn get_features_to_test(document: &Document) -> Result<FeaturesToTest> {
+pub fn get_features_to_test(document: &Document) -> Result<FeaturesMap> {
     let base_ignored_features =
         get_ignored_features("./", "workspace.cargo-features-manager.keep")?;
 
@@ -23,7 +19,7 @@ pub fn get_features_to_test(document: &Document) -> Result<FeaturesToTest> {
     Ok(enabled_features)
 }
 
-fn get_enabled_features(document: &Document) -> FeaturesToTest {
+fn get_enabled_features(document: &Document) -> FeaturesMap {
     let mut data = HashMap::new();
 
     for package in document.get_packages() {
@@ -54,7 +50,7 @@ fn get_enabled_features(document: &Document) -> FeaturesToTest {
 fn get_ignored_features<P: AsRef<Path>>(
     file_path: P,
     item_path: &str,
-) -> color_eyre::Result<HashMap<String, Vec<String>>> {
+) -> Result<HashMap<String, Vec<String>>> {
     let result = toml_document_from_path(file_path.as_ref().join("Cargo.toml"));
 
     match result {
@@ -95,7 +91,7 @@ fn get_ignored_features<P: AsRef<Path>>(
 fn remove_ignored_features(
     document: &Document,
     base_ignored: &HashMap<String, Vec<String>>,
-    enabled_features: &mut FeaturesToTest,
+    enabled_features: &mut FeaturesMap,
 ) -> Result<()> {
     for (package_name, dependencies) in enabled_features {
         let package = document.get_package(package_name)?;
