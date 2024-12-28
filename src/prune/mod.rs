@@ -208,6 +208,8 @@ fn prune_features(
         display.display_known_features_notice()?;
     }
 
+    display.finish()?;
+
     Ok(features_map)
 }
 

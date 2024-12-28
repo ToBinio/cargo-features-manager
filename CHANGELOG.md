@@ -1,6 +1,7 @@
 ## unreleased
 
 * run prune in temp folder 
+* hide cursor while pruning
 
 ## 0.9.1
 

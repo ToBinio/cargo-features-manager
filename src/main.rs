@@ -79,6 +79,13 @@ fn main() -> Result<()> {
 }
 
 fn run(args: FeaturesArgs) -> Result<()> {
+    let _ = ctrlc::set_handler(|| {
+        let term = Term::stdout();
+        term.show_cursor().expect("could not enable cursor");
+
+        exit(0);
+    });
+
     if let Some(sub) = args.sub {
         match sub {
             FeaturesSubCommands::Prune {
@@ -95,13 +102,6 @@ fn run(args: FeaturesArgs) -> Result<()> {
         if let Some(name) = args.dependency {
             display.set_selected_dep(name)?
         }
-
-        let _ = ctrlc::set_handler(|| {
-            let term = Term::stdout();
-            term.show_cursor().expect("could not enable cursor");
-
-            exit(0);
-        });
 
         display.start()?;
     }

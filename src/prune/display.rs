@@ -54,6 +54,12 @@ impl Display {
 
     pub fn start(&self) -> Result<()> {
         writeln!(&self.term, "workspace [{}]", self.feature_count)?;
+        self.term.hide_cursor()?;
+        Ok(())
+    }
+
+    pub fn finish(&self) -> Result<()> {
+        self.term.show_cursor()?;
         Ok(())
     }
 
