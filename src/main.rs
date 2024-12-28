@@ -8,7 +8,6 @@ use color_eyre::Result;
 use console::Term;
 
 use crate::edit::display::Display;
-use crate::project::document::Document;
 use crate::prune::prune;
 
 mod edit;
@@ -80,8 +79,6 @@ fn main() -> Result<()> {
 }
 
 fn run(args: FeaturesArgs) -> Result<()> {
-    let document = Document::new()?;
-
     if let Some(sub) = args.sub {
         match sub {
             FeaturesSubCommands::Prune {
@@ -89,11 +86,11 @@ fn run(args: FeaturesArgs) -> Result<()> {
                 skip_tests,
                 clean,
             } => {
-                prune(document, dry_run, skip_tests, clean)?;
+                prune(dry_run, skip_tests, clean)?;
             }
         }
     } else {
-        let mut display = Display::new(document)?;
+        let mut display = Display::new()?;
 
         if let Some(name) = args.dependency {
             display.set_selected_dep(name)?

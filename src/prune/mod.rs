@@ -1,8 +1,3 @@
-use color_eyre::Result;
-use std::collections::HashMap;
-
-use std::ops::Not;
-
 use crate::io::save::save_dependency;
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
@@ -10,8 +5,14 @@ use crate::prune::display::Display;
 use crate::prune::parse::get_features_to_test;
 use crate::CleanLevel;
 use color_eyre::eyre::{eyre, ContextCompat};
+use color_eyre::Result;
+use copy_dir::copy_dir;
 use itertools::Itertools;
+use std::collections::HashMap;
+use std::ops::Not;
+use std::path::Path;
 use std::process::{Command, Stdio};
+use tempdir::TempDir;
 
 mod parse;
 
@@ -22,16 +23,18 @@ pub type DependencyName = String;
 pub type FeatureName = String;
 pub type FeaturesMap = HashMap<PackageName, HashMap<DependencyName, Vec<FeatureName>>>;
 
-pub fn prune(
-    mut document: Document,
-    is_dry_run: bool,
-    skip_tests: bool,
-    clean: CleanLevel,
-) -> Result<()> {
-    let features_to_test = get_features_to_test(&document)?;
+pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel) -> Result<()> {
+    let mut main_document = Document::new(".")?;
 
+    let temp_dir = TempDir::new("cargo-features-manager")?;
+    let project_path = temp_dir.path().join("project");
+    copy_dir(main_document.root_path(), &project_path)?;
+
+    let mut tmp_document = Document::new(project_path)?;
+
+    let features_to_test = get_features_to_test(&tmp_document)?;
     let to_be_disabled = prune_features(
-        &mut document,
+        &mut tmp_document,
         skip_tests,
         clean,
         features_to_test,
@@ -45,13 +48,13 @@ pub fn prune(
     for (package_name, dependency) in to_be_disabled {
         for (dependency_name, features) in dependency {
             for feature in features {
-                document
+                main_document
                     .get_package_mut(&package_name)?
                     .get_dep_mut(&dependency_name)?
                     .disable_feature(&feature)?;
             }
 
-            save_dependency(&mut document, &package_name, &dependency_name)?;
+            save_dependency(&mut main_document, &package_name, &dependency_name)?;
         }
     }
 
@@ -143,7 +146,7 @@ fn prune_features(
 
                 save_dependency(document, &package_name, &dependency_name)?;
 
-                if !to_be_disabled.contains(feature) && check(skip_tests)? {
+                if !to_be_disabled.contains(feature) && check(skip_tests, document.root_path())? {
                     set_features_to_be_disabled(
                         document
                             .get_package(&package_name)?
@@ -182,7 +185,7 @@ fn prune_features(
             display.finish_dependency(features_result)?;
 
             if let CleanLevel::Dependency = should_clean {
-                clean()?;
+                clean(document.root_path())?;
             }
 
             let to_be_disabled = to_be_disabled
@@ -197,7 +200,7 @@ fn prune_features(
         }
 
         if let CleanLevel::Package = should_clean {
-            clean()?;
+            clean(document.root_path())?;
         }
     }
 
@@ -250,8 +253,9 @@ fn set_features_to_be_kept(
     }
 }
 
-fn clean() -> Result<()> {
+fn clean<P: AsRef<Path>>(path: P) -> Result<()> {
     let mut child = Command::new("cargo")
+        .current_dir(path)
         .arg("clean")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -262,20 +266,21 @@ fn clean() -> Result<()> {
     Ok(())
 }
 
-fn check(skip_tests: bool) -> Result<bool> {
-    if !build()? {
+fn check<P: AsRef<Path>>(skip_tests: bool, path: P) -> Result<bool> {
+    if !build(&path)? {
         return Ok(false);
     }
 
-    if !skip_tests && !test()? {
+    if !skip_tests && !test(&path)? {
         return Ok(false);
     }
 
     Ok(true)
 }
 
-fn build() -> Result<bool> {
+fn build<P: AsRef<Path>>(path: P) -> Result<bool> {
     let mut child = Command::new("cargo")
+        .current_dir(path)
         .arg("build")
         .arg("--all-targets")
         .stdout(Stdio::null())
@@ -287,8 +292,9 @@ fn build() -> Result<bool> {
     Ok(code == 0)
 }
 
-fn test() -> Result<bool> {
+fn test<P: AsRef<Path>>(path: P) -> Result<bool> {
     let mut child = Command::new("cargo")
+        .current_dir(path)
         .arg("test")
         .arg("--workspace")
         .stdout(Stdio::null())

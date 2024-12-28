@@ -10,9 +10,11 @@ use crate::project::package::Package;
 use color_eyre::eyre::ContextCompat;
 use semver::VersionReq;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-pub fn get_packages() -> Result<(Vec<Package>, Option<Package>)> {
+pub fn get_packages(path: impl Into<PathBuf>) -> Result<(Vec<Package>, Option<Package>, PathBuf)> {
     let metadata = cargo_metadata::MetadataCommand::new()
+        .current_dir(path)
         .features(CargoOpt::AllFeatures)
         .exec()?;
 
@@ -31,6 +33,7 @@ pub fn get_packages() -> Result<(Vec<Package>, Option<Package>)> {
     Ok((
         packages,
         parse_workspace(metadata.workspace_root.as_str(), &metadata_packages)?,
+        metadata.workspace_root.into(),
     ))
 }
 

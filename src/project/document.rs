@@ -1,4 +1,5 @@
 use color_eyre::eyre::{bail, eyre, ContextCompat};
+use std::path::PathBuf;
 
 use color_eyre::Result;
 use itertools::Itertools;
@@ -10,11 +11,12 @@ use crate::project::package::Package;
 pub struct Document {
     packages: Vec<Package>,
     workspace_index: Option<usize>,
+    root_path: PathBuf,
 }
 
 impl Document {
-    pub fn new() -> Result<Document> {
-        let (mut packages, workspace) = get_packages()?;
+    pub fn new(path: impl Into<PathBuf>) -> Result<Document> {
+        let (mut packages, workspace, root_path) = get_packages(path)?;
 
         if packages.len() == 1
             && packages
@@ -37,11 +39,16 @@ impl Document {
         let mut document = Document {
             packages,
             workspace_index,
+            root_path,
         };
 
         document.update_workspace_deps()?;
 
         Ok(document)
+    }
+
+    pub fn root_path(&self) -> &PathBuf {
+        &self.root_path
     }
 
     pub fn update_workspace_deps(&mut self) -> Result<()> {

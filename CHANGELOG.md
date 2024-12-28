@@ -1,3 +1,7 @@
+## unreleased
+
+* run prune in temp folder 
+
 ## 0.9.1
 
 * Add http2 to known false positives for rocket/hyper/hyper-util - [RivenSkaye](https://github.com/ToBinio/cargo-features-manager/pull/41)
