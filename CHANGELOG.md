@@ -1,11 +1,12 @@
-## unreleased
+## 0.10.0
 
-* run prune in temp folder 
+* run prune in temp folder
 * hide cursor while pruning
 
 ## 0.9.1
 
-* Add http2 to known false positives for rocket/hyper/hyper-util - [RivenSkaye](https://github.com/ToBinio/cargo-features-manager/pull/41)
+* Add http2 to known false positives for
+  rocket/hyper/hyper-util - [RivenSkaye](https://github.com/ToBinio/cargo-features-manager/pull/41)
 
 ## 0.9.0
 
@@ -14,7 +15,8 @@
 
 ## 0.8.4
 
-* fix handling of renamed dependencies in workspaces - [the-wondersmith](https://github.com/ToBinio/cargo-features-manager/pull/39)
+* fix handling of renamed dependencies in
+  workspaces - [the-wondersmith](https://github.com/ToBinio/cargo-features-manager/pull/39)
 
 ## 0.8.3
 

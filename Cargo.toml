@@ -1,6 +1,6 @@
 [package]
 name = "cargo-features-manager"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 authors = ["ToBinio"]
 license = "MIT"
@@ -16,7 +16,7 @@ include = ["src/**/*", "LICENSE", "README.md", "Known-Features.toml"]
 [dependencies]
 color-eyre = "0.6.3"
 cargo-platform = "0.1.8"
-cargo_metadata = "0.18.1"
+cargo_metadata = "0.19.1"
 clap = { version = "4.5.20", features = ["derive"] }
 clap_complete = "4.5.35"
 console = { version = "0.15.8", default-features = false }
