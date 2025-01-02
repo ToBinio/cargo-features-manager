@@ -15,15 +15,15 @@ include = ["src/**/*", "LICENSE", "README.md", "Known-Features.toml"]
 
 [dependencies]
 color-eyre = "0.6.3"
-cargo-platform = "0.1.8"
+cargo-platform = "0.1.9"
 cargo_metadata = "0.19.1"
-clap = { version = "4.5.20", features = ["derive"] }
-clap_complete = "4.5.35"
-console = { version = "0.15.8", default-features = false }
+clap = { version = "4.5.23", features = ["derive"] }
+clap_complete = "4.5.40"
+console = { version = "0.15.10", default-features = false }
 ctrlc = "3.4.5"
 fuzzy-matcher = "0.3.7"
-itertools = { version = "0.13.0", default-features = false, features = ["use_alloc"] }
-semver = { version = "1.0.23", default-features = false }
+itertools = { version = "0.14.0", default-features = false, features = ["use_alloc"] }
+semver = { version = "1.0.24", default-features = false }
 toml_edit = "0.22.22"
 tempdir = "0.3.7"
 copy_dir = "0.1.3"
