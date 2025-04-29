@@ -1,3 +1,7 @@
+## 0.10.1
+
+* add `--no-tmp` to prune
+
 ## 0.10.0
 
 * run prune in temp folder
