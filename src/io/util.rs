@@ -1,5 +1,5 @@
 use cargo_platform::Platform;
-use color_eyre::eyre::{bail, eyre, ContextCompat};
+use color_eyre::eyre::{ContextCompat, bail, eyre};
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;

@@ -2,8 +2,8 @@
 
 use std::process::exit;
 
-use clap::{arg, CommandFactory, Parser, Subcommand};
-use clap_complete::{generate, Shell};
+use clap::{CommandFactory, Parser, Subcommand, arg};
+use clap_complete::{Shell, generate};
 use color_eyre::Result;
 use console::Term;
 
@@ -44,6 +44,9 @@ enum FeaturesSubCommands {
         dry_run: bool,
         #[arg(long, short)]
         skip_tests: bool,
+        /// do not copy the project into a temporary directory
+        #[arg(long, short = 't')]
+        no_tmp: bool,
         /// `cargo clean` will run after each <CLEAN>
         #[arg(long, short, default_value_t, value_enum)]
         clean: CleanLevel,
@@ -92,8 +95,9 @@ fn run(args: FeaturesArgs) -> Result<()> {
                 dry_run,
                 skip_tests,
                 clean,
+                no_tmp,
             } => {
-                prune(dry_run, skip_tests, clean)?;
+                prune(dry_run, skip_tests, clean, no_tmp)?;
             }
         }
     } else {

@@ -4,7 +4,7 @@ use crate::io::util::{get_item_from_doc, toml_document_from_path};
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::prune::FeaturesMap;
-use color_eyre::eyre::{eyre, ContextCompat};
+use color_eyre::eyre::{ContextCompat, eyre};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;

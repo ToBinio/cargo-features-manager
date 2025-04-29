@@ -1,7 +1,7 @@
 use crate::project::document::Document;
 use crate::prune::{DependencyName, FeatureName, FeaturesMap};
 use color_eyre::Result;
-use console::{style, Term};
+use console::{Term, style};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::io::Write;
@@ -66,7 +66,10 @@ impl Display {
     pub fn display_known_features_notice(&mut self) -> Result<()> {
         self.term.clear_line()?;
         writeln!(self.term)?;
-        writeln!(self.term, "Some features that do not affect compilation but can limit functionally where found. For more information refer to https://github.com/ToBinio/cargo-features-manager#prune")?;
+        writeln!(
+            self.term,
+            "Some features that do not affect compilation but can limit functionally where found. For more information refer to https://github.com/ToBinio/cargo-features-manager#prune"
+        )?;
         Ok(())
     }
 

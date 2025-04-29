@@ -1,4 +1,4 @@
-use color_eyre::eyre::{bail, eyre, ContextCompat};
+use color_eyre::eyre::{ContextCompat, bail, eyre};
 use std::path::PathBuf;
 
 use color_eyre::Result;

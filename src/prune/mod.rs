@@ -1,11 +1,11 @@
+use crate::CleanLevel;
 use crate::io::save::save_dependency;
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::prune::display::Display;
 use crate::prune::parse::get_features_to_test;
-use crate::CleanLevel;
-use color_eyre::eyre::{eyre, ContextCompat};
 use color_eyre::Result;
+use color_eyre::eyre::{ContextCompat, eyre};
 use copy_dir::copy_dir;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -23,18 +23,27 @@ pub type DependencyName = String;
 pub type FeatureName = String;
 pub type FeaturesMap = HashMap<PackageName, HashMap<DependencyName, Vec<FeatureName>>>;
 
-pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel) -> Result<()> {
+pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool) -> Result<()> {
     let mut main_document = Document::new(".")?;
 
-    let temp_dir = TempDir::new("cargo-features-manager")?;
-    let project_path = temp_dir.path().join("project");
-    copy_dir(main_document.root_path(), &project_path)?;
+    let mut document = if no_tmp {
+        Document::new(".")?
+    } else {
+        let temp_dir = TempDir::new("cargo-features-manager")?;
+        let project_path = temp_dir.path().join("project");
+        copy_dir(main_document.root_path(), &project_path)?;
 
-    let mut tmp_document = Document::new(project_path)?;
+        match Document::new(project_path) {
+            Ok(document) => {document}
+            Err(err) => {
+                return Err(err.wrap_err("Failed to create the temporary project - try to use cargo `features prune --no-tmp`"))
+            }
+        }
+    };
 
-    let features_to_test = get_features_to_test(&tmp_document)?;
+    let features_to_test = get_features_to_test(&document)?;
     let to_be_disabled = prune_features(
-        &mut tmp_document,
+        &mut document,
         skip_tests,
         clean,
         features_to_test,

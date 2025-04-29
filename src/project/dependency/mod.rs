@@ -1,11 +1,11 @@
-use color_eyre::eyre::{eyre, ContextCompat, Result};
+use color_eyre::eyre::{ContextCompat, Result, eyre};
 use std::collections::HashMap;
 
 use cargo_platform::Platform;
 
 use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeatureType};
 use cargo_metadata::DependencyKind;
-use console::{style, Emoji};
+use console::{Emoji, style};
 use itertools::Itertools;
 
 pub mod feature;

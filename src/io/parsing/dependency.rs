@@ -4,7 +4,7 @@ use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeature,
 use crate::project::dependency::util::get_path;
 use crate::project::dependency::{Dependency, DependencyType};
 use cargo_metadata::PackageId;
-use color_eyre::eyre::{eyre, ContextCompat};
+use color_eyre::eyre::{ContextCompat, eyre};
 use itertools::Itertools;
 use semver::VersionReq;
 use std::collections::HashMap;

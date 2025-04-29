@@ -2,9 +2,9 @@ use crate::edit::filter_view::FilterView;
 use crate::io::save::save_dependency;
 use crate::project::dependency::feature::EnabledState;
 use crate::project::document::Document;
-use color_eyre::eyre::{Context, ContextCompat};
 use color_eyre::Result;
-use console::{style, Emoji, Key, Term};
+use color_eyre::eyre::{Context, ContextCompat};
+use console::{Emoji, Key, Term, style};
 use std::io::Write;
 use std::ops::{Not, Range};
 
