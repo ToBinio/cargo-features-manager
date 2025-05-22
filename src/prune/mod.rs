@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 mod parse;
 
@@ -26,11 +26,13 @@ pub type FeaturesMap = HashMap<PackageName, HashMap<DependencyName, Vec<FeatureN
 pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool) -> Result<()> {
     let mut main_document = Document::new(".")?;
 
+    //needed to be set here so the temp_dir lives long enough
+    let tmp_dir = TempDir::with_suffix("cargo-features-manager")?;
+
     let mut document = if no_tmp {
         Document::new(".")?
     } else {
-        let temp_dir = TempDir::new("cargo-features-manager")?;
-        let project_path = temp_dir.path().join("project");
+        let project_path = tmp_dir.path().join("project");
         copy_dir(main_document.root_path(), &project_path)?;
 
         match Document::new(project_path) {

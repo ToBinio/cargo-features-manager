@@ -1,3 +1,7 @@
+## 0.10.2
+
+* move to tempfile from deprecated tempdir
+
 ## 0.10.1
 
 * add `--no-tmp` to prune
