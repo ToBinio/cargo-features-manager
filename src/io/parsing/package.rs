@@ -64,8 +64,7 @@ pub fn get_package_from_version<'a>(
     packages: &'a HashMap<PackageId, cargo_metadata::Package>,
 ) -> Result<&'a cargo_metadata::Package> {
     packages
-        .iter()
-        .map(|(_, package)| package)
+        .values()
         .filter(|package| package.name == name)
         .find(|package| version_req.matches(&package.version) || version_req.to_string() == "*")
         .context(format!(

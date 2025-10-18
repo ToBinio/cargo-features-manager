@@ -1,5 +1,6 @@
+use cargo_metadata::cargo_platform::Platform;
+
 use crate::project::dependency::DependencyType;
-use cargo_platform::Platform;
 
 pub fn get_path(kind: &DependencyType, target: &Option<Platform>) -> String {
     let path = match kind {

@@ -1,10 +1,8 @@
 use color_eyre::eyre::{ContextCompat, Result, eyre};
 use std::collections::HashMap;
 
-use cargo_platform::Platform;
-
 use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeatureType};
-use cargo_metadata::DependencyKind;
+use cargo_metadata::{DependencyKind, cargo_platform::Platform};
 use console::{Emoji, style};
 use itertools::Itertools;
 
