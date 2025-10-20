@@ -4,6 +4,8 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
+use crate::project::dependency::DependencyType;
+
 pub fn toml_document_from_path<P: AsRef<Path>>(
     dir_path: P,
 ) -> color_eyre::Result<toml_edit::DocumentMut> {
@@ -15,6 +17,15 @@ pub fn toml_document_from_path<P: AsRef<Path>>(
     })?;
 
     Ok(file_content.parse()?)
+}
+
+pub fn get_mut_dependecy_item_from_doc<'a>(
+    kind: &DependencyType,
+    target: &Option<Platform>,
+    document: &'a mut toml_edit::DocumentMut,
+) -> color_eyre::Result<&'a mut toml_edit::Item> {
+    let path = get_dependency_path(kind, target);
+    get_mut_item_from_doc(&path, document)
 }
 
 pub fn get_mut_item_from_doc<'a>(
@@ -60,6 +71,15 @@ pub fn get_mut_item_from_doc<'a>(
     Ok(item)
 }
 
+pub fn get_dependecy_item_from_doc<'a>(
+    kind: &DependencyType,
+    target: &Option<Platform>,
+    document: &'a toml_edit::DocumentMut,
+) -> color_eyre::Result<&'a toml_edit::Item> {
+    let path = get_dependency_path(kind, target);
+    get_item_from_doc(&path, document)
+}
+
 pub fn get_item_from_doc<'a>(
     path: &str,
     document: &'a toml_edit::DocumentMut,
@@ -99,4 +119,23 @@ pub fn get_item_from_doc<'a>(
     }
 
     Ok(item)
+}
+
+fn get_dependency_path(kind: &DependencyType, target: &Option<Platform>) -> String {
+    let path = match kind {
+        DependencyType::Normal => "dependencies",
+        DependencyType::Development => "dev-dependencies",
+        DependencyType::Build => "build-dependencies",
+        DependencyType::Workspace => "workspace.dependencies",
+        DependencyType::Unknown => "dependencies",
+    };
+
+    if let Some(target) = target {
+        return match target {
+            Platform::Name(name) => format!("target.{}.{}", name, path),
+            Platform::Cfg(cfg) => format!("target.'cfg({})'.{}", cfg, path),
+        };
+    }
+
+    path.to_string()
 }

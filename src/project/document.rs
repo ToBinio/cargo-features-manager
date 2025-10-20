@@ -118,7 +118,7 @@ impl Document {
         &self.packages
     }
 
-    pub fn get_package_by_id(&self, package_id: usize) -> Result<&Package> {
+    pub fn get_package_by_index(&self, package_id: usize) -> Result<&Package> {
         self.packages
             .get(package_id)
             .context(format!("no package for id {} found", package_id))
@@ -138,9 +138,11 @@ impl Document {
             .context(format!("no package with name {} found", package))
     }
 
-    pub fn workspace_index(&self) -> Option<usize> {
+    pub fn get_workspace_package(&self) -> Option<Result<&Package>> {
         self.workspace_index
+            .map(|workspace_index| self.get_package_by_index(workspace_index))
     }
+
     pub fn is_workspace(&self) -> bool {
         self.packages.len() > 1
     }

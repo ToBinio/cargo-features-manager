@@ -1,5 +1,4 @@
-use crate::io::util::{get_mut_item_from_doc, toml_document_from_path};
-use crate::project::dependency::util::get_path;
+use crate::io::util::{get_mut_dependecy_item_from_doc, toml_document_from_path};
 use crate::project::document::Document;
 use color_eyre::eyre::{ContextCompat, Error};
 use std::fs;
@@ -16,7 +15,7 @@ pub fn save_dependency(
     let features_to_enable = dependency.get_features_to_enable();
 
     let mut doc = toml_document_from_path(&package.manifest_path)?;
-    let deps = get_mut_item_from_doc(&get_path(&dependency.kind, &dependency.target), &mut doc)?;
+    let deps = get_mut_dependecy_item_from_doc(&dependency.kind, &dependency.target, &mut doc)?;
 
     let deps = deps.as_table_mut().context(format!(
         "could not parse dependencies as a table - {}",
@@ -94,8 +93,8 @@ pub fn save_dependency(
     }
 
     // update workspace deps
-    if let Some(workspace_index) = document.workspace_index() {
-        let workspace = document.get_package_by_id(workspace_index)?;
+    if let Some(workspace_package) = document.get_workspace_package() {
+        let workspace = workspace_package?;
 
         if workspace.name == package_name {
             document.update_workspace_deps()?;

@@ -7,7 +7,6 @@ use console::{Emoji, style};
 use itertools::Itertools;
 
 pub mod feature;
-pub mod util;
 
 #[derive(Debug)]
 pub struct Dependency {

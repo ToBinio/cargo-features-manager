@@ -1,7 +1,6 @@
 use crate::io::parsing::package::get_package_from_version;
-use crate::io::util::get_item_from_doc;
+use crate::io::util::get_dependecy_item_from_doc;
 use crate::project::dependency::feature::{EnabledState, FeatureData, SubFeature, SubFeatureType};
-use crate::project::dependency::util::get_path;
 use crate::project::dependency::{Dependency, DependencyType};
 use cargo_metadata::PackageId;
 use color_eyre::eyre::{ContextCompat, eyre};
@@ -20,7 +19,7 @@ pub fn parse_dependency(
     let kind: DependencyType = dependency.kind.into();
     let mut workspace = false;
 
-    let deps = get_item_from_doc(&get_path(&kind, &dependency.target), document)?;
+    let deps = get_dependecy_item_from_doc(&kind, &dependency.target, document)?;
 
     let deps = deps.as_table().context(format!(
         "could not parse dependencies as a table - {}",

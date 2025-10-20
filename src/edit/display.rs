@@ -34,7 +34,7 @@ impl Display {
             },
             dep_selector: FilterView {
                 selected_index: 0,
-                data: FilterView::data_from_package(document.get_package_by_id(0)?, "")?,
+                data: FilterView::data_from_package(document.get_package_by_index(0)?, "")?,
             },
             feature_selector: FilterView {
                 selected_index: 0,
