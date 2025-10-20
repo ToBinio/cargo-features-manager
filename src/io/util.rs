@@ -139,3 +139,91 @@ fn get_dependency_path(kind: &DependencyType, target: &Option<Platform>) -> Stri
 
     path.to_string()
 }
+
+#[cfg(test)]
+mod test {
+    use cargo_metadata::cargo_platform::{Cfg, CfgExpr, Ident, Platform};
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    use crate::{
+        io::util::{get_dependecy_item_from_doc, get_dependency_path, toml_document_from_path},
+        project::dependency::DependencyType,
+    };
+
+    fn simple_test_toml() -> NamedTempFile {
+        let mut tmpfile = NamedTempFile::new().unwrap();
+        write!(
+            tmpfile,
+            r#"[package]
+name = "Test"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+clap_complete = "4.5.46"
+console = {{ version = "0.16.1", features = ["std"], default-features = false }}
+ctrlc = "3.4.5"
+
+[dev-dependencies]
+color-eyre = "0.6.3"
+cargo_metadata = "0.23.0"
+clap = {{ version = "4.5.31", features = ["derive"] }}
+"#
+        )
+        .unwrap();
+
+        tmpfile
+    }
+
+    #[test]
+    fn toml_document_from_path_works() {
+        let tmpfile = simple_test_toml();
+        let doc = toml_document_from_path(tmpfile.path()).unwrap();
+        assert!(doc.contains_table("package"));
+    }
+
+    #[test]
+    fn get_dependecy_item_from_doc_works() {
+        let tmpfile = simple_test_toml();
+        let doc = toml_document_from_path(tmpfile.path()).unwrap();
+
+        let item = get_dependecy_item_from_doc(&DependencyType::Development, &None, &doc).unwrap();
+        assert!(item.as_table().unwrap().contains_key("color-eyre"));
+    }
+
+    #[test]
+    fn get_dependency_path_works() {
+        assert_eq!(
+            get_dependency_path(
+                &DependencyType::Normal,
+                &Some(Platform::Name("x86_64".to_string())),
+            ),
+            "target.x86_64.dependencies"
+        );
+
+        assert_eq!(
+            get_dependency_path(&DependencyType::Development, &None),
+            "dev-dependencies"
+        );
+
+        assert_eq!(
+            get_dependency_path(
+                &DependencyType::Build,
+                &Some(Platform::Cfg(CfgExpr::Value(Cfg::Name(Ident {
+                    name: "x86_64".to_string(),
+                    raw: false,
+                })))),
+            ),
+            "target.'cfg(x86_64)'.build-dependencies"
+        );
+
+        assert_eq!(
+            get_dependency_path(
+                &DependencyType::Workspace,
+                &Some(Platform::Name("x86_64".to_string())),
+            ),
+            "target.x86_64.workspace.dependencies"
+        );
+    }
+}
