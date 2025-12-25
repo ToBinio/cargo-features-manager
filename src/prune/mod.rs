@@ -6,12 +6,13 @@ use crate::prune::display::Display;
 use crate::prune::parse::get_features_to_test;
 use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, eyre};
-use dircpy::{CopyBuilder, copy_dir};
+use dircpy::copy_dir;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 use std::process::{Command, Stdio};
+
 use tempfile::TempDir;
 
 mod parse;
@@ -35,11 +36,7 @@ pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool
         println!("Creating temporary project...");
         let project_path = tmp_dir.path();
 
-        CopyBuilder::new(main_document.root_path(), project_path)
-            .with_exclude_filter(project_path.to_str().unwrap())
-            .run()?;
-
-        thread::sleep(Duration::from_millis(1000));
+        copy_dir(main_document.root_path(), project_path)?;
 
         match Document::new(project_path) {
             Ok(document) => {document}

@@ -23,7 +23,7 @@ ctrlc = "3.4.5"
 fuzzy-matcher = "0.3.7"
 itertools = { version = "0.14.0", default-features = false, features = ["use_alloc"] }
 semver = { version = "1.0.25", default-features = false }
-toml_edit = "0.23.7"
+toml_edit = "0.24.0"
 tempfile = { version = "3.20.0", default-features = false }
 dircpy = { version = "0.3.19", default-features = false }
 
