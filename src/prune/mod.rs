@@ -12,8 +12,6 @@ use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::thread;
-use std::time::Duration;
 use tempfile::TempDir;
 
 mod parse;
@@ -52,13 +50,14 @@ pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool
     };
 
     let features_to_test = get_features_to_test(&document)?;
-    let to_be_disabled = prune_features(
-        &mut document,
+
+    let mut pruner = Pruner {
         skip_tests,
-        clean,
-        features_to_test,
-        known_features()?,
-    )?;
+        clean_level: clean,
+        document: &mut document,
+        known_features: known_features()?,
+    };
+    let to_be_disabled = pruner.run(features_to_test)?;
 
     if is_dry_run {
         return Ok(());
@@ -105,131 +104,181 @@ pub fn known_features() -> Result<HashMap<String, Vec<String>>> {
     Ok(map)
 }
 
-fn prune_features(
-    document: &mut Document,
+struct Pruner<'a> {
     skip_tests: bool,
-    should_clean: CleanLevel,
-    features: FeaturesMap,
+    clean_level: CleanLevel,
+    document: &'a mut Document,
     known_features: HashMap<String, Vec<String>>,
-) -> Result<FeaturesMap> {
-    let mut features_map = HashMap::new();
+}
 
-    let mut has_known_features_enabled = false;
+impl<'a> Pruner<'a> {
+    fn run(&mut self, all_features: FeaturesMap) -> Result<FeaturesMap> {
+        let mut features_map = HashMap::new();
 
-    let mut display = Display::new(&features, document);
-    display.start()?;
+        let mut has_known_features_enabled = false;
 
-    for (package_name, dependencies) in features
-        .into_iter()
-        .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
-    {
-        if dependencies.is_empty() {
-            continue;
-        }
+        let mut display = Display::new(&all_features, self.document);
+        display.start()?;
 
-        display.next_package(&package_name, &dependencies)?;
-
-        for (dependency_name, features) in dependencies
+        for (package_name, dependencies) in all_features
             .into_iter()
             .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
         {
-            if features.is_empty() {
-                continue;
-            }
-
-            let mut known_features_list = vec![];
-            let dependency = document
-                .get_package(&package_name)?
-                .get_dep(&dependency_name)?;
-
-            for feature_name in known_features.get(&dependency_name).unwrap_or(&vec![]) {
-                set_features_to_be_kept(
-                    dependency,
-                    feature_name.to_string(),
-                    &mut known_features_list,
-                )
-            }
-
-            let mut to_be_disabled = vec![];
-            to_be_disabled.append(&mut known_features_list.clone());
-
-            display.next_dependency(&dependency_name, &features);
-
-            for (id, feature) in features.iter().enumerate() {
-                display.next_feature(id, feature)?;
-
-                document
-                    .get_package_mut(&package_name)?
-                    .get_dep_mut(&dependency_name)?
-                    .disable_feature(feature)?;
-
-                save_dependency(document, &package_name, &dependency_name)?;
-
-                if !to_be_disabled.contains(feature) && check(skip_tests, document.root_path())? {
-                    set_features_to_be_disabled(
-                        document
-                            .get_package(&package_name)?
-                            .get_dep(&dependency_name)?,
-                        feature.to_string(),
-                        &mut to_be_disabled,
-                    );
-                }
-
-                //reset to start
-                for feature in &features {
-                    document
-                        .get_package_mut(&package_name)?
-                        .get_dep_mut(&dependency_name)?
-                        .enable_feature(feature)?;
-                }
-
-                save_dependency(document, &package_name, &dependency_name)?;
-
-                display.finish_feature()?;
-            }
-
-            let features_result = features
-                .iter()
-                .filter(|feature| to_be_disabled.contains(feature))
-                .map(|feature| {
-                    if known_features_list.contains(feature) {
-                        has_known_features_enabled = true;
-                        (feature, true)
-                    } else {
-                        (feature, false)
-                    }
-                })
-                .collect();
-
-            display.finish_dependency(features_result)?;
-
-            if let CleanLevel::Dependency = should_clean {
-                clean(document.root_path())?;
-            }
-
-            let to_be_disabled = to_be_disabled
-                .into_iter()
-                .filter(|feature| known_features_list.contains(feature).not())
-                .collect_vec();
-
-            features_map
-                .entry(package_name.to_string())
-                .or_insert_with(HashMap::new)
-                .insert(dependency_name, to_be_disabled);
+            if self.prune_package(
+                &package_name,
+                &dependencies,
+                &mut display,
+                &mut features_map,
+            )? {
+                has_known_features_enabled = true
+            };
         }
 
-        if let CleanLevel::Package = should_clean {
-            clean(document.root_path())?;
+        if has_known_features_enabled {
+            display.display_known_features_notice()?;
         }
+
+        display.finish()?;
+
+        Ok(features_map)
     }
 
-    if has_known_features_enabled {
-        display.display_known_features_notice()?;
+    fn prune_package(
+        &mut self,
+        package_name: &str,
+        dependencies: &HashMap<String, Vec<String>>,
+        display: &mut Display,
+        features_map: &mut FeaturesMap,
+    ) -> Result<bool> {
+        if dependencies.is_empty() {
+            return Ok(false);
+        }
+
+        let mut has_known_features_enabled = false;
+
+        display.next_package(package_name, dependencies)?;
+
+        for (dependency_name, features) in dependencies
+            .iter()
+            .sorted_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b))
+        {
+            if self.prune_dependency(
+                package_name,
+                dependency_name,
+                features,
+                display,
+                features_map,
+            )? {
+                has_known_features_enabled = true;
+            };
+        }
+
+        if let CleanLevel::Package = self.clean_level {
+            clean(self.document.root_path())?;
+        }
+
+        Ok(has_known_features_enabled)
     }
 
-    display.finish()?;
+    fn prune_dependency(
+        &mut self,
+        package_name: &str,
+        dependency_name: &str,
+        features: &Vec<String>,
+        display: &mut Display,
+        features_map: &mut FeaturesMap,
+    ) -> Result<bool> {
+        if features.is_empty() {
+            return Ok(false);
+        }
 
-    Ok(features_map)
+        let mut has_known_features_enabled = false;
+
+        let mut known_features_list = vec![];
+        let dependency = self
+            .document
+            .get_package(package_name)?
+            .get_dep(dependency_name)?;
+
+        for feature_name in self.known_features.get(dependency_name).unwrap_or(&vec![]) {
+            set_features_to_be_kept(
+                dependency,
+                feature_name.to_string(),
+                &mut known_features_list,
+            )
+        }
+
+        let mut to_be_disabled = vec![];
+        to_be_disabled.append(&mut known_features_list.clone());
+
+        display.next_dependency(dependency_name, features);
+
+        for (id, feature) in features.iter().enumerate() {
+            display.next_feature(id, feature)?;
+
+            self.document
+                .get_package_mut(package_name)?
+                .get_dep_mut(dependency_name)?
+                .disable_feature(feature)?;
+
+            save_dependency(self.document, package_name, dependency_name)?;
+
+            if to_be_disabled.contains(feature).not()
+                && check(self.skip_tests, self.document.root_path())?
+            {
+                set_features_to_be_disabled(
+                    self.document
+                        .get_package(package_name)?
+                        .get_dep(dependency_name)?,
+                    feature.to_string(),
+                    &mut to_be_disabled,
+                );
+            }
+
+            //reset to start
+            for feature in features {
+                self.document
+                    .get_package_mut(package_name)?
+                    .get_dep_mut(dependency_name)?
+                    .enable_feature(feature)?;
+            }
+
+            save_dependency(self.document, package_name, dependency_name)?;
+
+            display.finish_feature()?;
+        }
+
+        let features_result = features
+            .iter()
+            .filter(|feature| to_be_disabled.contains(feature))
+            .map(|feature| {
+                if known_features_list.contains(feature) {
+                    has_known_features_enabled = true;
+                    (feature, true)
+                } else {
+                    (feature, false)
+                }
+            })
+            .collect();
+
+        display.finish_dependency(features_result)?;
+
+        if let CleanLevel::Dependency = self.clean_level {
+            clean(self.document.root_path())?;
+        }
+
+        let to_be_disabled = to_be_disabled
+            .into_iter()
+            .filter(|feature| known_features_list.contains(feature).not())
+            .collect_vec();
+
+        features_map
+            .entry(package_name.to_string())
+            .or_default()
+            .insert(dependency_name.to_string(), to_be_disabled);
+
+        Ok(has_known_features_enabled)
+    }
 }
 
 fn set_features_to_be_disabled(

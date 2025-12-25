@@ -2,7 +2,7 @@
 
 use std::process::exit;
 
-use clap::{CommandFactory, Parser, Subcommand, arg};
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{Shell, generate};
 use color_eyre::Result;
 use console::Term;

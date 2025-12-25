@@ -142,6 +142,7 @@ fn get_dependency_path(kind: &DependencyType, target: &Option<Platform>) -> Stri
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
     use cargo_metadata::cargo_platform::{Cfg, CfgExpr, Ident, Platform};
     use std::io::Write;
     use tempfile::NamedTempFile;

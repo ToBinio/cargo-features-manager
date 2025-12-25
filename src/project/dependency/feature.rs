@@ -36,10 +36,13 @@ pub struct SubFeature {
     pub kind: SubFeatureType,
 }
 
+/// https://doc.rust-lang.org/cargo/reference/features.html
 #[derive(Clone, PartialEq, Debug)]
 pub enum SubFeatureType {
     Normal,
+    /// e.g. dep:gif
     Dependency,
+    /// e.g. jpeg-decoder/rayon
     DependencyFeature,
 }
 

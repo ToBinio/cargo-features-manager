@@ -9,7 +9,7 @@ pub fn save_dependency(
     package_name: &str,
     dep_name: &str,
 ) -> color_eyre::Result<()> {
-    let package = document.get_package_mut(package_name)?;
+    let package = document.get_package(package_name)?;
     let dependency = package.get_dep(dep_name)?;
 
     let features_to_enable = dependency.get_features_to_enable();
