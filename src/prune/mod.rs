@@ -6,12 +6,14 @@ use crate::prune::display::Display;
 use crate::prune::parse::get_features_to_test;
 use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, eyre};
-use copy_dir::copy_dir;
+use dircpy::{CopyBuilder, copy_dir};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 use tempfile::TempDir;
 
 mod parse;
@@ -27,13 +29,19 @@ pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool
     let mut main_document = Document::new(".")?;
 
     //needed to be set here so the temp_dir lives long enough
-    let tmp_dir = TempDir::with_suffix("cargo-features-manager")?;
+    let tmp_dir = TempDir::with_prefix_in(".cargo-features-manager-", ".")?;
 
     let mut document = if no_tmp {
         Document::new(".")?
     } else {
-        let project_path = tmp_dir.path().join("project");
-        copy_dir(main_document.root_path(), &project_path)?;
+        println!("Creating temporary project...");
+        let project_path = tmp_dir.path();
+
+        CopyBuilder::new(main_document.root_path(), project_path)
+            .with_exclude_filter(project_path.to_str().unwrap())
+            .run()?;
+
+        thread::sleep(Duration::from_millis(1000));
 
         match Document::new(project_path) {
             Ok(document) => {document}

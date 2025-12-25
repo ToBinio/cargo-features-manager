@@ -1,3 +1,7 @@
+## 0.11.0
+
+* move tmpFolder into local Project to avoid conflicts with limited space in /tmp folder
+
 ## 0.10.2
 
 * move to tempfile from deprecated tempdir
