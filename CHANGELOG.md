@@ -1,7 +1,8 @@
 ## unreleased
 
-* slightly improve handling of workspaces by compiling targets separately
+* add `--only_dependency` to prune
 * move tmpFolder into local Project to avoid conflicts with limited space in /tmp folder
+* slightly improve handling of workspaces by compiling targets separately
 
 ## 0.10.2
 

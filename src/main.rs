@@ -2,7 +2,7 @@
 
 use std::process::exit;
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use clap_complete::{Shell, generate};
 use color_eyre::Result;
 use console::Term;
@@ -39,18 +39,24 @@ struct FeaturesArgs {
 
 #[derive(Subcommand)]
 enum FeaturesSubCommands {
-    Prune {
-        #[arg(long, short)]
-        dry_run: bool,
-        #[arg(long, short)]
-        skip_tests: bool,
-        /// do not copy the project into a temporary directory
-        #[arg(long, short = 't')]
-        no_tmp: bool,
-        /// `cargo clean` will run after each <CLEAN>
-        #[arg(long, short, default_value_t, value_enum)]
-        clean: CleanLevel,
-    },
+    Prune(PruneArgs),
+}
+
+#[derive(Args)]
+pub struct PruneArgs {
+    #[arg(long)]
+    dry_run: bool,
+    #[arg(long)]
+    skip_tests: bool,
+    /// do not copy the project into a temporary directory
+    #[arg(long, short = 't')]
+    no_tmp: bool,
+    /// `cargo clean` will run after each <CLEAN>
+    #[arg(long, short, default_value_t, value_enum)]
+    clean: CleanLevel,
+    /// only check features that enable extra dependencies
+    #[arg(long, short = 'd')]
+    only_dependency: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Default, Debug)]
@@ -91,13 +97,8 @@ fn run(args: FeaturesArgs) -> Result<()> {
 
     if let Some(sub) = args.sub {
         match sub {
-            FeaturesSubCommands::Prune {
-                dry_run,
-                skip_tests,
-                clean,
-                no_tmp,
-            } => {
-                prune(dry_run, skip_tests, clean, no_tmp)?;
+            FeaturesSubCommands::Prune(args) => {
+                prune(&args)?;
             }
         }
     } else {

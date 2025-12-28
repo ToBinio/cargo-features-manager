@@ -9,11 +9,19 @@ use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 
-pub fn get_features_to_test(document: &Document) -> Result<FeaturesMap> {
+pub fn get_features_to_test(
+    document: &Document,
+    only_dependency_features: bool,
+) -> Result<FeaturesMap> {
     let base_ignored_features =
         get_ignored_features("./", "workspace.cargo-features-manager.keep")?;
 
     let mut enabled_features = get_enabled_features(document);
+
+    if only_dependency_features {
+        remove_non_dependency_features(document, &mut enabled_features)?;
+    }
+
     remove_ignored_features(document, &base_ignored_features, &mut enabled_features)?;
 
     Ok(enabled_features)
@@ -86,6 +94,31 @@ fn get_ignored_features<P: AsRef<Path>>(
         }
         Err(_) => Ok(HashMap::new()),
     }
+}
+
+fn remove_non_dependency_features(
+    document: &Document,
+    enabled_features: &mut FeaturesMap,
+) -> Result<()> {
+    for (package_name, dependencies) in enabled_features {
+        let package = document.get_package(package_name)?;
+
+        for (dependency_name, features) in dependencies {
+            let dependency = package.get_dep(dependency_name)?;
+
+            for feature_name in &features.clone() {
+                let Some(feature) = dependency.get_feature(feature_name) else {
+                    continue;
+                };
+
+                if feature.has_dependency_features().not() {
+                    remove_feature(feature_name, features, dependency);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn remove_ignored_features(

@@ -28,6 +28,15 @@ impl FeatureData {
             EnabledState::Workspace => false,
         }
     }
+
+    pub fn has_dependency_features(&self) -> bool {
+        self.sub_features.iter().any(|feature| {
+            matches!(
+                feature.kind,
+                SubFeatureType::Dependency | SubFeatureType::DependencyFeature
+            )
+        })
+    }
 }
 
 #[derive(Clone, Debug)]

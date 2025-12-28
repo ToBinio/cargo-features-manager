@@ -1,9 +1,9 @@
-use crate::CleanLevel;
 use crate::io::save::save_dependency;
 use crate::project::dependency::Dependency;
 use crate::project::document::Document;
 use crate::prune::display::Display;
 use crate::prune::parse::get_features_to_test;
+use crate::{CleanLevel, PruneArgs};
 use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, eyre};
 use dircpy::copy_dir;
@@ -24,13 +24,13 @@ pub type DependencyName = String;
 pub type FeatureName = String;
 pub type FeaturesMap = HashMap<PackageName, HashMap<DependencyName, Vec<FeatureName>>>;
 
-pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool) -> Result<()> {
+pub fn prune(args: &PruneArgs) -> Result<()> {
     let mut main_document = Document::new(".")?;
 
     //needed to be set here so the temp_dir lives long enough
     let tmp_dir = TempDir::with_prefix_in(".cargo-features-manager-", ".")?;
 
-    let mut document = if no_tmp {
+    let mut document = if args.no_tmp {
         Document::new(".")?
     } else {
         println!("Creating temporary project...");
@@ -46,17 +46,17 @@ pub fn prune(is_dry_run: bool, skip_tests: bool, clean: CleanLevel, no_tmp: bool
         }
     };
 
-    let features_to_test = get_features_to_test(&document)?;
+    let features_to_test = get_features_to_test(&document, args.only_dependency)?;
 
     let mut pruner = Pruner {
-        skip_tests,
-        clean_level: clean,
+        skip_tests: args.skip_tests,
+        clean_level: args.clean.clone(),
         document: &mut document,
         known_features: known_features()?,
     };
     let to_be_disabled = pruner.run(features_to_test)?;
 
-    if is_dry_run {
+    if args.dry_run {
         return Ok(());
     }
 
