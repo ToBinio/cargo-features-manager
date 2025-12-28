@@ -1,4 +1,4 @@
-## unreleased
+## 0.11.0
 
 * add `--only_dependency` to prune
 * move tmpFolder into local Project to avoid conflicts with limited space in /tmp folder
