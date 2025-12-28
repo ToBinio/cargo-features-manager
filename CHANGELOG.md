@@ -1,5 +1,6 @@
 ## unreleased
 
+* slightly improve handling of workspaces by compiling targets separately
 * move tmpFolder into local Project to avoid conflicts with limited space in /tmp folder
 
 ## 0.10.2

@@ -346,17 +346,32 @@ fn check<P: AsRef<Path>>(skip_tests: bool, path: P) -> Result<bool> {
 }
 
 fn build<P: AsRef<Path>>(path: P) -> Result<bool> {
-    let mut child = Command::new("cargo")
-        .current_dir(path)
-        .arg("build")
-        .arg("--all-targets")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
+    const BUILD_TARGETS: [&str; 6] = [
+        "--bins",
+        "--lib",
+        "--examples",
+        "--tests",
+        "--benches",
+        "--all-targets",
+    ];
 
-    let code = child.wait()?.code().ok_or(eyre!("Could not build"))?;
+    for target in BUILD_TARGETS {
+        let mut child = Command::new("cargo")
+            .current_dir(&path)
+            .arg("build")
+            .arg(target)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
 
-    Ok(code == 0)
+        let code = child.wait()?.code().ok_or(eyre!("Could not build"))?;
+
+        if code != 0 {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
 }
 
 fn test<P: AsRef<Path>>(path: P) -> Result<bool> {
