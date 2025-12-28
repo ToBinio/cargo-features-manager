@@ -83,6 +83,33 @@ You can run prune with `cargo features prune`
 
 this will disable all features which are not required to compile.
 
+### flags
+
+*--dry-run*
+
+Run the prune process without modifying Cargo.toml.
+All changes are reported, but nothing is written to disk.
+
+*--only-dependency, -d*
+
+Only consider features that enable optional dependencies.
+This will improve runtime performance but will not disable all possible features.
+
+*--skip-tests*
+
+Skip compiling tests when checking whether a feature is required.
+This speeds up pruning but may remove features only needed for tests.
+
+*--no-tmp, -t*
+
+Run prune directly in the current project directory instead of using a temporary copy.
+This might be necessary for specific project setups.
+
+*--clean <level>*
+
+Control how often `cargo clean` is run during pruning.
+This can decrease disk usage but will increase runtime.
+
 ### false positives
 
 Some features may not cause the compilation to fail but still remove functionality. To limit the extent of such cases we
