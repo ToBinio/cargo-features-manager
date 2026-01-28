@@ -1,3 +1,7 @@
+## 0.11.1
+
+* improve handling of non terminal output while pruning
+
 ## 0.11.0
 
 * add `--only_dependency` to prune

@@ -4,7 +4,8 @@ use color_eyre::Result;
 use console::{Term, style};
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
+use std::ops::Not;
 
 type IsKnownFeature = bool;
 
@@ -24,6 +25,8 @@ pub struct Display {
 
     dependency_name: String,
     dependency_feature_count: usize,
+
+    is_terminal: bool,
 }
 
 impl Display {
@@ -49,26 +52,35 @@ impl Display {
             term: Term::stdout(),
             checked_features_count: 0,
             dependency_feature_count: 0,
+            is_terminal: std::io::stdout().is_terminal(),
         }
     }
 
     pub fn start(&self) -> Result<()> {
-        // clear for "Creating temporary project..." text
-        self.term.move_cursor_up(1)?;
-        self.term.clear_line()?;
+        if self.is_terminal {
+            // clear for "Creating temporary project..." text
+            self.term.move_cursor_up(1)?;
+            self.term.clear_line()?;
+        }
 
         writeln!(&self.term, "workspace [{}]", self.feature_count)?;
-        self.term.hide_cursor()?;
+        if self.is_terminal {
+            self.term.hide_cursor()?;
+        }
         Ok(())
     }
 
     pub fn finish(&self) -> Result<()> {
-        self.term.show_cursor()?;
+        if self.is_terminal {
+            self.term.show_cursor()?;
+        }
         Ok(())
     }
 
     pub fn display_known_features_notice(&mut self) -> Result<()> {
-        self.term.clear_line()?;
+        if self.is_terminal {
+            self.term.clear_line()?;
+        }
         writeln!(self.term)?;
         writeln!(
             self.term,
@@ -82,6 +94,10 @@ impl Display {
         package_name: &str,
         package_features: &HashMap<DependencyName, Vec<FeatureName>>,
     ) -> Result<()> {
+        if self.is_terminal.not() {
+            return Ok(());
+        }
+
         self.package_name = package_name.to_string();
         self.package_feature_count = package_features.values().flatten().count();
         self.package_checked_features_count = 0;
@@ -129,7 +145,9 @@ impl Display {
 
         let dependency_inset = self.dependency_inset;
 
-        self.term.clear_line()?;
+        if self.is_terminal {
+            self.term.clear_line()?;
+        }
         writeln!(
             self.term,
             "{:dependency_inset$}{} [{}/{}]",
@@ -140,6 +158,10 @@ impl Display {
     }
 
     pub fn next_feature(&mut self, id: usize, feature_name: &FeatureName) -> Result<()> {
+        if self.is_terminal.not() {
+            return Ok(());
+        }
+
         let dependency_inset = self.dependency_inset;
 
         self.term.clear_line()?;
@@ -167,6 +189,10 @@ impl Display {
     }
 
     fn display_progress_bar(&mut self) -> Result<()> {
+        if self.is_terminal.not() {
+            return Ok(());
+        }
+
         self.term.move_cursor_down(2)?;
         self.term.clear_line()?;
         writeln!(self.term)?;
