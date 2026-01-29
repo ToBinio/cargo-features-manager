@@ -1,0 +1,102 @@
+name: Check for errors, clippy, format, test and build
+
+on:
+  push:
+    branches: ["master"]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+  NAME: cargo-features
+
+jobs:
+  check-test-build:
+    strategy:
+      matrix: 
+        include:
+          - { os: "macos-latest", target: "aarch64-apple-darwin" }
+          - { os: "ubuntu-latest", target: "x86_64-unknown-linux-musl" }
+          - { os: "windows-latest", target: "x86_64-pc-windows-msvc", ext: ".exe" }
+          - { os: "ubuntu-24.04-arm", target: "aarch64-unknown-linux-musl" }
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: swatinem/rust-cache@v2
+      - uses: davidlattimore/wild-action@latest
+
+      - name: install rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Check for errors
+        run: cargo check --target ${{ matrix.target }} --all-targets --verbose
+
+      - name: Run tests
+        run: cargo test --target ${{ matrix.target }} --verbose
+
+      - name: Check code formatting
+        run: cargo fmt --all --check --verbose
+
+      - name: Check code with clippy
+        run: cargo clippy --target ${{ matrix.target }} --all-targets --verbose
+
+      - name: Set build mode
+        shell: bash
+        run: if [ "${{github.ref_type}}" == "tag" ]; then echo "BMODE=release">>"$GITHUB_ENV"; fi
+
+      - name: Build in ${{env.BMODE || 'debug'}} mode
+        run: cargo build --target ${{ matrix.target }} --verbose --${{env.BMODE}}
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/${{env.BMODE || 'debug'}}/${{ env.NAME }}${{ matrix.ext }}" dist/${{ env.NAME }}-${{ matrix.target }}${{ matrix.ext }}
+          tree dist || ls -la dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ env.NAME }}-${{ matrix.target }}
+          path: dist/${{ env.NAME }}*
+
+  auto-release:
+    name: Release on tag push
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    needs: check-test-build
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: "**/${{ env.NAME }}-*"
+          path: target/release-artifacts
+          merge-multiple: true
+
+      - name: What's up?
+        run: tree target/release-artifacts # beautiful!
+
+      - name: Create a GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          # draft: true
+          generate_release_notes: true
+          files: target/release-artifacts/*
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+      - name: Publish to crates.io
+        shell: bash
+        run: |
+          version="v$(grep version Cargo.toml | head -n1 | cut -d '"' -f2)"
+          git_tag="$(basename ${{ github.ref }})"
+          echo "::notice::Cargo.toml version is: '$version', github tag is: '$git_tag'"
+          if [ "$version" == "$git_tag" ]; then
+            cargo publish --token "${{ secrets.CRATESIO_TOKEN }}" --verbose
+          else
+            echo "::warning title=Version mismatch::they don't match, not uploading!"
+          fi
