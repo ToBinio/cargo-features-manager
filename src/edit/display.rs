@@ -279,7 +279,18 @@ impl Display {
     }
 
     fn input_event(&mut self) -> Result<RunningState> {
-        match (self.term.read_key()?, &self.state) {
+        let key = match self.term.read_key() {
+            Ok(key) => key,
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::Interrupted {
+                    return Ok(RunningState::Finished);
+                }
+
+                return Err(err.into());
+            }
+        };
+
+        match (key, &self.state) {
             //movement
             //up
             (Key::ArrowUp, DisplayState::Package) => {

@@ -1,7 +1,5 @@
 #![warn(clippy::unwrap_used)]
 
-use std::process::exit;
-
 use clap::{Args, CommandFactory, Parser, Subcommand};
 use clap_complete::{Shell, generate};
 use color_eyre::Result;
@@ -91,8 +89,6 @@ fn run(args: FeaturesArgs) -> Result<()> {
     let _ = ctrlc::set_handler(|| {
         let term = Term::stdout();
         term.show_cursor().expect("could not enable cursor");
-
-        exit(0);
     });
 
     if let Some(sub) = args.sub {
@@ -108,7 +104,12 @@ fn run(args: FeaturesArgs) -> Result<()> {
             display.set_selected_dep(name)?
         }
 
-        display.start()?;
+        if let Err(err) = display.start() {
+            // print empty line so we can see the error message
+            println!();
+
+            return Err(err);
+        }
     }
 
     Ok(())
