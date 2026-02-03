@@ -16,8 +16,8 @@ include = ["src/**/*", "LICENSE", "README.md", "Known-Features.toml"]
 [dependencies]
 color-eyre = "0.6.3"
 cargo_metadata = "0.23.0"
-clap = { version = "4.5.31", features = ["derive"] }
-clap_complete = "4.5.46"
+clap = { version = "4.5.56", features = ["derive"] }
+clap_complete = "4.5.65"
 console = { version = "0.16.1", features = ["std"], default-features = false }
 ctrlc = "3.4.5"
 fuzzy-matcher = "0.3.7"
