@@ -1,3 +1,8 @@
+## Unreleased
+
+* add progress Spinners
+* improve handling of strg C in edit mode
+
 ## 0.11.1
 
 * improve handling of non terminal output while pruning
