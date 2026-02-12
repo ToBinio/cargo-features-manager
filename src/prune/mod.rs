@@ -7,11 +7,13 @@ use crate::{CleanLevel, PruneArgs};
 use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, eyre};
 use dircpy::copy_dir;
+use indicatif::ProgressBar;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Not;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use tempfile::TempDir;
 
@@ -33,10 +35,13 @@ pub fn prune(args: &PruneArgs) -> Result<()> {
     let mut document = if args.no_tmp {
         Document::new(".")?
     } else {
-        println!("Creating temporary project...");
-        let project_path = tmp_dir.path();
+        let progress = ProgressBar::new_spinner().with_message("Creating temporary project...");
+        progress.enable_steady_tick(Duration::from_millis(100));
 
+        let project_path = tmp_dir.path();
         copy_dir(main_document.root_path(), project_path)?;
+
+        progress.finish_and_clear();
 
         match Document::new(project_path) {
             Ok(document) => {document}

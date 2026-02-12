@@ -1,4 +1,6 @@
 use cargo_metadata::{CargoOpt, PackageId};
+use console::style;
+use indicatif::ProgressBar;
 
 use crate::io::parsing::workspace::parse_workspace;
 use color_eyre::Result;
@@ -11,12 +13,19 @@ use color_eyre::eyre::ContextCompat;
 use semver::VersionReq;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub fn get_packages(path: impl Into<PathBuf>) -> Result<(Vec<Package>, Option<Package>, PathBuf)> {
+    let progress = ProgressBar::new_spinner()
+        .with_message(format!("running '{}'", style("cargo metadata").dim()));
+    progress.enable_steady_tick(Duration::from_millis(100));
+
     let metadata = cargo_metadata::MetadataCommand::new()
         .current_dir(path)
         .features(CargoOpt::AllFeatures)
         .exec()?;
+
+    progress.finish_and_clear();
 
     let metadata_packages: HashMap<PackageId, cargo_metadata::Package> = metadata
         .packages

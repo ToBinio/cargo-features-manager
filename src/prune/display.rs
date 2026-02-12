@@ -57,12 +57,6 @@ impl Display {
     }
 
     pub fn start(&self) -> Result<()> {
-        if self.is_terminal {
-            // clear for "Creating temporary project..." text
-            self.term.move_cursor_up(1)?;
-            self.term.clear_line()?;
-        }
-
         writeln!(&self.term, "workspace [{}]", self.feature_count)?;
         if self.is_terminal {
             self.term.hide_cursor()?;
