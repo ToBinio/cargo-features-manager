@@ -50,6 +50,16 @@ impl Display {
         })
     }
 
+    pub fn set_selected_package(&mut self, package_name: String) -> Result<()> {
+        self.package_selector.selected_index = self
+            .package_selector
+            .get_index(&package_name)
+            .context(format!("no package with name '{}' found", package_name))?;
+        self.select_selected_package()?;
+
+        Ok(())
+    }
+
     fn select_selected_package(&mut self) -> Result<()> {
         self.state = DisplayState::Dep;
 
@@ -64,19 +74,15 @@ impl Display {
     }
 
     pub fn set_selected_dep(&mut self, dep_name: String) -> Result<()> {
-        match self
-            .document
-            .get_package(self.package_selector.get_selected()?.name())?
-            .get_dep_index(&dep_name)
-        {
-            Ok(index) => {
-                self.dep_selector.selected_index = index;
+        self.dep_selector.selected_index =
+            self.dep_selector.get_index(&dep_name).context(format!(
+                "no dependency with name '{}' found in package '{}'",
+                dep_name,
+                self.package_selector.get_selected()?.name()
+            ))?;
 
-                self.select_selected_dep()?;
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
+        self.select_selected_dep()?;
+        Ok(())
     }
 
     fn select_selected_dep(&mut self) -> Result<()> {

@@ -37,6 +37,10 @@ impl FilterView {
             .context("nothing selected")
     }
 
+    pub fn get_index(&self, name: &str) -> Option<usize> {
+        self.data.iter().position(|item| item.name() == name)
+    }
+
     pub fn has_data(&self) -> bool {
         !self.data.is_empty()
     }

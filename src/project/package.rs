@@ -1,5 +1,5 @@
 use crate::project::dependency::Dependency;
-use color_eyre::eyre::{bail, eyre};
+use color_eyre::eyre::bail;
 
 pub struct Package {
     pub dependencies: Vec<Dependency>,
@@ -20,16 +20,6 @@ impl Package {
             None => bail!("could not find dependency with name {}", name),
             Some(some) => Ok(some),
         }
-    }
-
-    pub fn get_dep_index(&self, name: &String) -> color_eyre::Result<usize> {
-        Ok(self
-            .dependencies
-            .iter()
-            .enumerate()
-            .find(|(_, dep)| dep.get_name() == *name)
-            .ok_or(eyre!("dependency \"{}\" could not be found", name))?
-            .0)
     }
 
     pub fn get_dep_mut(&mut self, name: &str) -> color_eyre::Result<&mut Dependency> {

@@ -2,6 +2,7 @@
 
 * add progress Spinners
 * improve handling of strg C in edit mode
+* add `--package` to features
 
 ## 0.11.1
 

@@ -29,6 +29,9 @@ struct FeaturesArgs {
     generator: Option<Shell>,
 
     #[arg(long, short)]
+    package: Option<String>,
+
+    #[arg(long, short)]
     dependency: Option<String>,
 
     #[command(subcommand)]
@@ -99,6 +102,10 @@ fn run(args: FeaturesArgs) -> Result<()> {
         }
     } else {
         let mut display = Display::new()?;
+
+        if let Some(name) = args.package {
+            display.set_selected_package(name)?
+        }
 
         if let Some(name) = args.dependency {
             display.set_selected_dep(name)?
