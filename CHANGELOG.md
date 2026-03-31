@@ -3,6 +3,7 @@
 * add progress Spinners
 * improve handling of strg C in edit mode
 * add `--package` to features
+* auto select curring package
 
 ## 0.11.1
 

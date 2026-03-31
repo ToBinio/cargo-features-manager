@@ -6,6 +6,7 @@ use color_eyre::Result;
 use console::Term;
 
 use crate::edit::display::Display;
+use crate::project::document::Document;
 use crate::prune::prune;
 
 mod edit;
@@ -101,9 +102,16 @@ fn run(args: FeaturesArgs) -> Result<()> {
             }
         }
     } else {
-        let mut display = Display::new()?;
+        let document = Document::new(".")?;
+        let package_name = document
+            .get_local_package()?
+            .map(|package| package.name.clone());
+
+        let mut display = Display::new(document)?;
 
         if let Some(name) = args.package {
+            display.set_selected_package(name)?
+        } else if let Some(name) = package_name {
             display.set_selected_package(name)?
         }
 

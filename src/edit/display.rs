@@ -23,9 +23,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new() -> Result<Display> {
-        let document = Document::new(".")?;
-
+    pub fn new(document: Document) -> Result<Display> {
         Ok(Display {
             term: Term::buffered_stdout(),
             package_selector: FilterView {

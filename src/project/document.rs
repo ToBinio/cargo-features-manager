@@ -1,4 +1,5 @@
 use color_eyre::eyre::{ContextCompat, bail, eyre};
+use std::env::current_dir;
 use std::path::PathBuf;
 
 use color_eyre::Result;
@@ -136,6 +137,27 @@ impl Document {
             .iter_mut()
             .find(|pkg| pkg.name == package)
             .context(format!("no package with name {} found", package))
+    }
+
+    pub fn get_local_package(&self) -> Result<Option<&Package>> {
+        let current_dir = current_dir()?;
+
+        if self.root_path() == &current_dir {
+            return Ok(None);
+        }
+
+        let current_dir = current_dir
+            .join("Cargo.toml")
+            .to_str()
+            .map(|path| path.to_string())
+            .context("failed to create path")?;
+
+        let package = self
+            .get_packages()
+            .iter()
+            .find(|package| package.manifest_path == current_dir);
+
+        Ok(package)
     }
 
     pub fn get_workspace_package(&self) -> Option<Result<&Package>> {
