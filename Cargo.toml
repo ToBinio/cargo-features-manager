@@ -19,20 +19,20 @@ ctrlc = "3.4.5"
 
 cargo_metadata = "0.23.0"
 
-clap = { version = "4.5.56", features = ["derive"] }
-clap_complete = "4.5.65"
+clap = { version = "4.6.0", features = ["derive"] }
+clap_complete = "4.6.0"
 
-console = { version = "0.16.1", features = ["std"], default-features = false }
-indicatif = "0.18.3"
+console = { version = "0.16.3", features = ["std"], default-features = false }
+indicatif = "0.18.4"
 
 itertools = { version = "0.14.0", default-features = false, features = ["use_alloc"] }
-toml_edit = "0.25.0"
+toml_edit = "0.25.10"
 
 semver = { version = "1.0.25", default-features = false }
 fuzzy-matcher = "0.3.7"
 
-tempfile = { version = "3.20.0", default-features = false }
-dircpy = { version = "0.3.19", default-features = false }
+tempfile = { version = "3.27.0", default-features = false }
+dircpy = { version = "0.3.20", default-features = false }
 
 [[bin]]
 name = "cargo-features"
