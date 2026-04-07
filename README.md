@@ -1,3 +1,8 @@
+
+# **This Project has moved to [Tangled](https://tangled.org/tobinio.dev/cargo-features-manager)**
+
+---
+
 # Cargo Features Manger
 
 A TUI-like cli tool to manage the features of your rust-projects dependencies.
